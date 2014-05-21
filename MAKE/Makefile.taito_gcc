@@ -1,0 +1,64 @@
+CMP = mpiCC
+LNK = mpiCC
+
+NVCC = nvcc
+
+# Use the two lines below to compile the not_parallel tools.
+# CMP = g++
+# LNK = g++
+
+#-DNO_WRITE_AT_ALL:  Define to disable write at all to 
+#                    avoid memleak (much slower IO)
+
+
+CXXFLAGS = -mt_mpi -DMPICH_IGNORE_CXX_SEEK
+
+FLAGS = 
+
+# NOTES on compiler flags:
+# CXXFLAGS is for compiler flags, they are always used
+# MATHFLAGS are for special math etc. flags, these are only applied on solver functions
+# LDFLAGS flags for linker
+
+#GNU flags:
+CC_BRAND = gcc
+CXXFLAGS += -O3 -fopenmp -funroll-loops -std=c++0x -W -pedantic
+# CXXFLAGS += -O0 -W -Wall -pedantic
+# CXXFLAGS +=  -O3 -funroll-loops -std=c++0x -W -Wall -pedantic -Wno-unused
+# CXXFLAGS += -g -std=c++0x -W -Wall -pedantic -Wno-unused
+# DCXXFLAGS +=  -g  -fopenmp -std=c++0x -W -Wall -pedantic -Wno-unused
+MATHFLAGS = -ffast-math
+LDFLAGS = -mt_mpi
+LIB_MPI = -lgomp
+
+#CC_BRAND_VERSION = 4.7.2
+#BOOST_VERSION = 1.54.0
+#ZOLTAN_VERSION = 3.6
+#SILO_VERSION = 4.8
+#GCC_VERSION = 4.4.6
+
+LIBRARY_PREFIX = $(USERAPPL)/intelmpi/libraries
+
+INC_EIGEN = -I$(LIBRARY_PREFIX)/Eigen
+
+INC_BOOST = -I$(LIBRARY_PREFIX)/boost/include
+LIB_BOOST = -L$(LIBRARY_PREFIX)/boost/lib -lboost_program_options
+
+INC_ZOLTAN = -I$(LIBRARY_PREFIX)/zoltan/include
+LIB_ZOLTAN = -L$(LIBRARY_PREFIX)/zoltan/lib -lzoltan
+
+INC_SILO = -I$(LIBRARY_PREFIX)/silo/include
+LIB_SILO = -L$(LIBRARY_PREFIX)/silo/lib -lsilo
+
+INC_DCCRG = -I$(LIBRARY_PREFIX)/dccrg/
+
+
+LIB_PROFILE = -L$(LIBRARY_PREFIX)/phiprof/lib -lphiprof
+INC_PROFILE = -I$(LIBRARY_PREFIX)/phiprof/include
+
+INC_VECTORCLASS = -I$(LIBRARY_PREFIX)/vectorclass
+
+LIB_VLSV = -L$(LIBRARY_PREFIX)/vlsv -lvlsv
+INC_VLSV = -I$(LIBRARY_PREFIX)/vlsv
+
+

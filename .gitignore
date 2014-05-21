@@ -1,0 +1,19 @@
+# Object files
+*.o
+*.ko
+
+# Libraries
+*.lib
+*.a
+
+# Shared objects (inc. Windows DLLs)
+*.so
+*.so.*
+
+# Executables and output files
+*.exe
+*.out
+
+# Backups and temporary files
+*~
+*.gch
