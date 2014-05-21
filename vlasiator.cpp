@@ -59,7 +59,6 @@ void addTimedBarrier(string name){
    phiprof::stop(bt);
 }
 
-
 bool computeNewTimeStep(dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,Real &newDt, bool &isChanged) {
 
    phiprof::start("compute-timestep");
@@ -254,8 +253,6 @@ int main(int argn,char* args[]) {
    // Free up memory:
    readparameters.finalize();
 
-         
-
    // Save restart data
    if (P::writeInitialState) {
       phiprof::start("write-initial-state");
@@ -392,7 +389,8 @@ int main(int argn,char* args[]) {
          beforeTime = MPI_Wtime();
          beforeSimulationTime=P::t;
          beforeStep=P::tstep;
-         report_memory_consumption(mpiGrid);
+         report_grid_memory_consumption(mpiGrid);
+         report_process_memory_consumption();
       }               
       logFile << writeVerbose;
    
@@ -476,6 +474,10 @@ int main(int argn,char* args[]) {
          logFile << "(LB): Start load balance, tstep = " << P::tstep << " t = " << P::t << endl << writeVerbose;
          balanceLoad(mpiGrid);
          addTimedBarrier("barrier-end-load-balance");
+         phiprof::start("Shrink_to_fit");
+         /* shrink to fit after LB*/
+         shrink_to_fit_grid_data(mpiGrid);
+         phiprof::stop("Shrink_to_fit");
          logFile << "(LB): ... done!"  << endl << writeVerbose;
       }
       
@@ -568,10 +570,7 @@ int main(int argn,char* args[]) {
          /*remove excess capacity from vectors. This is a good place
          to do it, as we have a peak in number of blocks after
          acceleration.*/
-         phiprof::start("Shrink_to_fit");
-         shrink_to_fit_grid_data(mpiGrid);
-         phiprof::stop("Shrink_to_fit");
-         
+
          adjustVelocityBlocks(mpiGrid);
          addTimedBarrier("barrier-after-adjust-blocks");
          
