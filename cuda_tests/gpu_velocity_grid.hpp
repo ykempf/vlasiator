@@ -2,13 +2,14 @@
 #define GPU_VELOCITY_GRID_H
 
 #include <stdlib.h>
-//#include <cuda_runtime.h>
+#include <cuda_runtime.h>
 #include "../spatial_cell.hpp"
 
+using namespace spatial_cell;
 
 class GPU_velocity_grid {
 	public:
-		//int transfer2gpu(SpatialCell *spacell);
+		int transfer2gpu(SpatialCell *spacell);
 	
 };
 

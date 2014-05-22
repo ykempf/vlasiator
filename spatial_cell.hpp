@@ -1234,7 +1234,8 @@ namespace spatial_cell {
             for(int offset_vx=-P::sparseBlockAddWidthV;offset_vx<=P::sparseBlockAddWidthV;offset_vx++)
                for(int offset_vy=-P::sparseBlockAddWidthV;offset_vy<=P::sparseBlockAddWidthV;offset_vy++)
 		  for(int offset_vz=-P::sparseBlockAddWidthV;offset_vz<=P::sparseBlockAddWidthV;offset_vz++){                  
-                     const unsigned int neighbor_block = get_velocity_block({{indices[0] + offset_vx, indices[1] + offset_vy, indices[2] + offset_vz}});
+		             const velocity_block_indices_t input = {{indices[0] + offset_vx, indices[1] + offset_vy, indices[2] + offset_vz}};
+                     const unsigned int neighbor_block = get_velocity_block( input );
                      neighbors_have_content.insert(neighbor_block); //add all potential ngbrs of this block with content
                   }
          }

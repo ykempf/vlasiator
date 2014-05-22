@@ -43,16 +43,32 @@ void init_spatial_cell(void) {
     spatial_cell::SpatialCell::cell_dvz = spatial_cell::SpatialCell::block_dvz / block_vz_length;
 }
 
+void print_block_indices(SpatialCell *cell) {
+    spatial_cell::velocity_block_indices_t indices;
+    unsigned int ind;
+    for(unsigned int i=0; i<cell->number_of_blocks; i++) {
+        ind = cell->velocity_block_list[i];
+        printf("%5.0u: ", ind);
+        indices = SpatialCell::get_velocity_block_indices(ind);
+        printf("(%4i, %4i, %4i)\n", indices[0], indices[1], indices[2]);
+    }
+}
+
+
 int main(void) {
     init_spatial_cell();
     SpatialCell cell;
     
-    int ids_len = 3;
-    int ids[] = {1, 5, 10};
-    
-    for (int i=0; i<ids_len; i++) {
-        cell.add_velocity_block(i);
+    const int ids_len = 8;
+    int ids[] = {1, 10, 100, 101, 999, 1001, 9999, 10005};
+
+    // Add blocks to the given ids
+    for (int ind=0; ind<ids_len; ind++) {
+        cell.add_velocity_block(ids[ind]);
+        Velocity_Block* block_ptr = cell.at(ids[ind]);
+        block_ptr->data[0]=1; // Put some data into each velocity cell
     }
     
+    print_block_indices(&cell);
     return 0;
 }
