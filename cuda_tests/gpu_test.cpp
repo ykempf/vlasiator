@@ -68,7 +68,13 @@ int main(void) {
         Velocity_Block* block_ptr = cell.at(ids[ind]);
         block_ptr->data[0]=1; // Put some data into each velocity cell
     }
-    
+    printf("On host:\n");
     print_block_indices(&cell);
+    
+    // Create a new instance. Constructor copies related data.
+    GPU_velocity_grid *ggrid = new GPU_velocity_grid(&cell);
+    
+    printf("On GPU:\n");
+    ggrid->print_blocks();
     return 0;
 }

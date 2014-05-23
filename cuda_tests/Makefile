@@ -5,7 +5,9 @@ CC = mpiCC
 
 EXE_NAME = test.out
 
-NVCC_FLAGS = -Xcompiler -march=native -arch=compute_35 -code=sm_35 -O3 -lmpi
+DEBUG = -g
+
+NVCC_FLAGS = -Xcompiler -march=native -arch=compute_35 -code=compute_35 -O3 -lmpi
 # Next line fixes a clash with nvcc parser and boost
 NVCC_FLAGS +=-DBOOST_NOINLINE='__attribute__ ((noinline))'
 CCFLAGS = -O3 -std=c++11
@@ -27,17 +29,22 @@ INC_MPI =-I${MPI_HOME}/include
 LIBS = $(LIB_BOOST) $(LIB_PROFILE)
 INCS = $(INC_BOOST) $(INC_PROFILE)
 
-default: gpu_test.o spatial_cell.o gpu_velocity_grid.o
-	$(CC) $(LIBS) $(CCFLAGS) $(CUDAFLAGS) spatial_cell.o gpu_test.o gpu_velocity_grid.o -o $(EXE_NAME)
+OBJS = spatial_cell.o gpu_velocity_grid.o gpu_velocity_grid_device.o gpu_test.o
+
+default: spatial_cell.o gpu_velocity_grid.o gpu_velocity_grid_device.o gpu_test.o
+	$(CC) $(DEBUG) spatial_cell.o gpu_velocity_grid.o gpu_velocity_grid_device.o gpu_test.o $(LIBS) $(CCFLAGS) $(CUDAFLAGS) -o $(EXE_NAME)
 
 gpu_test.o: gpu_test.cpp gpu_velocity_grid.hpp ../spatial_cell.hpp 
-	$(CC) -c gpu_test.cpp $(INCS) $(CCFLAGS) $(CUDAFLAGS) ../spatial_cell.hpp
+	$(CC) $(DEBUG) -c gpu_test.cpp $(INCS) $(CCFLAGS) $(CUDAFLAGS) ../spatial_cell.hpp
 
-gpu_velocity_grid.o: gpu_velocity_grid.cu gpu_velocity_grid.hpp spatial_cell.o
-	$(NVCC) $(NVCC_FLAGS) $(INCS) $(INC_MPI) -c gpu_velocity_grid.cu
+gpu_velocity_grid.o: gpu_velocity_grid.cpp gpu_velocity_grid.hpp
+	$(CC) $(DEBUG) $(INCS) $(CCFLAGS) $(CUDAFLAGS) -c gpu_velocity_grid.cpp
+
+gpu_velocity_grid_device.o: gpu_velocity_grid_device.cu gpu_velocity_grid.hpp
+	$(NVCC) $(DEBUG) $(NVCC_FLAGS) $(INCS) $(INC_MPI) -c gpu_velocity_grid_device.cu
 
 spatial_cell.o: ../spatial_cell.cpp ../spatial_cell.hpp
-	$(CC) -c ../spatial_cell.cpp $(INCS) $(CCFLAGS) $(CUDAFLAGS)
+	$(CC) $(DEBUG) -c ../spatial_cell.cpp $(INCS) $(CCFLAGS) $(CUDAFLAGS)
 
 clean:
-	rm -rf *.~ *.o *.ghc
+	rm -rf *~ *.o *.ghc

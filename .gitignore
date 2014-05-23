@@ -4,7 +4,7 @@
 
 # Executables and output files
 *.exe
-*.out
+*.out*
 vlasiator
 
 # Backups and temporary files
