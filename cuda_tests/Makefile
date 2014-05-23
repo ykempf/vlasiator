@@ -5,7 +5,7 @@ CC = mpiCC
 
 EXE_NAME = test.out
 
-DEBUG = -g
+DEBUG = #-g
 
 NVCC_FLAGS = -Xcompiler -march=native -arch=compute_35 -code=compute_35 -O3 -lmpi
 # Next line fixes a clash with nvcc parser and boost
