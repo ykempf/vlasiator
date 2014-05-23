@@ -20,7 +20,7 @@ void GPU_velocity_grid::print_blocks(void) {
         ind = velocity_block_list[i];
         printf("%5.0u: ", ind);
         indices = get_velocity_block_indices(ind);
-        printf("(%4i, %4i, %4i)\n", indices[0], indices[1], indices[2]);
+        printf("(%4i, %4i, %4i) %7.1f\n", indices[0], indices[1], indices[2], block_data[i*WID3]);
         //printf("%5.0u:\n", velocity_block_list[i]);
     }
 }
