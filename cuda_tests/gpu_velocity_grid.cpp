@@ -1,12 +1,7 @@
 #include "gpu_velocity_grid.hpp"
 
-// Copies velocity_block_list and block_data from a SpatialCell to GPU for processing.
+// Copies velocity_block_list and block_data as well as necessary constants from a SpatialCell to GPU for processing.
 GPU_velocity_grid::GPU_velocity_grid(SpatialCell *spacell) {
-	/* To be transferred to GPU (from a SpatialCell)
-	unsigned int spacell->number_of_blocks
-	std::vector<unsigned int> velocity_block_list
-	std::vector<Realf,aligned_allocator<Realf,64> > block_data
-	*/
 	
 	
     // Allocate memory on the gpu

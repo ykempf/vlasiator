@@ -43,7 +43,8 @@ void init_spatial_cell(void) {
     spatial_cell::SpatialCell::cell_dvz = spatial_cell::SpatialCell::block_dvz / block_vz_length;
 }
 
-void print_block_indices(SpatialCell *cell) {
+// Prints information about the velocity blocks on the CPU. Used to check correct transfer to GPU.
+void print_blocks(SpatialCell *cell) {
     spatial_cell::velocity_block_indices_t indices;
     unsigned int ind;
     for(unsigned int i=0; i<cell->number_of_blocks; i++) {
@@ -70,12 +71,14 @@ int main(void) {
         Velocity_Block* block_ptr = cell.at(ind);
         block_ptr->data[0]=ind; // Put some data into each velocity cell
     }
+    // Print data as it is on CPU
     printf("On host:\n");
-    print_block_indices(&cell);
+    print_blocks(&cell);
     
     // Create a new instance. Constructor copies related data.
     GPU_velocity_grid *ggrid = new GPU_velocity_grid(&cell);
     
+    // Print data from GPU
     printf("On GPU:\n");
     ggrid->print_blocks();
     return 0;
