@@ -3,10 +3,9 @@
 
 #include <stdlib.h>
 #include <cuda_runtime.h>
-#include <thrust/host_vector.h>
 #include "../spatial_cell.hpp"
 
-typedef thrust::host_vector<int> vel_block_indices_t;
+typedef struct{unsigned int ind[3];} vel_block_indices_t;
 
 using namespace spatial_cell;
 

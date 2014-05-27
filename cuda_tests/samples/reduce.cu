@@ -9,6 +9,7 @@
 #include <limits>
 #include "culock.hpp"
 
+// A wrapper for cuda function calls (made by host) to check for and report errors returned by the function
 #define CUDACALL(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 inline void gpuAssert(cudaError_t code, char *file, int line, bool abort=true)
 {
