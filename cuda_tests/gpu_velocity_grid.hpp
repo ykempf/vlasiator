@@ -32,7 +32,7 @@ class GPU_velocity_grid {
         
         // Functions
 		GPU_velocity_grid(SpatialCell *spacell);
-		//~GPU_velocity_grid(void);
+		~GPU_velocity_grid(void);
 		void print_blocks(void);
 		__host__ __device__ vel_block_indices_t get_velocity_block_indices(const unsigned int blockid);
 		void k_print_blocks(void);

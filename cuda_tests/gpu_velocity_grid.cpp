@@ -25,6 +25,16 @@ GPU_velocity_grid::GPU_velocity_grid(SpatialCell *spacell) {
 	memcpy(block_data, block_data_arr, block_data_size);
 }
 
+GPU_velocity_grid::~GPU_velocity_grid() {
+    // Free memory
+    cudaFree(num_blocks);
+    cudaFree(vx_length);
+    cudaFree(vy_length);
+    cudaFree(vz_length);
+	cudaFree(velocity_block_list);
+	cudaFree(block_data);
+}
+
 // Prints the same data as print_blocks from gpu_test.cpp
 void GPU_velocity_grid::print_blocks(void) {
     printf("Number of blocks: %4u.\n", *num_blocks);

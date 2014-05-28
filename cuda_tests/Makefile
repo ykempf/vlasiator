@@ -2,6 +2,7 @@
 
 # -*- indent-tabs-mode:t; -*-
 
+
 NVCC = nvcc
 CC = mpiCC
 
@@ -29,7 +30,7 @@ INC_MPI =-I${MPI_HOME}/include
 
 
 LIBS = $(LIB_BOOST) $(LIB_PROFILE)
-INCS = $(INC_BOOST) $(INC_PROFILE)
+INCS = $(INC_BOOST) $(INC_PROFILE) $(SOURCE_FOLDER)
 
 OBJS = spatial_cell.o gpu_velocity_grid.o gpu_velocity_grid_device.o gpu_test.o
 
@@ -50,3 +51,4 @@ spatial_cell.o: ../spatial_cell.cpp ../spatial_cell.hpp
 
 clean:
 	rm -rf *~ *.o *.ghc
+
