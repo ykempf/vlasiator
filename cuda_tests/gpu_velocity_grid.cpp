@@ -25,16 +25,6 @@ GPU_velocity_grid::GPU_velocity_grid(SpatialCell *spacell) {
 	memcpy(block_data, block_data_arr, block_data_size);
 }
 
-// Same as SpatialCell::get_velocity_block_indices but revised for GPU. 
-vel_block_indices_t GPU_velocity_grid::get_velocity_block_indices(const unsigned int blockid) {
-    vel_block_indices_t indices;
-    indices.ind[0] = blockid % *vx_length;
-    indices.ind[1] = (blockid / *(vx_length)) % *vy_length;
-    indices.ind[2] = blockid / (*vx_length * *vy_length);
-
-    return indices;
-}
-
 // Prints the same data as print_blocks from gpu_test.cpp
 void GPU_velocity_grid::print_blocks(void) {
     printf("Number of blocks: %4u.\n", *num_blocks);

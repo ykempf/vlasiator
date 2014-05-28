@@ -81,5 +81,7 @@ int main(void) {
     // Print data from GPU
     printf("On GPU:\n");
     ggrid->print_blocks();
+    printf("Print from kernel:\n");
+    ggrid->k_print_blocks();
     return 0;
 }

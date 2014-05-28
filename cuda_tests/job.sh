@@ -10,5 +10,5 @@
 #SBATCH --exclusive
 #SBATCH
 
-
+#cuda-memcheck test.out
 ./test.out
