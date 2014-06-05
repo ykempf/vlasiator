@@ -2,8 +2,12 @@
 #define GPU_VELOCITY_GRID_H
 
 #include <stdlib.h>
-#include <cuda_runtime.h>
 #include "../spatial_cell.hpp"
+
+// Start CUDA only part
+#ifndef NO_CUDA
+#error "Why am I here?"
+#include <cuda_runtime.h>
 
 #define CUDACALL(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 inline void gpuAssert(cudaError_t code, char *file, int line, bool abort=true)
@@ -39,6 +43,7 @@ class GPU_velocity_grid {
 	
 };
 
-
+#endif
+// End CUDA only part
 
 #endif
