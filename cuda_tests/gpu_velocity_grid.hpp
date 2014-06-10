@@ -2,6 +2,8 @@
 #define GPU_VELOCITY_GRID_H
 
 #include <stdlib.h>
+#include <fstream>
+#include <iostream>
 #include "../spatial_cell.hpp"
 
 // Start CUDA only part
@@ -20,8 +22,6 @@ inline void gpuAssert(cudaError_t code, char *file, int line, bool abort=true)
 }
 
 typedef struct{unsigned int ind[3];} vel_block_indices_t;
-
-using namespace spatial_cell;
 
 class GPU_velocity_grid {
     public:
@@ -46,4 +46,11 @@ class GPU_velocity_grid {
 #endif
 // End CUDA only part
 
+
+void init_spatial_cell_static(void);
+void print_blocks(spatial_cell::SpatialCell *cell);
+spatial_cell::SpatialCell *create_index_test_cell(void);
+spatial_cell::SpatialCell *create_maxwellian(float T, float rho);
+void fprint_projection(float *projection, std::string filename);
+float *xy_projection(spatial_cell::SpatialCell *spacell);
 #endif

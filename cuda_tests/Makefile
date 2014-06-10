@@ -4,13 +4,13 @@ include Makefile.${VLASIATOR_ARCH}
 
 EXE_NAME = test.out
 
-DEBUG = -g
+DEBUG = -g -Wall -std=c++11
 
 LIBS = $(LIB_BOOST) $(LIB_PROFILE)
 INCS = $(INC_BOOST) $(INC_PROFILE) $(SOURCE_FOLDER)
 
-OBJS = spatial_cell.o gpu_velocity_grid.o gpu_velocity_grid_device.o gpu_test.o
-CPU_OBJS = cpu_test.o spatial_cell.o
+OBJS = spatial_cell.o gpu_velocity_grid.o gpu_velocity_grid_device.o gpu_test.o spatial_cell_init.o
+CPU_OBJS = cpu_test.o spatial_cell.o spatial_cell_init.o
 
 default: $(OBJS)
 	$(CC) $(DEBUG) $(LIBS) $(CCFLAGS) $(CUDAFLAGS) $(OBJS) -o $(EXE_NAME)
@@ -33,6 +33,9 @@ gpu_velocity_grid_device.o: gpu_velocity_grid_device.cu gpu_velocity_grid.hpp
 
 spatial_cell.o: ../spatial_cell.cpp ../spatial_cell.hpp
 	$(CC) $(DEBUG) -c ../spatial_cell.cpp $(INCS) $(CCFLAGS) $(CUDAFLAGS)
+
+spatial_cell_init.o: spatial_cell_init.cpp gpu_velocity_grid.hpp
+	$(CC) $(DEBUG) $(INCS) $(CCFLAGS) -c spatial_cell_init.cpp
 
 clean:
 	rm -rf *~ *.o *.ghc
