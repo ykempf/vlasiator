@@ -1,5 +1,5 @@
 #include "gpu_velocity_grid.hpp"
-
+using namespace spatial_cell;
 // Copies velocity_block_list and block_data as well as necessary constants from a SpatialCell to GPU for processing.
 GPU_velocity_grid::GPU_velocity_grid(SpatialCell *spacell) {
 	

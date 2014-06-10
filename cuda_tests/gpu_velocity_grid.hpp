@@ -8,7 +8,6 @@
 
 // Start CUDA only part
 #ifndef NO_CUDA
-#error "Why am I here?"
 #include <cuda_runtime.h>
 
 #define CUDACALL(ans) { gpuAssert((ans), __FILE__, __LINE__); }
@@ -35,7 +34,7 @@ class GPU_velocity_grid {
         float *block_data;
         
         // Functions
-		GPU_velocity_grid(SpatialCell *spacell);
+		GPU_velocity_grid(spatial_cell::SpatialCell *spacell);
 		~GPU_velocity_grid(void);
 		void print_blocks(void);
 		__host__ __device__ vel_block_indices_t get_velocity_block_indices(const unsigned int blockid);

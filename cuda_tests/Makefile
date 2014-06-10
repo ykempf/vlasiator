@@ -4,7 +4,7 @@ include Makefile.${VLASIATOR_ARCH}
 
 EXE_NAME = test.out
 
-DEBUG = -g -Wall -std=c++11
+DEBUG = -g
 
 LIBS = $(LIB_BOOST) $(LIB_PROFILE)
 INCS = $(INC_BOOST) $(INC_PROFILE) $(SOURCE_FOLDER)
@@ -35,7 +35,7 @@ spatial_cell.o: ../spatial_cell.cpp ../spatial_cell.hpp
 	$(CC) $(DEBUG) -c ../spatial_cell.cpp $(INCS) $(CCFLAGS) $(CUDAFLAGS)
 
 spatial_cell_init.o: spatial_cell_init.cpp gpu_velocity_grid.hpp
-	$(CC) $(DEBUG) $(INCS) $(CCFLAGS) -c spatial_cell_init.cpp
+	$(CC) $(DEBUG) $(INCS) $(CCFLAGS) $(CUDAFLAGS) -c spatial_cell_init.cpp
 
 clean:
 	rm -rf *~ *.o *.ghc

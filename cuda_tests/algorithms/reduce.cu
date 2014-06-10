@@ -21,8 +21,9 @@ inline void gpuAssert(cudaError_t code, char *file, int line, bool abort=true)
 }
 
 
-const int N = 100;
+const int N = 64*64*3;
 const float val = 0.5f;
+const unsigned int block_size = 64;
 
 __global__ void sum(float *dSum, float *dData, Lock lock){
     extern __shared__ float temp[];
@@ -69,9 +70,15 @@ __global__ void sum2(float *data, unsigned int data_size, float *resultarr) {
     }
 }
 
+// Returns the ceiling of the equivalent float division
+template<typename T>
+inline T ceilDivide(T dividend, T divisor) {
+    return (dividend + divisor - 1) / divisor;
+}
+
+// Sums the array data of size len on GPU and returns the sum.
 float sum_reduce(float *data, unsigned int len) {
-    const unsigned int block_size = 3;
-    unsigned int grid_size = len / block_size + 1;
+    unsigned int grid_size = ceilDivide(len, block_size);
     float *result;
     unsigned int last_grid_size = grid_size;
     
@@ -83,18 +90,21 @@ float sum_reduce(float *data, unsigned int len) {
     sum2<<<grid_size, block_size, block_size*sizeof(float)>>>(data, len, result);
     cudaDeviceSynchronize();
     // Now iterate over the result array
-    grid_size /= block_size;
-    len /= block_size;
+    grid_size = ceilDivide(grid_size, block_size); // This is essentially ceiling(grid_size / block_size)
+    len = ceilDivide(len, block_size);
+    //len /= block_size;
     printf("Entering loop!!!!!!!!!!!!!!!!!!!!\n");
-    for (; grid_size > 1; grid_size /= block_size) {
+    for (; grid_size > 1; grid_size = ceilDivide(grid_size, block_size)) {
         sum2<<<grid_size, block_size, block_size*sizeof(float)>>>(result, len, result);
-        len /= block_size;
+        cudaDeviceSynchronize();
+        len = ceilDivide(len, block_size);
         last_grid_size = grid_size;
     }
-    cudaDeviceSynchronize();
     // Final iteration
     printf("Last kernel call!!!!!!!!!!!!!!!!!!1     %u\n", last_grid_size);
-    sum2<<<1, last_grid_size, last_grid_size*sizeof(float)>>>(result, last_grid_size, result);
+    for (int i=0; i<last_grid_size; i++) printf("%4.1f ", result[i]);
+    putchar('\n');
+    sum2<<<1, block_size, block_size*sizeof(float)>>>(result, last_grid_size, result);
 
     //for (int i=0; i<last_grid_size; i++) printf("%4.1f ", result[i]);
     //putchar('\n');

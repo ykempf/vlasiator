@@ -1,8 +1,9 @@
 #include "gpu_velocity_grid.hpp"
 
+using namespace spatial_cell;
 
 int main(void) {
-    init_spatial_cell();
+    init_spatial_cell_static();
     SpatialCell cell;
     
     const int ids_len = 8;
