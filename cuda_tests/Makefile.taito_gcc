@@ -1,7 +1,7 @@
 NVCC = nvcc
 CC = mpiCC
 
-NVCC_FLAGS = -Xcompiler -march=native -arch=sm_35 -O3 -lmpi
+NVCC_FLAGS = -Xcompiler -march=native -arch=compute_35 -code=sm_35 -O3 -lmpi
 # Next line fixes a clash with nvcc parser and boost
 NVCC_FLAGS +=-DBOOST_NOINLINE='__attribute__ ((noinline))'
 NVCC_FLAGS +=--relocatable-device-code=true
