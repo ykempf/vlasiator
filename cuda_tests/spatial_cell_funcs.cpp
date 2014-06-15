@@ -1,7 +1,7 @@
-#include "gpu_velocity_grid.hpp"
+#include "spatial_cell_funcs.hpp"
 
 // Use same values for all dimensions for this test
-const int spatial_cell_side_length = 100;
+const int spatial_cell_side_length = 100; // 30 is the realistic case, 10 or 100 good for testing
 const float v_min = -4e6;
 const float v_max = 4e6;
 

@@ -30,8 +30,8 @@ int main(void) {
     printf("Print from kernel:\n");
     ggrid->k_print_blocks();
     
-    print_constants();
-    printf("%u %u %u\n", SpatialCell::vx_length, SpatialCell::vy_length, SpatialCell::vz_length);
+    //printf("%u %u %u\n", SpatialCell::vx_length, SpatialCell::vy_length, SpatialCell::vz_length);
+    //print_constants();
     
     unsigned int min_ind = ggrid->min_ind(ids_len);
     printf("Min ind: %u\n", min_ind);

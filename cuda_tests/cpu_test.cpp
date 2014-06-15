@@ -1,4 +1,4 @@
-#include "gpu_velocity_grid.hpp"
+#include "spatial_cell_funcs.hpp"
 
 using namespace spatial_cell;
 
@@ -11,7 +11,7 @@ int main(void) {
     print_blocks(cell);
     */
     
-    SpatialCell *cell = create_maxwellian(1000.0, 100000.);
+    SpatialCell *cell = create_maxwellian(1.0e6, 1.0e5);
     printf("%u\n", cell->number_of_blocks);
     float *proj = xy_projection(cell);
     fprint_projection(proj, "maxwell_proj.out");

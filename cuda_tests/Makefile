@@ -17,7 +17,7 @@ default: $(OBJS)
 
 # CUDA agnostic CPU only version
 cpu: $(CPU_OBJS)
-	$(CC) $(DEBUG) $(CPU_OBJS) -o $(EXE_NAME) $(LIBS)
+	$(CC) $(CCFLAGS) $(DEBUG) $(CPU_OBJS) -o $(EXE_NAME) $(LIBS)
 
 cpu_test.o: cpu_test.cpp gpu_velocity_grid.hpp ../spatial_cell.hpp
 	$(CC) $(DEBUG) $(INCS) $(CCFLAGS) -c cpu_test.cpp

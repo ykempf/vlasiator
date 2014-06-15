@@ -2,12 +2,11 @@
 #define GPU_VELOCITY_GRID_H
 
 #include <stdlib.h>
-#include <fstream>
 #include <iostream>
 #include "../spatial_cell.hpp"
+#include "spatial_cell_funcs.hpp"
 
-// Start CUDA only part
-#ifndef NO_CUDA
+
 #include <cuda_runtime.h>
 
 #define CUDACALL(ans) { gpuAssert((ans), __FILE__, __LINE__); }
@@ -43,14 +42,5 @@ class GPU_velocity_grid {
 		__host__ unsigned int max_ind(unsigned int len);
 };
 
-#endif
-// End CUDA only part
-
 void print_constants(void);
-void init_spatial_cell_static(void);
-void print_blocks(spatial_cell::SpatialCell *cell);
-spatial_cell::SpatialCell *create_index_test_cell(void);
-spatial_cell::SpatialCell *create_maxwellian(float T, float rho);
-void fprint_projection(float *projection, std::string filename);
-float *xy_projection(spatial_cell::SpatialCell *spacell);
 #endif
