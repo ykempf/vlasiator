@@ -7,8 +7,8 @@ using namespace spatial_cell;
 __constant__ unsigned int vx_length, \
                           vy_length, \
                           vz_length;
-__constant__ ind3d min3d, max3d;
-__constant__ unsigned int min1d, max1d;
+// Minimum and maximum points of bounding box and lengths of each dimension.
+__constant__ ind3d min3d, max3d, box_dims;
 
 // Call with only 1 thread
 __global__ void print_constants_k(void) {
@@ -110,8 +110,7 @@ __host__ void GPU_velocity_grid::print_blocks(void) {
     }
 }
 
-// Returns the data from a given block and cell id.
-__device__ float GPU_velocity_grid::get_velocity_cell(unsigned int blockid, unsigned int cellid) {
+__device__ vel_block* GPU_velocity_grid::get_velocity_grid_block(unsigned int blockid) {
     ind3d block_indices = GPU_velocity_grid::get_velocity_block_indices(blockid);
     // Check for out of bounds
     if (block_indices.x > max3d.x ||
@@ -119,22 +118,26 @@ __device__ float GPU_velocity_grid::get_velocity_cell(unsigned int blockid, unsi
         block_indices.z > max3d.z ||
         block_indices.x < min3d.x ||
         block_indices.y < min3d.y ||
-        block_indices.z < min3d.z) return ERROR_CELL;
-    vel_block *block = &vel_grid[blockid - min1d];
+        block_indices.z < min3d.z) return ERROR_BLOCK;
+    // Move the indices to same origin as the bounding box
+    ind3d n_ind = {block_indices.x - min3d.x, block_indices.y - min3d.y, block_indices.z - min3d.z};
+    return &vel_grid[n_ind.x + n_ind.y*box_dims.x + n_ind.z*box_dims.x*box_dims.y];
+    
+}
+
+// Returns the data from a given block and cell id.
+__device__ float GPU_velocity_grid::get_velocity_cell(unsigned int blockid, unsigned int cellid) {
+    vel_block *block = get_velocity_grid_block(blockid);
+    // Check for out of bounds
+    if (block == ERROR_BLOCK) return ERROR_CELL;
     return block->data[cellid];
 }
 
 // Sets the data in a given block and cell id to val. Returns the old value of the cell.
 __device__ float GPU_velocity_grid::set_velocity_cell(unsigned int blockid, unsigned int cellid, float val) {
-    ind3d block_indices = GPU_velocity_grid::get_velocity_block_indices(blockid);
+    vel_block *block = get_velocity_grid_block(blockid);
     // Check for out of bounds
-    if (block_indices.x > max3d.x ||
-        block_indices.y > max3d.y ||
-        block_indices.z > max3d.z ||
-        block_indices.x < min3d.x ||
-        block_indices.y < min3d.y ||
-        block_indices.z < min3d.z) return ERROR_CELL;
-    vel_block *block = &vel_grid[blockid - min1d];
+    if (block == ERROR_BLOCK) return ERROR_CELL;
     float old = block->data[cellid];
     block->data[cellid] = val;
     return old;
@@ -142,15 +145,9 @@ __device__ float GPU_velocity_grid::set_velocity_cell(unsigned int blockid, unsi
 
 // Sets the data in a given block to that of vals.
 __device__ void GPU_velocity_grid::set_velocity_block(unsigned int blockid, float *vals) {
-    ind3d block_indices = GPU_velocity_grid::get_velocity_block_indices(blockid);
+    vel_block *block = get_velocity_grid_block(blockid);
     // Check for out of bounds
-    if (block_indices.x > max3d.x ||
-        block_indices.y > max3d.y ||
-        block_indices.z > max3d.z ||
-        block_indices.x < min3d.x ||
-        block_indices.y < min3d.y ||
-        block_indices.z < min3d.z) return;
-    vel_block *block = &vel_grid[blockid - min1d];
+    if (block == ERROR_BLOCK) return;
     for (int i = 0; i < WID3; i++){
         block->data[i] = vals[i];
     }
@@ -167,11 +164,12 @@ __global__ void init_data(vel_block *grid, float val, int len) {
 }
 
 // Copies data from block_data to vel_grid
-__global__ void copy_block_data(GPU_velocity_grid *ggrid) {
+__global__ void copy_block_data(GPU_velocity_grid ggrid) {
     unsigned int i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i < *(ggrid->num_blocks)) {
-        int blockid = ggrid->velocity_block_list[i];
-        //ggrid->set_velocity_block(blockid, &(ggrid->block_data[i*WID3]));
+    //printf("%i %i\n", i, *(ggrid.num_blocks));
+    if (i < *(ggrid.num_blocks)) {
+        int blockid = ggrid.velocity_block_list[i];
+        ggrid.set_velocity_block(blockid, &(ggrid.block_data[i*WID3]));
     }
 }
 
@@ -187,21 +185,22 @@ __host__ void GPU_velocity_grid::init_grid(void) {
     unsigned int dy = max_i.y - min_i.y;
     unsigned int dz = max_i.z - min_i.z;
     unsigned int grid_len = dx*dy*dz;
-    
+    ind3d dims = {dx, dy, dz};
     // Copy to constant memory
-    CUDACALL(cudaMemcpyToSymbol(min1d, &min, sizeof(unsigned int)));
-    CUDACALL(cudaMemcpyToSymbol(max1d, &max, sizeof(unsigned int)));
     CUDACALL(cudaMemcpyToSymbol(min3d, &min_i, sizeof(ind3d)));
     CUDACALL(cudaMemcpyToSymbol(max3d, &max_i, sizeof(ind3d)));
+    CUDACALL(cudaMemcpyToSymbol(box_dims, &dims, sizeof(ind3d)));
     CUDACALL(cudaMalloc(&vel_grid, grid_len * sizeof(vel_block)));
     
     // Calculate grid dimensions and start kernel
     unsigned int blockSize = 64;
     unsigned int gridSize = ceilDivide(grid_len, blockSize);
     init_data<<<gridSize, blockSize>>>(vel_grid, 0.0f, grid_len);
-    cudaMemcpy(&gridSize, num_blocks, sizeof(unsigned int), cudaMemcpyDeviceToHost);
+    CUDACALL(cudaMemcpy(&gridSize, num_blocks, sizeof(unsigned int), cudaMemcpyDeviceToHost));
+    printf("%u ", gridSize);
     gridSize = ceilDivide(gridSize, blockSize);
-    copy_block_data<<<gridSize, blockSize>>>(this);
+    printf("%u %u\n", gridSize, blockSize);
+    copy_block_data<<<gridSize, blockSize>>>(*this);
 }
 
 

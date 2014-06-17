@@ -10,6 +10,7 @@
 #include <cuda_runtime.h>
 
 #define ERROR_CELL -1.0f
+#define ERROR_BLOCK 0
 
 #define CUDACALL(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 inline void gpuAssert(cudaError_t code, char *file, int line, bool abort=false)
@@ -29,12 +30,11 @@ inline T ceilDivide(T dividend, T divisor) {
 
 // 3d indices
 typedef struct{unsigned int x,y,z;} ind3d;
+//typedef uint3 ind3d;
 // analogous to class VelocityBlock of SpatialCell
 typedef struct{float data[WID3];} vel_block;
 
 class GPU_velocity_grid {
-    private:
-    
     public:
         unsigned int *num_blocks;
         unsigned int *velocity_block_list;        
@@ -51,6 +51,7 @@ class GPU_velocity_grid {
 		__host__ unsigned int min_ind(void);
 		__host__ unsigned int max_ind(void);
 		__host__ void init_grid(void);
+		__device__ vel_block* get_velocity_grid_block(unsigned int blockid);
 		__device__ float get_velocity_cell(unsigned int blockid, unsigned int cellid);
 		__device__ float set_velocity_cell(unsigned int blockid, unsigned int cellid, float val);
 		__device__ void set_velocity_block(unsigned int blockid, float *vals);

@@ -1,11 +1,7 @@
 NVCC = nvcc
 CC = mpiCC
 
-NVCC_FLAGS = -Xcompiler -march=native -arch=compute_35 -code=sm_35 -O3 -lmpi
-# Next line fixes a clash with nvcc parser and boost
-NVCC_FLAGS +=-DBOOST_NOINLINE='__attribute__ ((noinline))'
-NVCC_FLAGS +=--relocatable-device-code=true
-CCFLAGS = -O3 -std=c++11
+
 CUDAFLAGS=-I${CUDA_PATH}/include -L$(CUDA_PATH)/lib64 -lcuda -lcudart -lcudadevrt
 
 # Libraries

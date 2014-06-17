@@ -29,8 +29,8 @@ __global__ void min_ind_kernel(unsigned int *data, unsigned int data_size, unsig
     if (i < data_size) { // Make sure to stay in bounds
         sdata[tid] = data[i];
     }
-    else { // Otherwise initialize with a large value
-        sdata[tid] = MAX_VAL;
+    else { // Otherwise initialize with last value from the list
+        sdata[tid] = data[data_size-1];
     }
     __syncthreads();
 
@@ -124,7 +124,7 @@ __global__ void max_ind_kernel(unsigned int *data, unsigned int data_size, unsig
     if (i < data_size) { // Make sure to stay in bounds
         sdata[tid] = data[i];
     }
-    else { // Otherwise initialize with a large value
+    else { // Otherwise initialize with smallest possible index
         sdata[tid] = 0;
     }
     __syncthreads();

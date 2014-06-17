@@ -54,15 +54,6 @@ int main(void) {
     printf("Min ind: %u (%u %u %u)\n", min_ind, min_indices.x, min_indices.y, min_indices.z);
     
     cudaEventRecord(start);
-    unsigned int max_ind = ggrid->max_ind();
-    cudaEventRecord(stop);
-    cudaEventSynchronize(stop);
-    print_elapsed_time(start, stop);
-    printf("Max ind: %u\n", max_ind);
-    ind3d max_indices = GPU_velocity_grid::get_velocity_block_indices_host(max_ind);
-    printf("Max ind: %u (%u %u %u)\n", max_ind, max_indices.x, max_indices.y, max_indices.z);
-    
-    cudaEventRecord(start);
     min_ind = ggrid->min_ind();
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
@@ -71,11 +62,22 @@ int main(void) {
     min_indices = GPU_velocity_grid::get_velocity_block_indices_host(min_ind);
     printf("Min ind: %u (%u %u %u)\n", min_ind, min_indices.x, min_indices.y, min_indices.z);
     
-    printf("Grid initialization:\n");
     cudaEventRecord(start);
-    ggrid->init_grid();
+    unsigned int max_ind = ggrid->max_ind();
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
     print_elapsed_time(start, stop);
-    return 0;
+    printf("Max ind: %u\n", max_ind);
+    ind3d max_indices = GPU_velocity_grid::get_velocity_block_indices_host(max_ind);
+    printf("Max ind: %u (%u %u %u)\n", max_ind, max_indices.x, max_indices.y, max_indices.z);
+    
+    /*
+    printf("Grid initialization:\n");
+    cudaDeviceSynchronize();
+    cudaEventRecord(start);
+    ggrid->init_grid();
+    CUDACALL(cudaEventRecord(stop));
+    cudaEventSynchronize(stop);
+    print_elapsed_time(start, stop);
+    return 0;*/
 }
