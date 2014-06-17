@@ -21,7 +21,8 @@ int main(void) {
         ids[i] = ind;
         cell.add_velocity_block(ind);
         Velocity_Block* block_ptr = cell.at(ind);
-        block_ptr->data[0]=ind; // Put some data into each velocity cell
+        // Put some data into each velocity cell
+        for (int j = 0; j < WID3; j++) block_ptr->data[j]=ind+j/100.;
     }
     // Print data as it is on CPU
     //printf("On host:\n");
@@ -41,11 +42,10 @@ int main(void) {
     printf("Print from kernel:\n");
     ggrid->k_print_blocks();
     */
-    
     //print_constants();
-    cudaDeviceSynchronize();
+    
     cudaEventRecord(start);
-    unsigned int min_ind = ggrid->min_ind(ids_len);
+    unsigned int min_ind = ggrid->min_ind();
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
     print_elapsed_time(start, stop);
@@ -53,9 +53,8 @@ int main(void) {
     ind3d min_indices = GPU_velocity_grid::get_velocity_block_indices_host(min_ind);
     printf("Min ind: %u (%u %u %u)\n", min_ind, min_indices.x, min_indices.y, min_indices.z);
     
-    cudaDeviceSynchronize();
     cudaEventRecord(start);
-    unsigned int max_ind = ggrid->max_ind(ids_len);
+    unsigned int max_ind = ggrid->max_ind();
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
     print_elapsed_time(start, stop);
@@ -63,9 +62,8 @@ int main(void) {
     ind3d max_indices = GPU_velocity_grid::get_velocity_block_indices_host(max_ind);
     printf("Max ind: %u (%u %u %u)\n", max_ind, max_indices.x, max_indices.y, max_indices.z);
     
-    cudaDeviceSynchronize();
     cudaEventRecord(start);
-    min_ind = ggrid->min_ind(ids_len);
+    min_ind = ggrid->min_ind();
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
     print_elapsed_time(start, stop);
@@ -73,5 +71,11 @@ int main(void) {
     min_indices = GPU_velocity_grid::get_velocity_block_indices_host(min_ind);
     printf("Min ind: %u (%u %u %u)\n", min_ind, min_indices.x, min_indices.y, min_indices.z);
     
+    printf("Grid initialization:\n");
+    cudaEventRecord(start);
+    ggrid->init_grid();
+    cudaEventRecord(stop);
+    cudaEventSynchronize(stop);
+    print_elapsed_time(start, stop);
     return 0;
 }

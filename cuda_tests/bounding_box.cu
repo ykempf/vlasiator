@@ -4,11 +4,6 @@
 
 #define REDUCE_BLOCK_SIZE 64u
 
-// Returns the ceiling of the equivalent float division. Intended to be used with integer types.
-template<typename T>
-inline T ceilDivide(T dividend, T divisor) {
-    return (dividend + divisor - 1) / divisor;
-}
 
 /*
  *  MINIMuM INDEX
@@ -58,12 +53,14 @@ __global__ void min_ind_kernel(unsigned int *data, unsigned int data_size, unsig
 }
 
 // Finds the minimum 1d index of the velocity blocks in this spatial cell
-__host__ unsigned int GPU_velocity_grid::min_ind(unsigned int len) {
-//    unsigned int len;
-    unsigned int grid_size = ceilDivide(len, REDUCE_BLOCK_SIZE);
+__host__ unsigned int GPU_velocity_grid::min_ind(void) {
+    unsigned int len;
+    unsigned int grid_size;
     unsigned int *result;
-    unsigned int last_grid_size = grid_size;
-//    CUDACALL(cudaMemcpy(&len, num_blocks, sizeof(unsigned int), cudaMemcpyDeviceToHost));
+    unsigned int last_grid_size;
+    CUDACALL(cudaMemcpy(&len, num_blocks, sizeof(unsigned int), cudaMemcpyDeviceToHost));
+    grid_size = ceilDivide(len, REDUCE_BLOCK_SIZE);
+    last_grid_size = grid_size;
     #ifdef CEBUG_PRINT
     printf("len: %u\n", len);
     #endif
@@ -151,12 +148,14 @@ __global__ void max_ind_kernel(unsigned int *data, unsigned int data_size, unsig
 }
 
 // Finds the maximum 1d index of the velocity blocks in this spatial cell
-__host__ unsigned int GPU_velocity_grid::max_ind(unsigned int len) {
-//    unsigned int len;
-    unsigned int grid_size = ceilDivide(len, REDUCE_BLOCK_SIZE);
+__host__ unsigned int GPU_velocity_grid::max_ind(void) {
+    unsigned int len;
+    unsigned int grid_size;
     unsigned int *result;
-    unsigned int last_grid_size = grid_size;
-//    CUDACALL(cudaMemcpy(&len, num_blocks, sizeof(unsigned int), cudaMemcpyDeviceToHost));
+    unsigned int last_grid_size;
+    CUDACALL(cudaMemcpy(&len, num_blocks, sizeof(unsigned int), cudaMemcpyDeviceToHost));
+    grid_size = ceilDivide(len, REDUCE_BLOCK_SIZE);
+    last_grid_size = grid_size;
     #ifdef DEBUG_PRINT
     printf("len: %u\n", len);
     #endif

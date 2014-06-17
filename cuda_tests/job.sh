@@ -3,9 +3,9 @@
 #SBATCH -n 1
 #SBATCH -p gpu
 #SBATCH -t 00:00:20
-#SBATCH -J cudatest
-#SBATCH -o cudatest.out.%j
-#SBATCH -e cudatest.out.%j
+#SBATCH -J vlasiator_test
+#SBATCH -o vlasiator_test.out.%j
+#SBATCH -e vlasiator_test.out.%j
 #SBATCH --gres=gpu:1
 #SBATCH --exclusive
 #SBATCH
