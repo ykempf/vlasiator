@@ -22,7 +22,7 @@ inline void gpuAssert(cudaError_t code, char *file, int line, bool abort=false)
    }
 }
 
-// Returns the ceiling of the equivalent float division. Intended to be used with integer types.
+// Returns the the next multiple of divisor of the equivalent float division. Intended to be used with integer types as this assumes integer arithmetic.
 template<typename T>
 inline T ceilDivide(T dividend, T divisor) {
     return (dividend + divisor - 1) / divisor;
@@ -37,7 +37,7 @@ typedef struct{float data[WID3];} vel_block;
 class GPU_velocity_grid {
     public:
         unsigned int *num_blocks;
-        unsigned int *velocity_block_list;        
+        unsigned int *velocity_block_list;
         float *block_data;
         vel_block *vel_grid;
         
@@ -52,6 +52,7 @@ class GPU_velocity_grid {
 		__host__ unsigned int max_ind(void);
 		__host__ void init_grid(void);
 		__device__ vel_block* get_velocity_grid_block(unsigned int blockid);
+		__device__ int get_velocity_grid_block_ind(unsigned int blockid);
 		__device__ float get_velocity_cell(unsigned int blockid, unsigned int cellid);
 		__device__ float set_velocity_cell(unsigned int blockid, unsigned int cellid, float val);
 		__device__ void set_velocity_block(unsigned int blockid, float *vals);

@@ -119,10 +119,26 @@ __device__ vel_block* GPU_velocity_grid::get_velocity_grid_block(unsigned int bl
         block_indices.x < min3d.x ||
         block_indices.y < min3d.y ||
         block_indices.z < min3d.z) return ERROR_BLOCK;
-    // Move the indices to same origin as the bounding box
+    // Move the indices to same origin and dimensions as the bounding box
     ind3d n_ind = {block_indices.x - min3d.x, block_indices.y - min3d.y, block_indices.z - min3d.z};
-    return &vel_grid[n_ind.x + n_ind.y*box_dims.x + n_ind.z*box_dims.x*box_dims.y];
-    
+    vel_block *block_ptr = &vel_grid[n_ind.x + n_ind.y*box_dims.x + n_ind.z*box_dims.x*box_dims.y];
+    return block_ptr;
+}
+
+// Returns index of the full grid corresponding to the blockid of the sparse grid
+__device__ int GPU_velocity_grid::get_velocity_grid_block_ind(unsigned int blockid) {
+    ind3d block_indices = GPU_velocity_grid::get_velocity_block_indices(blockid);
+    // Check for out of bounds
+    if (block_indices.x > max3d.x ||
+        block_indices.y > max3d.y ||
+        block_indices.z > max3d.z ||
+        block_indices.x < min3d.x ||
+        block_indices.y < min3d.y ||
+        block_indices.z < min3d.z) return -1;
+    // Move the indices to same origin and dimensions as the bounding box
+    ind3d n_ind = {block_indices.x - min3d.x, block_indices.y - min3d.y, block_indices.z - min3d.z};
+    unsigned int ind = n_ind.x + n_ind.y*box_dims.x + n_ind.z*box_dims.x*box_dims.y;
+    return ind;    
 }
 
 // Returns the data from a given block and cell id.
@@ -151,6 +167,7 @@ __device__ void GPU_velocity_grid::set_velocity_block(unsigned int blockid, floa
     for (int i = 0; i < WID3; i++){
         block->data[i] = vals[i];
     }
+    __syncthreads();
     return;
 }
 
@@ -158,9 +175,10 @@ __device__ void GPU_velocity_grid::set_velocity_block(unsigned int blockid, floa
 __global__ void init_data(vel_block *grid, float val, int len) {
     unsigned int i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i < len) {
-        for (int j = 0; j < WID3; j++) grid[i].data[j] = val;
+        for (int j = 0; j < WID3; j++) {
+            grid[i].data[j] = val;
+        }
     }
-    __syncthreads();
 }
 
 // Copies data from block_data to vel_grid
@@ -179,28 +197,32 @@ __host__ void GPU_velocity_grid::init_grid(void) {
     unsigned int max = this->max_ind();
     ind3d min_i = get_velocity_block_indices_host(min);
     ind3d max_i = get_velocity_block_indices_host(max);
-    
+    printf("MIN: %u %u %u %u\n", min, min_i.x, min_i.y, min_i.z);
+    printf("MAX: %u %u %u %u\n", max, max_i.x, max_i.y, max_i.z);
     // dimensions of the grid
-    unsigned int dx = max_i.x - min_i.x;
-    unsigned int dy = max_i.y - min_i.y;
-    unsigned int dz = max_i.z - min_i.z;
-    unsigned int grid_len = dx*dy*dz;
+    unsigned int dx = max_i.x - min_i.x + 1;
+    unsigned int dy = max_i.y - min_i.y + 1;
+    unsigned int dz = max_i.z - min_i.z + 1;
+    unsigned int vel_grid_len = dx*dy*dz;
+    printf("GRID DIMS: %u %u %u\n", dx, dy, dz);
     ind3d dims = {dx, dy, dz};
     // Copy to constant memory
     CUDACALL(cudaMemcpyToSymbol(min3d, &min_i, sizeof(ind3d)));
     CUDACALL(cudaMemcpyToSymbol(max3d, &max_i, sizeof(ind3d)));
     CUDACALL(cudaMemcpyToSymbol(box_dims, &dims, sizeof(ind3d)));
-    CUDACALL(cudaMalloc(&vel_grid, grid_len * sizeof(vel_block)));
+    CUDACALL(cudaMalloc(&vel_grid, vel_grid_len * sizeof(vel_block)));
     
     // Calculate grid dimensions and start kernel
     unsigned int blockSize = 64;
-    unsigned int gridSize = ceilDivide(grid_len, blockSize);
-    init_data<<<gridSize, blockSize>>>(vel_grid, 0.0f, grid_len);
+    unsigned int gridSize = ceilDivide(vel_grid_len, blockSize);
+    init_data<<<gridSize, blockSize>>>(vel_grid, 0.0f, vel_grid_len);
     CUDACALL(cudaMemcpy(&gridSize, num_blocks, sizeof(unsigned int), cudaMemcpyDeviceToHost));
-    printf("%u ", gridSize);
-    gridSize = ceilDivide(gridSize, blockSize);
+    printf("%u ", vel_grid_len);
     printf("%u %u\n", gridSize, blockSize);
+    gridSize = ceilDivide(gridSize, blockSize);
+    CUDACALL(cudaDeviceSynchronize()); // Wait for initialization to finish
     copy_block_data<<<gridSize, blockSize>>>(*this);
+    CUDACALL(cudaDeviceSynchronize()); // Block before returning
 }
 
 

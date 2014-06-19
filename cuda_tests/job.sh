@@ -11,4 +11,6 @@
 #SBATCH
 
 #cuda-memcheck test.out
+module purge
+module load cuda gcc openmpi
 ./test.out

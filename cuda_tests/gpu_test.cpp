@@ -12,7 +12,7 @@ int main(void) {
     init_spatial_cell_static();
     SpatialCell cell;
     cudaEvent_t start, stop;    
-    const int ids_len = (int)1e6;
+    const int ids_len = (int)1e5;
     int ids[ids_len];
 
     // Add blocks to the given ids
@@ -27,7 +27,6 @@ int main(void) {
     // Print data as it is on CPU
     //printf("On host:\n");
     //print_blocks(&cell);
-    printf("%i %i %i %i %i %i\n", ids[0], ids[1], ids[2], ids[ids_len-3], ids[ids_len-2], ids[ids_len-1]);
     printf("Number of blocks: %i\n", ids_len);
     
     // Create a new instance. Constructor copies related data.
@@ -44,6 +43,7 @@ int main(void) {
     */
     //print_constants();
     
+    /*
     cudaEventRecord(start);
     unsigned int min_ind = ggrid->min_ind();
     cudaEventRecord(stop);
@@ -70,8 +70,8 @@ int main(void) {
     printf("Max ind: %u\n", max_ind);
     ind3d max_indices = GPU_velocity_grid::get_velocity_block_indices_host(max_ind);
     printf("Max ind: %u (%u %u %u)\n", max_ind, max_indices.x, max_indices.y, max_indices.z);
+    */
     
-    /*
     printf("Grid initialization:\n");
     cudaDeviceSynchronize();
     cudaEventRecord(start);
@@ -79,5 +79,5 @@ int main(void) {
     CUDACALL(cudaEventRecord(stop));
     cudaEventSynchronize(stop);
     print_elapsed_time(start, stop);
-    return 0;*/
+    return 0;
 }
