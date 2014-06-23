@@ -10,15 +10,25 @@ __constant__ unsigned int vx_length, \
 // Minimum and maximum points of bounding box and lengths of each dimension.
 __constant__ ind3d min3d, max3d, box_dims;
 
-// Call with only 1 thread
+
 __global__ void print_constants_k(void) {
     printf("vx_length: %u, vy_length: %u, vz_length: %u\n", vx_length, vy_length, vz_length);
 }
-
 void print_constants(void) {
     // Easiest to print from a kernel
     print_constants_k<<<1,1>>>();
 }
+
+__global__ void print_cells_k(GPU_velocity_grid *ggrid) {
+    printf("%f ", ggrid->get_velocity_cell(0u, 4u));
+    printf("%f ", ggrid->get_velocity_cell(5u, 22u));
+    //printf("%f \n", ggrid->get_velocity_cell((unsigned int)1e5, 63u));
+}
+void GPU_velocity_grid::print_cells(void) {
+    print_cells_k<<<1,1>>>(this);
+}
+
+
 
 // Copies velocity_block_list and block_data as well as necessary constants from a SpatialCell to GPU for processing.
 GPU_velocity_grid::GPU_velocity_grid(SpatialCell *spacell) {
@@ -218,8 +228,8 @@ __host__ void GPU_velocity_grid::init_grid(void) {
     init_data<<<gridSize, blockSize>>>(vel_grid, 0.0f, vel_grid_len);
     CUDACALL(cudaMemcpy(&gridSize, num_blocks, sizeof(unsigned int), cudaMemcpyDeviceToHost));
     printf("%u ", vel_grid_len);
-    printf("%u %u\n", gridSize, blockSize);
     gridSize = ceilDivide(gridSize, blockSize);
+    printf("%u %u\n", gridSize, blockSize);
     CUDACALL(cudaDeviceSynchronize()); // Wait for initialization to finish
     copy_block_data<<<gridSize, blockSize>>>(*this);
     CUDACALL(cudaDeviceSynchronize()); // Block before returning

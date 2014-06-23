@@ -62,6 +62,7 @@ class GPU_velocity_grid {
 		__host__   static ind3d get_velocity_block_indices_host(const unsigned int blockid);
 		__device__ static unsigned int get_velocity_block(const ind3d indices);
 		__host__ void k_print_blocks(void);
+		void print_cells(void);
 };
 
 void print_constants(void);

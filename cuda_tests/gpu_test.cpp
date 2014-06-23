@@ -11,7 +11,10 @@ void print_elapsed_time(cudaEvent_t start, cudaEvent_t stop) {
 int main(void) {
     init_spatial_cell_static();
     SpatialCell cell;
-    cudaEvent_t start, stop;    
+    cudaEvent_t start, stop;
+    // Initialize cuda events
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
     const int ids_len = (int)1e5;
     int ids[ids_len];
 
@@ -30,8 +33,6 @@ int main(void) {
     printf("Number of blocks: %i\n", ids_len);
     
     // Create a new instance. Constructor copies related data.
-    cudaEventCreate(&start);
-    cudaEventCreate(&stop);
     GPU_velocity_grid *ggrid = new GPU_velocity_grid(&cell);
     
     /*
@@ -43,7 +44,6 @@ int main(void) {
     */
     //print_constants();
     
-    /*
     cudaEventRecord(start);
     unsigned int min_ind = ggrid->min_ind();
     cudaEventRecord(stop);
@@ -70,7 +70,6 @@ int main(void) {
     printf("Max ind: %u\n", max_ind);
     ind3d max_indices = GPU_velocity_grid::get_velocity_block_indices_host(max_ind);
     printf("Max ind: %u (%u %u %u)\n", max_ind, max_indices.x, max_indices.y, max_indices.z);
-    */
     
     printf("Grid initialization:\n");
     cudaDeviceSynchronize();
@@ -79,5 +78,8 @@ int main(void) {
     CUDACALL(cudaEventRecord(stop));
     cudaEventSynchronize(stop);
     print_elapsed_time(start, stop);
+    
+    //ggrid->print_cells();
+    //CUDACALL(cudaDeviceSynchronize());
     return 0;
 }
