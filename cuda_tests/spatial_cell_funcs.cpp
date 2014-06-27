@@ -1,10 +1,10 @@
 #include "spatial_cell_funcs.hpp"
 
 // Use same values for all dimensions for this test
-const int spatial_cell_side_length = 50; // 30 is the realistic case, 10 or 100 good for testing
+const int spatial_cell_side_length = 30; // 30 is the realistic case, 10 or 100 good for testing
 const float v_min = -4e6;
 const float v_max = 4e6;
-
+const float min_value = 1e-15;
 using namespace spatial_cell;
 
 // Initializes the SpatialCell static variables to values given above
@@ -18,7 +18,7 @@ void init_spatial_cell_static(void) {
     SpatialCell::vy_max = v_max;
     SpatialCell::vz_min = v_min;
     SpatialCell::vz_max = v_max;
-    //SpatialCell::velocity_block_min_value = P::sparseMinValue; // Not currently used
+    SpatialCell::velocity_block_min_value = min_value;
     
     
     // Rest are calculated from the previous

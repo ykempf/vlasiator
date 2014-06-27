@@ -1,7 +1,5 @@
 #include "gpu_velocity_grid.hpp"
 
-#define MAX_VAL 99999999
-
 #define REDUCE_BLOCK_SIZE 64u
 
 

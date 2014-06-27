@@ -4,13 +4,14 @@ include Makefile.${VLASIATOR_ARCH}
 
 EXE_NAME = test.out
 
-NVCC_FLAGS = -Xcompiler -march=native -arch=compute_35 -code=sm_35 -O3 -lmpi -G
+DEBUG = -g
+CUDADEBUG = -G
+
+NVCC_FLAGS = -Xcompiler -march=native -arch=sm_35 -O3 -lmpi $(CUDADEBUG)
 # Next line fixes a clash with nvcc parser and boost
 NVCC_FLAGS +=-DBOOST_NOINLINE='__attribute__ ((noinline))'
 NVCC_FLAGS +=--relocatable-device-code=true
-CCFLAGS = -O3 -std=c++11
-
-DEBUG = -g
+CCFLAGS = -O3 -std=c++11 -Wno-write-strings
 
 LIBS = $(LIB_BOOST) $(LIB_PROFILE)
 INCS = $(INC_BOOST) $(INC_PROFILE) $(SOURCE_FOLDER)
