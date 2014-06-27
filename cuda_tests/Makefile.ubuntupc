@@ -1,0 +1,18 @@
+
+CC = mpiCC
+NVCC = nvcc
+
+NVCC_FLAGS = -arch=compute_20 -code=sm_20
+CCFLAGS = -lgomp -lcudart -lcuda -lcudadevrt
+CUDAFLAGS = -I${CUDA_HOME}/include -L$(CUDA_HOME)/lib64
+LIBRARY_PREFIX = /home/eskelinej/programs/
+
+# Libraries
+LIB_PROFILE = -L$(LIBRARY_PREFIX)/phiprof/lib -lphiprof
+INC_PROFILE = -I$(LIBRARY_PREFIX)/phiprof/include
+
+OPENMPI_PATH = /usr/lib/openmpi/
+
+LIB_MPI = -L$(OPENMPI_PATH)/lib
+INC_MPI = -I$(OPENMPI_PATH)/include
+

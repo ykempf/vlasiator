@@ -64,7 +64,7 @@ __host__ unsigned int GPU_velocity_grid::min_ind(void) {
     #ifdef CEBUG_PRINT
     printf("len: %u\n", len);
     #endif
-    CUDACALL(cudaMallocManaged(&result, grid_size*sizeof(unsigned int))); // Only 1 element is used by each block
+    CUDACALL(cudaMalloc(&result, grid_size*sizeof(unsigned int))); // Only 1 element is used by each block
     #ifdef DEBUG_PRINT
     printf("Grid:%u, input size:%u\n", grid_size, len);
     // First round works on the input array
@@ -159,7 +159,7 @@ __host__ unsigned int GPU_velocity_grid::max_ind(void) {
     #ifdef DEBUG_PRINT
     printf("len: %u\n", len);
     #endif
-    CUDACALL(cudaMallocManaged(&result, grid_size*sizeof(unsigned int))); // Only 1 element is used by each block
+    CUDACALL(cudaMalloc(&result, grid_size*sizeof(unsigned int))); // Only 1 element is used by each block
     #ifdef DEBUG_PRINT
     printf("Grid:%u, input size:%u\n", grid_size, len);
     // First round works on the input array

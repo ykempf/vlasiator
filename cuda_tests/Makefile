@@ -4,22 +4,22 @@ include Makefile.${VLASIATOR_ARCH}
 
 EXE_NAME = test.out
 
-NVCC_FLAGS = -Xcompiler -march=native -arch=compute_35 -code=sm_35 -O3 -lmpi -G
+NVCC_FLAGS += -Xcompiler -march=native -O3 -lmpi -G
 # Next line fixes a clash with nvcc parser and boost
 NVCC_FLAGS +=-DBOOST_NOINLINE='__attribute__ ((noinline))'
 NVCC_FLAGS +=--relocatable-device-code=true
-CCFLAGS = -O3 -std=c++11
+CCFLAGS += -O3 -std=c++11
 
 DEBUG = -g
 
-LIBS = $(LIB_BOOST) $(LIB_PROFILE)
-INCS = $(INC_BOOST) $(INC_PROFILE) $(SOURCE_FOLDER)
+LIBS += $(LIB_BOOST) $(LIB_PROFILE) $(LIB_MPI)
+INCS += $(INC_BOOST) $(INC_PROFILE) $(SOURCE_FOLDER) $(INC_MPI)
 
 OBJS = spatial_cell.o gpu_velocity_grid.o gpu_test.o spatial_cell_funcs.o gpu_link.o bounding_box.o
 CPU_OBJS = cpu_test.o spatial_cell.o spatial_cell_funcs.o
 
 default: $(OBJS)
-	$(CC) $(DEBUG) $(LIBS) $(CCFLAGS) $(CUDAFLAGS) $(OBJS) -o $(EXE_NAME)
+	$(CC) $(DEBUG) $(OBJS) $(LIBS) $(CCFLAGS) $(CUDAFLAGS) -o $(EXE_NAME)
 
 # CUDA agnostic CPU only version
 cpu: $(CPU_OBJS)

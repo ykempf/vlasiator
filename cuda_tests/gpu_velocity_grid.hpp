@@ -6,7 +6,7 @@
 #include "../spatial_cell.hpp"
 #include "spatial_cell_funcs.hpp"
 
-
+#include <cuda.h>
 #include <cuda_runtime.h>
 
 #define ERROR_CELL -1.0f
