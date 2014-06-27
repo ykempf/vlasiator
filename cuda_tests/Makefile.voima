@@ -1,0 +1,15 @@
+
+CC = CC
+
+CCFLAGS = -O3 -std=c++11 -lgomp
+
+# Libraries
+LIBRARY_PREFIX = /stornext/field/users/honkonen/libraries
+LIBRARY_PREFIX_B = /stornext/field/users/alfthan/libraries
+
+INC_BOOST = -I$(LIBRARY_PREFIX)/cray-mpich/$(CRAY_MPICH_VERSION)/$(CC_BRAND)/$(CC_BRAND_VERSION)/boost/$(BOOST_VERSION)/include
+LIB_BOOST = -L$(LIBRARY_PREFIX)/cray-mpich/$(CRAY_MPICH_VERSION)/$(CC_BRAND)/$(CC_BRAND_VERSION)/boost/$(BOOST_VERSION)/lib
+
+LIB_PROFILE = -L$(LIBRARY_PREFIX_B)/phiprof/lib -lphiprof
+INC_PROFILE = -I$(LIBRARY_PREFIX_B)/phiprof/include
+

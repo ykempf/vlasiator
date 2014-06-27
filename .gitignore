@@ -1,6 +1,21 @@
+
+# Object files
 *.o
-version.cpp
-\#*\#
+
+# Executables and output files
+*.exe
+*.out*
+vlasiator
+
+# Backups and temporary files
 *~
+
 vlasiator
 vlasiator+pat
+*.gch
+\#*\#
+
+# Other stuff created by the program
+version.cpp
+*/doc/*
+
