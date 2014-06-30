@@ -3,7 +3,7 @@
 using namespace spatial_cell;
 
 const unsigned int min_lim = 5;
-const unsigned int max_lim = 24;
+const unsigned int max_lim = 10;
 
 void print_elapsed_time(cudaEvent_t start, cudaEvent_t stop) {
     float milliseconds = 0;
@@ -12,6 +12,7 @@ void print_elapsed_time(cudaEvent_t start, cudaEvent_t stop) {
 }
 
 int main(void) {
+    putchar('\n');
     init_spatial_cell_static();
     SpatialCell spacell;
     cudaEvent_t start, stop;
@@ -93,7 +94,7 @@ int main(void) {
     print_elapsed_time(start, stop);
     
     ggrid->print_cells();
-    cudaDeviceSynchronize();
+    CUDACALL(cudaDeviceSynchronize());
     /*
     putchar('\n');
     printf("Back to CPU:\n");
@@ -104,6 +105,6 @@ int main(void) {
     cudaEventSynchronize(stop);
     print_elapsed_time(start, stop);
     */
-    
+    putchar('\n');
     return 0;
 }

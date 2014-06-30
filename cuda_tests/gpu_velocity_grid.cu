@@ -52,20 +52,20 @@ void print_constants(void) {
     print_constants_k<<<1,1>>>();
 }
 
-__global__ void print_cells_k(GPU_velocity_grid *ggrid) {
-    ind3d inds = {10,10,10};
-    int ind = ggrid->get_velocity_block(inds);
-    printf("%f \n", ggrid->get_velocity_cell(ind, 0));
+__global__ void print_cells_k(GPU_velocity_grid ggrid) {
+    ind3d inds = {7,7,7};
+    unsigned int ind = ggrid.get_velocity_block(inds);
+    printf("%f \n", ggrid.get_velocity_cell(ind, 0));
     inds.x = 15; inds.y = 12; inds.z = 11;
-    ind = ggrid->get_velocity_block(inds);
-    printf("%f \n", ggrid->get_velocity_cell(ind, 5));
+    ind = ggrid.get_velocity_block(inds);
+    printf("%f \n", ggrid.get_velocity_cell(ind, 5));
     inds.x = 22; inds.y = 21; inds.z = 20;
-    ind = ggrid->get_velocity_block(inds);
-    printf("%f \n", ggrid->get_velocity_cell(ind, 6));
+    ind = ggrid.get_velocity_block(inds);
+    printf("%f \n", ggrid.get_velocity_cell(ind, 6));
     //printf("%f \n", ggrid->get_velocity_cell((unsigned int)1e5, 63u));
 }
 void GPU_velocity_grid::print_cells(void) {
-    print_cells_k<<<1,1>>>(this);
+    print_cells_k<<<1,1>>>(*this);
 }
 
 // Simple accessors
@@ -104,7 +104,9 @@ __host__ ind3d GPU_velocity_grid::get_velocity_block_indices_host(const unsigned
 
 // Constructs 1d index out of 3d indices
 __device__ unsigned int GPU_velocity_grid::get_velocity_block(const ind3d indices) {
-    return indices.x + indices.y * vx_length + indices.z * vx_length * vy_length;
+    unsigned int ret = indices.x + indices.y * vx_length + indices.z * vx_length * vy_length;
+    //printf("%u %u %u: %u\n", indices.x, indices.y, indices.z, ret);
+    return ret;
 }
 
 
@@ -140,7 +142,7 @@ __host__ void GPU_velocity_grid::print_blocks(void) {
 
 __device__ vel_block* GPU_velocity_grid::get_velocity_grid_block(unsigned int blockid) {
     ind3d block_indices = GPU_velocity_grid::get_velocity_block_indices(blockid);
-    printf("%u: %u %u %u\n", blockid, block_indices.x, block_indices.y, block_indices.z);
+    //printf("%u: %u %u %u\n", blockid, block_indices.x, block_indices.y, block_indices.z);
     // Check for out of bounds
     if (block_indices.x > max3d.x ||
         block_indices.y > max3d.y ||
@@ -151,6 +153,7 @@ __device__ vel_block* GPU_velocity_grid::get_velocity_grid_block(unsigned int bl
     // Move the indices to same origin and dimensions as the bounding box
     ind3d n_ind = {block_indices.x - min3d.x, block_indices.y - min3d.y, block_indices.z - min3d.z};
     vel_block *block_ptr = &vel_grid[n_ind.x + n_ind.y*box_dims.x + n_ind.z*box_dims.x*box_dims.y];
+    printf("%4u: %2u %2u %2u, %2u %2u %2u. %016lx\n", n_ind.x + n_ind.y*box_dims.x + n_ind.z*box_dims.x*box_dims.y, block_indices.x, block_indices.y, block_indices.z, n_ind.x, n_ind.y, n_ind.z, block_ptr);
     return block_ptr;
 }
 
@@ -189,7 +192,12 @@ __device__ Real GPU_velocity_grid::get_velocity_cell(unsigned int blockid, unsig
     vel_block *block = get_velocity_grid_block(blockid);
     // Check for out of bounds
     if (block == ERROR_BLOCK) return ERROR_CELL;
-    return block->data[cellid];
+    if (cellid >= WID3) return ERROR_CELL;
+    printf("%08lx %08lx\n", &(vel_grid[0]), &(vel_grid[(*num_blocks)]));
+    printf("%u %u %08lx\n", blockid, cellid, block->data);
+    Real *pt = block->data;
+    Real ret = pt[cellid];
+    return ret;
 }
 
 // Sets the data in a given block and cell id to val. Returns the old value of the cell.
@@ -220,6 +228,7 @@ __device__ void GPU_velocity_grid::set_velocity_block(unsigned int blockid, Real
 // Fills the given array of size len with val
 __global__ void init_data(vel_block *grid, Real val, int len) {
     unsigned int i = blockIdx.x*blockDim.x + threadIdx.x;
+    if (i == 0) printf("%8lx\n", grid);
     if (i < len) {
         for (int j = 0; j < WID3; j++) {
             grid[i].data[j] = val;

@@ -41,8 +41,8 @@ class GPU_velocity_grid {
         unsigned int *num_blocks, num_blocks_host;
         unsigned int *velocity_block_list;
         Real *block_data;
-        vel_block *vel_grid;
         Real *min_val;
+        vel_block *vel_grid;
         
 		GPU_velocity_grid(spatial_cell::SpatialCell *spacell);
 		~GPU_velocity_grid(void);
