@@ -10,6 +10,39 @@ __constant__ unsigned int vx_length, \
 // Minimum and maximum points of bounding box and lengths of each dimension.
 __constant__ ind3d min3d, max3d, box_dims;
 
+// Copies velocity_block_list and block_data as well as necessary constants from a SpatialCell to GPU for processing.
+GPU_velocity_grid::GPU_velocity_grid(SpatialCell *spacell) {
+	
+    // Allocate memory on the gpu
+	unsigned int vel_block_list_size = spacell->number_of_blocks*sizeof(unsigned int);
+	unsigned int block_data_size = spacell->block_data.size()*sizeof(float);
+
+    cudaMalloc(&num_blocks, sizeof(unsigned int));
+	cudaMalloc(&velocity_block_list, vel_block_list_size);
+	cudaMalloc(&block_data, block_data_size);
+    cudaMalloc(&min_val, sizeof(Real));
+	
+	// Copy to gpu
+	unsigned int *velocity_block_list_arr = &(spacell->velocity_block_list[0]);
+	float *block_data_arr = &(spacell->block_data[0]);
+
+	num_blocks_host = spacell->number_of_blocks;
+	cudaMemcpy(min_val, &(SpatialCell::velocity_block_min_value), sizeof(Real), cudaMemcpyHostToDevice);
+	cudaMemcpy(num_blocks, &(spacell->number_of_blocks), sizeof(unsigned int), cudaMemcpyHostToDevice);
+	cudaMemcpyToSymbol(vx_length, &SpatialCell::vx_length, sizeof(unsigned int));
+	cudaMemcpyToSymbol(vy_length, &SpatialCell::vy_length, sizeof(unsigned int));
+	cudaMemcpyToSymbol(vz_length, &SpatialCell::vz_length, sizeof(unsigned int));
+	cudaMemcpy(velocity_block_list, velocity_block_list_arr, vel_block_list_size, cudaMemcpyHostToDevice);
+	cudaMemcpy(block_data, block_data_arr, block_data_size, cudaMemcpyHostToDevice);
+}
+
+GPU_velocity_grid::~GPU_velocity_grid() {
+    // Free memory
+    cudaFree(num_blocks);
+	cudaFree(velocity_block_list);
+	cudaFree(block_data);
+	cudaFree(vel_grid);
+}
 
 __global__ void print_constants_k(void) {
     printf("vx_length: %u, vy_length: %u, vz_length: %u\n", vx_length, vy_length, vz_length);
@@ -33,40 +66,6 @@ __global__ void print_cells_k(GPU_velocity_grid *ggrid) {
 }
 void GPU_velocity_grid::print_cells(void) {
     print_cells_k<<<1,1>>>(this);
-}
-
-
-
-// Copies velocity_block_list and block_data as well as necessary constants from a SpatialCell to GPU for processing.
-GPU_velocity_grid::GPU_velocity_grid(SpatialCell *spacell) {
-	
-    // Allocate memory on the gpu
-	unsigned int vel_block_list_size = spacell->number_of_blocks*sizeof(unsigned int);
-	unsigned int block_data_size = spacell->block_data.size()*sizeof(float);
-    cudaMallocManaged(&num_blocks, sizeof(unsigned int));
-	cudaMallocManaged(&velocity_block_list, vel_block_list_size);
-	cudaMallocManaged(&block_data, block_data_size);
-	cudaMallocManaged(&min_val, sizeof(Real));
-	
-	// Copy to gpu
-	unsigned int *velocity_block_list_arr = &(spacell->velocity_block_list[0]);
-	float *block_data_arr = &(spacell->block_data[0]);
-	num_blocks_host = spacell->number_of_blocks;
-	memcpy(num_blocks, &(spacell->number_of_blocks), sizeof(unsigned int));
-	memcpy(min_val, &(SpatialCell::velocity_block_min_value), sizeof(Real));
-	cudaMemcpyToSymbol(vx_length, &SpatialCell::vx_length, sizeof(unsigned int));
-	cudaMemcpyToSymbol(vy_length, &SpatialCell::vy_length, sizeof(unsigned int));
-	cudaMemcpyToSymbol(vz_length, &SpatialCell::vz_length, sizeof(unsigned int));
-	memcpy(velocity_block_list, velocity_block_list_arr, vel_block_list_size);
-	memcpy(block_data, block_data_arr, block_data_size);
-}
-
-GPU_velocity_grid::~GPU_velocity_grid() {
-    // Free memory
-    cudaFree(num_blocks);
-	cudaFree(velocity_block_list);
-	cudaFree(block_data);
-	cudaFree(vel_grid);
 }
 
 // Simple accessors

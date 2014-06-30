@@ -9,6 +9,9 @@ vlasiator
 
 # Backups and temporary files
 *~
+
+vlasiator
+vlasiator+pat
 *.gch
 \#*\#
 
