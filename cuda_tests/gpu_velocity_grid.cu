@@ -12,7 +12,7 @@ __constant__ ind3d min3d, max3d, box_dims;
 
 // Copies velocity_block_list and block_data as well as necessary constants from a SpatialCell to GPU for processing.
 GPU_velocity_grid::GPU_velocity_grid(SpatialCell *spacell) {
-	
+	printf("GPU_velocity_grid constructor.\n");
     // Allocate memory on the gpu
 	unsigned int vel_block_list_size = spacell->number_of_blocks*sizeof(unsigned int);
 	unsigned int block_data_size = spacell->block_data.size()*sizeof(float);
@@ -36,13 +36,17 @@ GPU_velocity_grid::GPU_velocity_grid(SpatialCell *spacell) {
 	cudaMemcpy(block_data, block_data_arr, block_data_size, cudaMemcpyHostToDevice);
 }
 
-GPU_velocity_grid::~GPU_velocity_grid() {
-    // Free memory
-    cudaFree(num_blocks);
-	cudaFree(velocity_block_list);
-	cudaFree(block_data);
-	cudaFree(vel_grid);
+// The proper destructor for GPU_velocity_grid that has to be called manually. See the destructor comments for details.
+__host__ void GPU_velocity_grid::del(void) {
+// Free memory
+    CUDACALL(cudaFree(num_blocks));
+	CUDACALL(cudaFree(velocity_block_list));
+	CUDACALL(cudaFree(block_data));
+	CUDACALL(cudaFree(vel_grid));
 }
+
+// Nothing in here because this is called whenever a copy-by-value goes out of scope. Call dell when you want to free memory related to the instance.
+GPU_velocity_grid::~GPU_velocity_grid() {}
 
 __global__ void print_constants_k(void) {
     printf("vx_length: %u, vy_length: %u, vz_length: %u\n", vx_length, vy_length, vz_length);
@@ -53,15 +57,15 @@ void print_constants(void) {
 }
 
 __global__ void print_cells_k(GPU_velocity_grid ggrid) {
-    ind3d inds = {7,7,7};
+    ind3d inds = {12,12,12};
     unsigned int ind = ggrid.get_velocity_block(inds);
-    printf("%f \n", ggrid.get_velocity_cell(ind, 0));
-    inds.x = 15; inds.y = 12; inds.z = 11;
+    printf("%e \n", ggrid.get_velocity_cell(ind, 0));
+    inds.x = 13; inds.y = 14; inds.z = 15;
     ind = ggrid.get_velocity_block(inds);
-    printf("%f \n", ggrid.get_velocity_cell(ind, 5));
-    inds.x = 22; inds.y = 21; inds.z = 20;
+    printf("%e \n", ggrid.get_velocity_cell(ind, 5));
+    inds.x = 17; inds.y = 17; inds.z = 17;
     ind = ggrid.get_velocity_block(inds);
-    printf("%f \n", ggrid.get_velocity_cell(ind, 6));
+    printf("%e \n", ggrid.get_velocity_cell(ind, 6));
     //printf("%f \n", ggrid->get_velocity_cell((unsigned int)1e5, 63u));
 }
 void GPU_velocity_grid::print_cells(void) {

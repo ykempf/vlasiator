@@ -96,10 +96,10 @@ int main(void) {
     cudaEventSynchronize(stop);
     print_elapsed_time(start, stop);
     
-    /*
+    printf("print_cells\n");
     ggrid->print_cells();
     CUDACALL(cudaDeviceSynchronize());
-    */
+    
     /*
     putchar('\n');
     printf("Back to CPU:\n");
@@ -110,6 +110,8 @@ int main(void) {
     cudaEventSynchronize(stop);
     print_elapsed_time(start, stop);
     */
+    printf("before delete\n");
+    ggrid->del();
     putchar('\n');
     return 0;
 }

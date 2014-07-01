@@ -45,7 +45,8 @@ class GPU_velocity_grid {
         vel_block *vel_grid;
         
 		GPU_velocity_grid(spatial_cell::SpatialCell *spacell);
-		~GPU_velocity_grid(void);
+		~GPU_velocity_grid(void); // Dummy destructor that does not do anything to make passing by value possible.
+		__host__ void del(void); // The actual destructor
 
 		__host__ void init_grid(void);
 		__host__ spatial_cell::SpatialCell *toSpatialCell(void);
