@@ -11,8 +11,6 @@ void print_elapsed_time(cudaEvent_t start, cudaEvent_t stop) {
     printf("Execution time: %f ms\n", milliseconds);
 }
 
-int Parameters::sparseBlockAddWidthV = 1;
-
 int main(void) {
     putchar('\n');
     init_spatial_cell_static();
@@ -40,11 +38,7 @@ int main(void) {
         for (int j = 0; j < WID3; j++) block_ptr->data[j]=ind+j/100.;
     }
     */
-    // Remove unnecessary blocks from spatial cell
-    std::vector<SpatialCell*> neighbor_ptrs;
-    spacell->update_velocity_block_content_lists();
-    spacell->adjust_velocity_blocks(neighbor_ptrs,true);
-    
+
     // Print data as it is on CPU
     //printf("On host:\n");
     //print_blocks(&spacell);

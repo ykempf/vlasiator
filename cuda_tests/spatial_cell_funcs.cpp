@@ -7,6 +7,8 @@ const float v_max = 4e6;
 const float min_value = 1e-15;
 using namespace spatial_cell;
 
+int Parameters::sparseBlockAddWidthV = 1;
+
 // Initializes the SpatialCell static variables to values given above
 void init_spatial_cell_static(void) {
     SpatialCell::vx_length = spatial_cell_side_length;
@@ -166,5 +168,10 @@ SpatialCell *create_maxwellian(float T, float rho) {
             }
         }
     }
+    // Remove unnecessary blocks from spatial cell
+    std::vector<SpatialCell*> neighbor_ptrs;
+    spacell->update_velocity_block_content_lists();
+    spacell->adjust_velocity_blocks(neighbor_ptrs,true);
+    
     return spacell;
 }
