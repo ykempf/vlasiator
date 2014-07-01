@@ -11,10 +11,12 @@ void print_elapsed_time(cudaEvent_t start, cudaEvent_t stop) {
     printf("Execution time: %f ms\n", milliseconds);
 }
 
+int Parameters::sparseBlockAddWidthV = 1;
+
 int main(void) {
     putchar('\n');
     init_spatial_cell_static();
-    SpatialCell spacell;
+    SpatialCell *spacell = create_maxwellian(1.0e6, 1.0e5);
     cudaEvent_t start, stop;
     // Initialize cuda events
     cudaEventCreate(&start);
@@ -23,6 +25,7 @@ int main(void) {
     int ids[ids_len];
 
     // Add blocks to the given ids
+    /*
     for (int i=0; i<ids_len; i++) {
         int ind = i;
         ind3d inds = GPU_velocity_grid::get_velocity_block_indices_host(ind);
@@ -36,16 +39,22 @@ int main(void) {
         // Put some data into each velocity spacell
         for (int j = 0; j < WID3; j++) block_ptr->data[j]=ind+j/100.;
     }
+    */
+    // Remove unnecessary blocks from spatial cell
+    std::vector<SpatialCell*> neighbor_ptrs;
+    spacell->update_velocity_block_content_lists();
+    spacell->adjust_velocity_blocks(neighbor_ptrs,true);
+    
     // Print data as it is on CPU
     //printf("On host:\n");
     //print_blocks(&spacell);
-    printf("Number of blocks: %i\n", ids_len);
+    //printf("Number of blocks: %i\n", ids_len);
     
     // Create a new instance. Constructor copies related data.
     printf("Create an instance of GPU_velovity_grid and copy data over to GPU:\n");
     CUDACALL(cudaDeviceSynchronize());
     cudaEventRecord(start);
-    GPU_velocity_grid *ggrid = new GPU_velocity_grid(&spacell);
+    GPU_velocity_grid *ggrid = new GPU_velocity_grid(spacell);
     CUDACALL(cudaEventRecord(stop));
     cudaEventSynchronize(stop);
     print_elapsed_time(start, stop);
@@ -93,8 +102,10 @@ int main(void) {
     cudaEventSynchronize(stop);
     print_elapsed_time(start, stop);
     
+    /*
     ggrid->print_cells();
     CUDACALL(cudaDeviceSynchronize());
+    */
     /*
     putchar('\n');
     printf("Back to CPU:\n");

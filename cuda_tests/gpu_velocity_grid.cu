@@ -153,7 +153,7 @@ __device__ vel_block* GPU_velocity_grid::get_velocity_grid_block(unsigned int bl
     // Move the indices to same origin and dimensions as the bounding box
     ind3d n_ind = {block_indices.x - min3d.x, block_indices.y - min3d.y, block_indices.z - min3d.z};
     vel_block *block_ptr = &vel_grid[n_ind.x + n_ind.y*box_dims.x + n_ind.z*box_dims.x*box_dims.y];
-    printf("%4u: %2u %2u %2u, %2u %2u %2u. %016lx\n", n_ind.x + n_ind.y*box_dims.x + n_ind.z*box_dims.x*box_dims.y, block_indices.x, block_indices.y, block_indices.z, n_ind.x, n_ind.y, n_ind.z, block_ptr);
+    //printf("%4u: %2u %2u %2u, %2u %2u %2u. %016lx\n", n_ind.x + n_ind.y*box_dims.x + n_ind.z*box_dims.x*box_dims.y, block_indices.x, block_indices.y, block_indices.z, n_ind.x, n_ind.y, n_ind.z, block_ptr);
     return block_ptr;
 }
 
@@ -193,10 +193,11 @@ __device__ Real GPU_velocity_grid::get_velocity_cell(unsigned int blockid, unsig
     // Check for out of bounds
     if (block == ERROR_BLOCK) return ERROR_CELL;
     if (cellid >= WID3) return ERROR_CELL;
-    printf("%08lx %08lx\n", &(vel_grid[0]), &(vel_grid[(*num_blocks)]));
-    printf("%u %u %08lx\n", blockid, cellid, block->data);
-    Real *pt = block->data;
-    Real ret = pt[cellid];
+    //unsigned int indx = (*num_blocks)-5;
+    //printf("%08lx ", &(vel_grid[0]));
+    //printf("%08lx\n", &(vel_grid[indx]));
+    //printf("%u %u %08lx\n", blockid, cellid, block->data);
+    Real ret = block->data[cellid];
     return ret;
 }
 
@@ -288,7 +289,7 @@ __global__ void relevant_block_list(bool *list, int N, GPU_velocity_grid grid) {
         bool val_found = false;
         vel_block *block_ptr;
         for (i = 0; i < WID3; i++) {
-            block_ptr = &grid.vel_grid[tid];
+            block_ptr = &(grid.vel_grid[tid]);
             //printf("%i %i %i %016lx %016lx\n", tid, i, N, block_ptr, block_ptr->data);
             val_found = (block_ptr->data[i] > min_value);
         }
@@ -304,14 +305,14 @@ __host__ SpatialCell* GPU_velocity_grid::toSpatialCell(void) {
     CUDACALL(cudaMemcpyFromSymbol(&bounding_box_mins, min3d, sizeof(ind3d)));
 
     int box_size = bounding_box_dims.x * bounding_box_dims.y * bounding_box_dims.z;
-    CUDACALL(cudaMallocManaged(&relevant_blocks, box_size * sizeof(bool)));
+    CUDACALL(cudaMalloc(&relevant_blocks, box_size * sizeof(bool)));
     
     const int blockSize = 64;
     const int gridSize = ceilDivide(box_size, 64); 
     
-    relevant_block_list<<<gridSize, blockSize>>>(relevant_blocks, box_size, *this);
+    //relevant_block_list<<<gridSize, blockSize>>>(relevant_blocks, box_size, *this);
     //bool *rel_blocks = (bool *)malloc(box_size * sizeof(bool));
-    CUDACALL(cudaDeviceSynchronize());
+    //CUDACALL(cudaDeviceSynchronize());
     //CUDACALL(cudaMemcpy(rel_blocks, relevant_blocks, box_size * sizeof(bool), cudaMemcpyDeviceToHost));
     
     unsigned int ind;
@@ -323,7 +324,10 @@ __host__ SpatialCell* GPU_velocity_grid::toSpatialCell(void) {
         spacell->add_velocity_block(ind);
         Velocity_Block* block_ptr = spacell->at(ind);
         // Copy the data over blockwise. The copy is asynchronous to enable better troughput.
-        //CUDACALL(cudaMemcpy(block_ptr->data, &(vel_grid[i].data[0]), 1 * sizeof(Real), cudaMemcpyDeviceToHost));
+        Real *pt1 = &(block_ptr->data[0]);
+        Real *pt2 = &(vel_grid[i].data[0]);
+        //CUDACALL(cudaMemcpyAsync(&(block_ptr->data[0]), &(vel_grid[i].data[0]), 1 * sizeof(Real), cudaMemcpyDeviceToHost));
+        CUDACALL(cudaMemcpy(pt1, pt2, 1 * sizeof(Real), cudaMemcpyDeviceToHost));
     }
     CUDACALL(cudaFree(relevant_blocks));
     CUDACALL(cudaDeviceSynchronize());

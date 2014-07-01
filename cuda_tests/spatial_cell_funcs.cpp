@@ -155,10 +155,12 @@ SpatialCell *create_maxwellian(float T, float rho) {
                     cell_vz = block_vz + cell_indices[2]*SpatialCell::cell_dvz;
                     
                     val = Maxwell(cell_vx, cell_vy, cell_vz, T, rho);
+                    /*
                     if (ci == 0 && i == j && j == k) {
                         printf("%6.2e %6.2e %6.2e: ", cell_vx, cell_vy, cell_vz);
                         printf("%i %e\n", i, val);
                     }
+                    */
                     spacell->set_value(cell_vx, cell_vy, cell_vz, val);
                 }
             }
