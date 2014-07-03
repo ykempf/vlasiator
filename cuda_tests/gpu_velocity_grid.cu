@@ -12,7 +12,7 @@ __constant__ ind3d min3d, max3d, box_dims;
 
 // Copies velocity_block_list and block_data as well as necessary constants from a SpatialCell to GPU for processing.
 GPU_velocity_grid::GPU_velocity_grid(SpatialCell *spacell) {
-	printf("GPU_velocity_grid constructor.\n");
+    cpu_cell = spacell;
     // Allocate memory on the gpu
 	unsigned int vel_block_list_size = spacell->number_of_blocks*sizeof(unsigned int);
 	unsigned int block_data_size = spacell->block_data.size()*sizeof(float);
@@ -57,12 +57,12 @@ void print_constants(void) {
 }
 
 __global__ void print_cells_k(GPU_velocity_grid ggrid) {
-    ind3d inds = {12,12,12};
+    ind3d inds = {15,15,15};
     unsigned int ind = ggrid.get_velocity_block(inds);
     printf("%e \n", ggrid.get_velocity_cell(ind, 0));
-    inds.x = 13; inds.y = 14; inds.z = 15;
+    inds.x = 16; inds.y = 16; inds.z = 16;
     ind = ggrid.get_velocity_block(inds);
-    printf("%e \n", ggrid.get_velocity_cell(ind, 5));
+    printf("%e \n", ggrid.get_velocity_cell(ind, 0));
     inds.x = 17; inds.y = 17; inds.z = 17;
     ind = ggrid.get_velocity_block(inds);
     printf("%e \n", ggrid.get_velocity_cell(ind, 6));
@@ -87,11 +87,20 @@ __device__ ind3d GPU_velocity_grid::get_velocity_block_indices(const unsigned in
     return indices;
 }
 
-__device__ ind3d GPU_velocity_grid::get_sparse_grid_block_indices(const unsigned int blockid) {
+__device__ ind3d GPU_velocity_grid::get_full_grid_block_indices(const unsigned int blockid) {
     ind3d indices;
-    indices.x = blockid % min3d.x;
-    indices.y = (blockid / min3d.x) % min3d.y;
-    indices.z = blockid / (min3d.x * min3d.y);
+    indices.x = blockid % box_dims.x;
+    indices.y = (blockid / box_dims.x) % box_dims.y;
+    indices.z = blockid / (box_dims.x * box_dims.y);
+
+    return indices;
+}
+
+__host__ ind3d GPU_velocity_grid::get_full_grid_block_indices_host(const unsigned int blockid, ind3d dims) {
+    ind3d indices;
+    indices.x = blockid % dims.x;
+    indices.y = (blockid / dims.x) % dims.y;
+    indices.z = blockid / (dims.x * dims.y);
 
     return indices;
 }
@@ -161,33 +170,17 @@ __device__ vel_block* GPU_velocity_grid::get_velocity_grid_block(unsigned int bl
     return block_ptr;
 }
 
-// Returns index of the full grid corresponding to the blockid of the sparse grid
-__device__ int GPU_velocity_grid::get_full_grid_block_ind(unsigned int blockid) {
-    ind3d block_indices = GPU_velocity_grid::get_velocity_block_indices(blockid);
-    // Check for out of bounds
-    if (block_indices.x > max3d.x ||
-        block_indices.y > max3d.y ||
-        block_indices.z > max3d.z ||
-        block_indices.x < min3d.x ||
-        block_indices.y < min3d.y ||
-        block_indices.z < min3d.z) return -1;
-    // Move the indices to same origin and dimensions as the bounding box
-    ind3d n_ind = {block_indices.x - min3d.x, block_indices.y - min3d.y, block_indices.z - min3d.z};
-    unsigned int ind = n_ind.x + n_ind.y*box_dims.x + n_ind.z*box_dims.x*box_dims.y;
-    return ind;    
-}
-
 // Returns index of the sparse grid corresponding to the blockid of the full grid
-__device__ int GPU_velocity_grid::get_sparse_grid_block_ind(unsigned int blockid) {
-    ind3d full_inds = get_velocity_block_indices(blockid);
+__device__ int GPU_velocity_grid::full_to_sparse_ind(unsigned int blockid) {
+    ind3d full_inds = get_full_grid_block_indices(blockid);
     ind3d sparse_inds = {min3d.x + full_inds.x, min3d.y + full_inds.y, min3d.z + full_inds.z};
     return sparse_inds.x + sparse_inds.y * vx_length + sparse_inds.z * vx_length * vy_length;
 }
 
 // Same as above for host. Requires indices of the minimum point of the full grid.
-__host__ int GPU_velocity_grid::get_sparse_grid_block_ind_host(unsigned int blockid, ind3d mins) {
-    ind3d full_inds = get_velocity_block_indices_host(blockid);
-    ind3d sparse_inds = {mins.x + full_inds.x, mins.y + full_inds.y, mins.z + full_inds.z};
+__host__ int GPU_velocity_grid::full_to_sparse_ind_host(unsigned int blockid, ind3d dims, ind3d mins) {
+        ind3d full_inds = get_full_grid_block_indices_host(blockid, dims);
+        ind3d sparse_inds = {mins.x + full_inds.x, mins.y + full_inds.y, mins.z + full_inds.z};
     return sparse_inds.x + sparse_inds.y * SpatialCell::vx_length + sparse_inds.z * SpatialCell::vx_length * SpatialCell::vy_length;
 }
 
@@ -233,7 +226,6 @@ __device__ void GPU_velocity_grid::set_velocity_block(unsigned int blockid, Real
 // Fills the given array of size len with val
 __global__ void init_data(vel_block *grid, Real val, int len) {
     unsigned int i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i == 0) printf("%8lx\n", grid);
     if (i < len) {
         for (int j = 0; j < WID3; j++) {
             grid[i].data[j] = val;
@@ -290,21 +282,24 @@ __global__ void relevant_block_list(bool *list, int N, GPU_velocity_grid grid) {
     if (tid < N) {
         Real min_value = *grid.min_val;
         int i;
-        bool val_found = false;
-        vel_block *block_ptr;
+        vel_block *block_ptr = &(grid.vel_grid[tid]);
         for (i = 0; i < WID3; i++) {
-            block_ptr = &(grid.vel_grid[tid]);
             //printf("%i %i %i %016lx %016lx\n", tid, i, N, block_ptr, block_ptr->data);
-            val_found = (block_ptr->data[i] > min_value);
+            if (block_ptr->data[i] > min_value) {
+                list[tid] = true;
+                break;
+            }
         }
-        list[i] = val_found;
+        if (i == WID3) list[tid] = false;
     }
+    __syncthreads();
 }
 
 // Creates a new SpatialCell with data from the full grid on GPU
 __host__ SpatialCell* GPU_velocity_grid::toSpatialCell(void) {
-    SpatialCell *spacell = new SpatialCell();
+    SpatialCell *spacell = cpu_cell; // The input SpatialCell is used to create the output.
     ind3d bounding_box_dims, bounding_box_mins;
+    bool *relevant_blocks;
     CUDACALL(cudaMemcpyFromSymbol(&bounding_box_dims, box_dims, sizeof(ind3d)));
     CUDACALL(cudaMemcpyFromSymbol(&bounding_box_mins, min3d, sizeof(ind3d)));
 
@@ -312,30 +307,54 @@ __host__ SpatialCell* GPU_velocity_grid::toSpatialCell(void) {
     CUDACALL(cudaMalloc(&relevant_blocks, box_size * sizeof(bool)));
     
     const int blockSize = 64;
-    const int gridSize = ceilDivide(box_size, 64); 
+    const int gridSize = ceilDivide(box_size, 64);
+    relevant_block_list<<<gridSize, blockSize>>>(relevant_blocks, box_size, *this);
     
-    //relevant_block_list<<<gridSize, blockSize>>>(relevant_blocks, box_size, *this);
-    //bool *rel_blocks = (bool *)malloc(box_size * sizeof(bool));
-    //CUDACALL(cudaDeviceSynchronize());
-    //CUDACALL(cudaMemcpy(rel_blocks, relevant_blocks, box_size * sizeof(bool), cudaMemcpyDeviceToHost));
+    clear_data(spacell); // Remove block data but keep memory allocation. Many of the original blocks should still exist, so no need to allocate for them again.
+    
+    bool *rel_blocks = (bool *)malloc(box_size * sizeof(bool));
+    CUDACALL(cudaDeviceSynchronize());
+    CUDACALL(cudaMemcpy(rel_blocks, relevant_blocks, box_size * sizeof(bool), cudaMemcpyDeviceToHost));
     
     unsigned int ind;
-    for (int i = 0; i < 3; i++) {
+    std::vector<int> rel_block_inds;
+    for (int i = 0; i < box_size; i++) {
         // See if the block should be copied.
-        //if (!relevant_blocks[i]) continue;
-        ind = get_sparse_grid_block_ind_host(i, bounding_box_mins);
+        if (!rel_blocks[i]) continue;
+        ind = full_to_sparse_ind_host(i, bounding_box_dims, bounding_box_mins);
+        rel_block_inds.push_back(ind);
         // Create the block in SpatialCell
         spacell->add_velocity_block(ind);
         Velocity_Block* block_ptr = spacell->at(ind);
-        // Copy the data over blockwise. The copy is asynchronous to enable better troughput.
-        Real *pt1 = &(block_ptr->data[0]);
-        Real *pt2 = &(vel_grid[i].data[0]);
+        // Copy the data over blockwise.
         //CUDACALL(cudaMemcpyAsync(&(block_ptr->data[0]), &(vel_grid[i].data[0]), 1 * sizeof(Real), cudaMemcpyDeviceToHost));
-        CUDACALL(cudaMemcpy(pt1, pt2, 1 * sizeof(Real), cudaMemcpyDeviceToHost));
+        CUDACALL(cudaMemcpy(&(block_ptr->data[0]), &(vel_grid[i].data[0]), WID3 * sizeof(Real), cudaMemcpyDeviceToHost));
     }
+    printf("Number of relevant blocks: %4lu\n", rel_block_inds.size());
+    for (int i = 0; i < rel_block_inds.size(); i++) {
+        int ind = rel_block_inds[i];
+        ind3d inds = GPU_velocity_grid::get_velocity_block_indices_host(ind);
+        printf("%4i(%03u,%03u,%03u), ", ind, inds.x, inds.y, inds.z);
+    }
+    putchar('\n');
     CUDACALL(cudaFree(relevant_blocks));
     CUDACALL(cudaDeviceSynchronize());
     return spacell;
+}
+
+__global__ void print_velocity_block_list_k(GPU_velocity_grid ggrid) {
+    printf("ggrid:\n");
+    printf("Number of relevant blocks: %4lu\n", *(ggrid.num_blocks));
+    for (int i = 0; i < *(ggrid.num_blocks); i++) {
+        int ind = ggrid.velocity_block_list[i];
+        ind3d inds = GPU_velocity_grid::get_velocity_block_indices(ind);
+        printf("%4i(%03u,%03u,%03u), ", ind, inds.x, inds.y, inds.z);
+    }
+}
+
+__host__ void GPU_velocity_grid::print_velocity_block_list(void) {
+    print_velocity_block_list_k<<<1,1>>>(*this);
+    cudaDeviceSynchronize();
 }
 
 

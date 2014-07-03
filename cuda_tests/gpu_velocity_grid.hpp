@@ -36,7 +36,7 @@ typedef struct{Real data[WID3];} vel_block;
 
 class GPU_velocity_grid {
     private:
-        bool *relevant_blocks;
+        spatial_cell::SpatialCell *cpu_cell;
     public:
         unsigned int *num_blocks, num_blocks_host;
         unsigned int *velocity_block_list;
@@ -58,9 +58,9 @@ class GPU_velocity_grid {
 		__device__ static inline unsigned int vy_len(void);
 		__device__ static inline unsigned int vz_len(void);
 		__device__ vel_block* get_velocity_grid_block(unsigned int blockid);
-		__device__ int get_full_grid_block_ind(unsigned int blockid);
-		__device__ int get_sparse_grid_block_ind(unsigned int blockid);
-		__host__ int get_sparse_grid_block_ind_host(unsigned int blockid, ind3d mins);
+		__device__ int full_to_sparse_ind(unsigned int blockid);
+		__host__ int full_to_sparse_ind_host(unsigned int blockid, ind3d dims, ind3d mins);
+		__host__   ind3d get_full_grid_block_indices_host(const unsigned int blockid, ind3d mins);
 		__device__ Real get_velocity_cell(unsigned int blockid, unsigned int cellid);
 		__device__ Real set_velocity_cell(unsigned int blockid, unsigned int cellid, Real val);
 		__device__ void set_velocity_block(unsigned int blockid, Real *vals);
@@ -68,10 +68,11 @@ class GPU_velocity_grid {
 		__host__ void print_blocks(void);
 		__host__ void k_print_blocks(void);
 		__device__ static ind3d get_velocity_block_indices(const unsigned int blockid);
-		__device__ ind3d get_sparse_grid_block_indices(const unsigned int blockid);
+		__device__ ind3d get_full_grid_block_indices(const unsigned int blockid);
 		__host__ static ind3d get_velocity_block_indices_host(const unsigned int blockid);
 		__device__ static unsigned int get_velocity_block(const ind3d indices);
 		__host__ void print_cells(void);
+		__host__ void print_velocity_block_list(void);
 };
 
 void print_constants(void);

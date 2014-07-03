@@ -1,5 +1,6 @@
+#include <algorithm>
+#include <vector>
 #include "gpu_velocity_grid.hpp"
-
 using namespace spatial_cell;
 
 const unsigned int min_lim = 5;
@@ -14,15 +15,15 @@ void print_elapsed_time(cudaEvent_t start, cudaEvent_t stop) {
 int main(void) {
     putchar('\n');
     init_spatial_cell_static();
-    SpatialCell *spacell = create_maxwellian(1.0e6, 1.0e5);
+    SpatialCell *spacell = create_maxwellian(1.0e6, 1.0e5); std::sort(spacell->velocity_block_list.begin(), spacell->velocity_block_list.end());;
     cudaEvent_t start, stop;
     // Initialize cuda events
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
-    const int ids_len = (int)2e4;
-    int ids[ids_len];
 
     // Add blocks to the given ids
+    //const int ids_len = (int)2e4;
+    //int ids[ids_len];
     /*
     for (int i=0; i<ids_len; i++) {
         int ind = i;
@@ -42,7 +43,7 @@ int main(void) {
     // Print data as it is on CPU
     //printf("On host:\n");
     //print_blocks(&spacell);
-    //printf("Number of blocks: %i\n", ids_len);
+    printf("Number of blocks: %i\n", spacell->number_of_blocks);
     
     // Create a new instance. Constructor copies related data.
     printf("Create an instance of GPU_velovity_grid and copy data over to GPU:\n");
@@ -96,21 +97,32 @@ int main(void) {
     cudaEventSynchronize(stop);
     print_elapsed_time(start, stop);
     
-    printf("print_cells\n");
     ggrid->print_cells();
     CUDACALL(cudaDeviceSynchronize());
+
+    putchar('\n');
+    printf("spacell:\n");
+    printf("Number of relevant blocks: %4lu\n", spacell->velocity_block_list.size());
+    for (int i = 0; i < spacell->velocity_block_list.size(); i++) {
+        int ind = spacell->velocity_block_list[i];
+        ind3d inds = GPU_velocity_grid::get_velocity_block_indices_host(ind);
+        printf("%4i(%03u,%03u,%03u), ", ind, inds.x, inds.y, inds.z);
+    }
+    putchar('\n');
     
-    /*
+    putchar('\n');
+    ggrid->print_velocity_block_list();
+    putchar('\n');
+    
     putchar('\n');
     printf("Back to CPU:\n");
     CUDACALL(cudaDeviceSynchronize());
     cudaEventRecord(start);
-    SpatialCell *spacell2 = ggrid->toSpatialCell();
+    spacell = ggrid->toSpatialCell();
     CUDACALL(cudaEventRecord(stop));
     cudaEventSynchronize(stop);
     print_elapsed_time(start, stop);
-    */
-    printf("before delete\n");
+    
     ggrid->del();
     putchar('\n');
     return 0;

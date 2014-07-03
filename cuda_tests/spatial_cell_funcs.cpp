@@ -1,13 +1,14 @@
 #include "spatial_cell_funcs.hpp"
 
-// Use same values for all dimensions for this test
-const int spatial_cell_side_length = 30; // 30 is the realistic case, 10 or 100 good for testing
-const float v_min = -4e6;
-const float v_max = 4e6;
-const float min_value = 1e-15;
 using namespace spatial_cell;
 
-int Parameters::sparseBlockAddWidthV = 1;
+// Use same values for all dimensions for this test
+const int spatial_cell_side_length = 30; // 30 is the realistic case, 10 or 100 good for testing
+const Real v_min = -4e6;
+const Real v_max = 4e6;
+const Real min_value = 1e-17;
+
+int Parameters::sparseBlockAddWidthV = 0;
 
 // Initializes the SpatialCell static variables to values given above
 void init_spatial_cell_static(void) {
@@ -43,6 +44,19 @@ void init_spatial_cell_static(void) {
                                                 block_vx_length;
     SpatialCell::cell_dvy = SpatialCell::block_dvy / block_vy_length;
     SpatialCell::cell_dvz = SpatialCell::block_dvz / block_vz_length;
+}
+
+// Sets the data on all existing cells to zero.
+void clear_data(SpatialCell *spacell) {
+    unsigned int ind;
+    Velocity_Block* block_ptr;
+    for(int i = 0; i < spacell->number_of_blocks; i++) {
+        ind = spacell->velocity_block_list[i];
+        block_ptr = spacell->at(ind);
+        for (int j = 0; j < WID3; j++) {
+            block_ptr->data[j] = (Real)0.0;
+        }
+    }
 }
 
 // Prints information about the velocity blocks on the CPU. Used to check correct transfer to GPU.
@@ -115,9 +129,9 @@ void fprint_projection(float *projection, std::string filename) {
 }
 
 // Returns values for the given index
-float Maxwell(float vx, float vy, float vz, float T, float rho) {
-    double temp;
-    double val = rho;
+Real Maxwell(Real vx, Real vy, Real vz, Real T, Real rho) {
+    Real temp;
+    Real val = rho;
     val *= pow(physicalconstants::MASS_PROTON / (2.0 * M_PI * \
     physicalconstants::K_B * T), 1.5);
     //if (val == 0.0) printf("Error at %f %f %f\n", vx, vy, vz);
@@ -125,21 +139,21 @@ float Maxwell(float vx, float vy, float vz, float T, float rho) {
 //printf("%e %e\n", val, -physicalconstants::MASS_PROTON * temp);
     val *= exp(-physicalconstants::MASS_PROTON * temp);
     //if (val == 0.0) printf("Error at %f %f %f\n", vx, vy, vz);
-    return (float)val;
+    return val;
 }
 
 // Returns a spatial cell with a Maxwellian velocity space of size len_side^3
-SpatialCell *create_maxwellian(float T, float rho) {
+SpatialCell *create_maxwellian(Real T, Real rho) {
     SpatialCell *spacell;
     spacell = new SpatialCell();
     // Loop over the whole velocity space
-    float val;
-    float block_vx;
-    float block_vy;
-    float block_vz;
-    float cell_vx;
-    float cell_vy;
-    float cell_vz;
+    Real val;
+    Real block_vx;
+    Real block_vy;
+    Real block_vz;
+    Real cell_vx;
+    Real cell_vy;
+    Real cell_vz;
     velocity_cell_indices_t cell_indices;
     // Loop over blocks
     for (unsigned int i = 0; i < SpatialCell::vx_length; i++) {
