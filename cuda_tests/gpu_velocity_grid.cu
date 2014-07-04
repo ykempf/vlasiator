@@ -15,25 +15,26 @@ GPU_velocity_grid::GPU_velocity_grid(SpatialCell *spacell) {
     cpu_cell = spacell;
     // Allocate memory on the gpu
 	unsigned int vel_block_list_size = spacell->number_of_blocks*sizeof(unsigned int);
-	unsigned int block_data_size = spacell->block_data.size()*sizeof(float);
+	unsigned int block_data_size = spacell->block_data.size() * sizeof(Real);
 
-    cudaMalloc(&num_blocks, sizeof(unsigned int));
-	cudaMalloc(&velocity_block_list, vel_block_list_size);
-	cudaMalloc(&block_data, block_data_size);
-    cudaMalloc(&min_val, sizeof(Real));
+    CUDACALL(cudaMalloc(&num_blocks, sizeof(unsigned int)));
+	CUDACALL(cudaMalloc(&velocity_block_list, vel_block_list_size));
+	printf("Block data size: (%u*%lu*%lu)=%u  \n", WID3, spacell->block_data.size(), sizeof(Real), block_data_size);
+	CUDACALL(cudaMalloc(&block_data, block_data_size));
+    CUDACALL(cudaMalloc(&min_val, sizeof(Real)));
 	
 	// Copy to gpu
 	unsigned int *velocity_block_list_arr = &(spacell->velocity_block_list[0]);
 	float *block_data_arr = &(spacell->block_data[0]);
 
 	num_blocks_host = spacell->number_of_blocks;
-	cudaMemcpy(min_val, &(SpatialCell::velocity_block_min_value), sizeof(Real), cudaMemcpyHostToDevice);
-	cudaMemcpy(num_blocks, &(spacell->number_of_blocks), sizeof(unsigned int), cudaMemcpyHostToDevice);
-	cudaMemcpyToSymbol(vx_length, &SpatialCell::vx_length, sizeof(unsigned int));
-	cudaMemcpyToSymbol(vy_length, &SpatialCell::vy_length, sizeof(unsigned int));
-	cudaMemcpyToSymbol(vz_length, &SpatialCell::vz_length, sizeof(unsigned int));
-	cudaMemcpy(velocity_block_list, velocity_block_list_arr, vel_block_list_size, cudaMemcpyHostToDevice);
-	cudaMemcpy(block_data, block_data_arr, block_data_size, cudaMemcpyHostToDevice);
+	CUDACALL(cudaMemcpy(min_val, &(SpatialCell::velocity_block_min_value), sizeof(Real), cudaMemcpyHostToDevice));
+	CUDACALL(cudaMemcpy(num_blocks, &(spacell->number_of_blocks), sizeof(unsigned int), cudaMemcpyHostToDevice));
+	CUDACALL(cudaMemcpyToSymbol(vx_length, &SpatialCell::vx_length, sizeof(unsigned int)));
+	CUDACALL(cudaMemcpyToSymbol(vy_length, &SpatialCell::vy_length, sizeof(unsigned int)));
+	CUDACALL(cudaMemcpyToSymbol(vz_length, &SpatialCell::vz_length, sizeof(unsigned int)));
+	CUDACALL(cudaMemcpy(velocity_block_list, velocity_block_list_arr, vel_block_list_size, cudaMemcpyHostToDevice));
+	CUDACALL(cudaMemcpy(block_data, block_data_arr, block_data_size, cudaMemcpyHostToDevice));
 }
 
 // The proper destructor for GPU_velocity_grid that has to be called manually. See the destructor comments for details.
@@ -333,8 +334,9 @@ __host__ SpatialCell* GPU_velocity_grid::toSpatialCell(void) {
     printf("Number of relevant blocks: %4lu\n", rel_block_inds.size());
     for (int i = 0; i < rel_block_inds.size(); i++) {
         int ind = rel_block_inds[i];
+        Velocity_Block* block_ptr = spacell->at(ind);
         ind3d inds = GPU_velocity_grid::get_velocity_block_indices_host(ind);
-        printf("%4i(%03u,%03u,%03u), ", ind, inds.x, inds.y, inds.z);
+        printf("%4i(%03u,%03u,%03u)%5.2e, ", ind, inds.x, inds.y, inds.z, block_ptr->data[0]);
     }
     putchar('\n');
     CUDACALL(cudaFree(relevant_blocks));
@@ -343,12 +345,13 @@ __host__ SpatialCell* GPU_velocity_grid::toSpatialCell(void) {
 }
 
 __global__ void print_velocity_block_list_k(GPU_velocity_grid ggrid) {
+    const int cellid = 0;
     printf("ggrid:\n");
-    printf("Number of relevant blocks: %4lu\n", *(ggrid.num_blocks));
+    printf("Number of relevant blocks: %4u\n", *ggrid.num_blocks);
     for (int i = 0; i < *(ggrid.num_blocks); i++) {
         int ind = ggrid.velocity_block_list[i];
         ind3d inds = GPU_velocity_grid::get_velocity_block_indices(ind);
-        printf("%4i(%03u,%03u,%03u), ", ind, inds.x, inds.y, inds.z);
+        printf("%4i(%03u,%03u,%03u)%5.2e, ", ind, inds.x, inds.y, inds.z, ggrid.block_data[i*WID3 + cellid]);
     }
 }
 

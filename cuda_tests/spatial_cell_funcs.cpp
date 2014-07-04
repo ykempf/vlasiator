@@ -189,3 +189,10 @@ SpatialCell *create_maxwellian(Real T, Real rho) {
     
     return spacell;
 }
+
+/*
+void sort_spatial_cell(SpatialCell * spacell) {
+    int indices = new int[spacell->num_blocks];
+    // Initialize the index array
+    for (int i = 0; i < spacell->num_blocks; i++) indices[i] = i;
+}*/
