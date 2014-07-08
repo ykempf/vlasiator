@@ -15,7 +15,7 @@ NVCC_FLAGS +=--relocatable-device-code=true
 CCFLAGS += -O3 -std=c++11 -Wno-write-strings
 
 LIBS += $(LIB_BOOST) $(LIB_PROFILE) $(LIB_MPI)
-INCS += $(INC_BOOST) $(INC_PROFILE) $(SOURCE_FOLDER) $(INC_MPI)
+INCS += $(INC_BOOST) $(INC_PROFILE) $(SOURCE_FOLDER) $(INC_MPI) $(INC_EIGEN) -I../vlasovsolver/ -I../
 
 OBJS = spatial_cell.o gpu_velocity_grid.o gpu_test.o spatial_cell_funcs.o gpu_link.o bounding_box.o
 CPU_OBJS = cpu_test.o spatial_cell.o spatial_cell_funcs.o

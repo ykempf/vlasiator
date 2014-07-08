@@ -6,6 +6,7 @@
 *.exe
 *.out*
 vlasiator
+*.dat
 
 # Backups and temporary files
 *~

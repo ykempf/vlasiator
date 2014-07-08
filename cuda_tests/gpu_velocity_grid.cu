@@ -19,13 +19,12 @@ GPU_velocity_grid::GPU_velocity_grid(SpatialCell *spacell) {
 
     CUDACALL(cudaMalloc(&num_blocks, sizeof(unsigned int)));
 	CUDACALL(cudaMalloc(&velocity_block_list, vel_block_list_size));
-	printf("Block data size: (%u*%lu*%lu)=%u  \n", WID3, spacell->block_data.size(), sizeof(Real), block_data_size);
 	CUDACALL(cudaMalloc(&block_data, block_data_size));
     CUDACALL(cudaMalloc(&min_val, sizeof(Real)));
 	
 	// Copy to gpu
 	unsigned int *velocity_block_list_arr = &(spacell->velocity_block_list[0]);
-	float *block_data_arr = &(spacell->block_data[0]);
+	Real *block_data_arr = &(spacell->block_data[0]);
 
 	num_blocks_host = spacell->number_of_blocks;
 	CUDACALL(cudaMemcpy(min_val, &(SpatialCell::velocity_block_min_value), sizeof(Real), cudaMemcpyHostToDevice));
@@ -60,14 +59,12 @@ void print_constants(void) {
 __global__ void print_cells_k(GPU_velocity_grid ggrid) {
     ind3d inds = {15,15,15};
     unsigned int ind = ggrid.get_velocity_block(inds);
-    printf("%e \n", ggrid.get_velocity_cell(ind, 0));
+    printf("%u %u %u: %e \n", inds.x, inds.y, inds.z, ggrid.get_velocity_cell(ind, 0));
     inds.x = 16; inds.y = 16; inds.z = 16;
     ind = ggrid.get_velocity_block(inds);
-    printf("%e \n", ggrid.get_velocity_cell(ind, 0));
-    inds.x = 17; inds.y = 17; inds.z = 17;
+    printf("%u %u %u: %e \n", inds.x, inds.y, inds.z, ggrid.get_velocity_cell(ind, 0));inds.x = 17; inds.y = 17; inds.z = 17;
     ind = ggrid.get_velocity_block(inds);
-    printf("%e \n", ggrid.get_velocity_cell(ind, 6));
-    //printf("%f \n", ggrid->get_velocity_cell((unsigned int)1e5, 63u));
+    printf("%u %u %u: %e \n", inds.x, inds.y, inds.z, ggrid.get_velocity_cell(ind, 0));
 }
 void GPU_velocity_grid::print_cells(void) {
     print_cells_k<<<1,1>>>(*this);
@@ -200,7 +197,7 @@ __device__ Real GPU_velocity_grid::get_velocity_cell(unsigned int blockid, unsig
 }
 
 // Sets the data in a given block and cell id to val. Returns the old value of the cell.
-__device__ Real GPU_velocity_grid::set_velocity_cell(unsigned int blockid, unsigned int cellid, float val) {
+__device__ Real GPU_velocity_grid::set_velocity_cell(unsigned int blockid, unsigned int cellid, Real val) {
     vel_block *block = get_velocity_grid_block(blockid);
     // Check for out of bounds
     if (block == ERROR_BLOCK) return ERROR_CELL;
@@ -331,6 +328,7 @@ __host__ SpatialCell* GPU_velocity_grid::toSpatialCell(void) {
         //CUDACALL(cudaMemcpyAsync(&(block_ptr->data[0]), &(vel_grid[i].data[0]), 1 * sizeof(Real), cudaMemcpyDeviceToHost));
         CUDACALL(cudaMemcpy(&(block_ptr->data[0]), &(vel_grid[i].data[0]), WID3 * sizeof(Real), cudaMemcpyDeviceToHost));
     }
+    
     printf("Number of relevant blocks: %4lu\n", rel_block_inds.size());
     for (int i = 0; i < rel_block_inds.size(); i++) {
         int ind = rel_block_inds[i];
@@ -339,6 +337,7 @@ __host__ SpatialCell* GPU_velocity_grid::toSpatialCell(void) {
         printf("%4i(%03u,%03u,%03u)%5.2e, ", ind, inds.x, inds.y, inds.z, block_ptr->data[0]);
     }
     putchar('\n');
+    
     CUDACALL(cudaFree(relevant_blocks));
     CUDACALL(cudaDeviceSynchronize());
     return spacell;

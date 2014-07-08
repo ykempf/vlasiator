@@ -1,5 +1,5 @@
 #include "spatial_cell_funcs.hpp"
-
+#include <vector>
 using namespace spatial_cell;
 
 // Use same values for all dimensions for this test
@@ -190,9 +190,22 @@ SpatialCell *create_maxwellian(Real T, Real rho) {
     return spacell;
 }
 
-/*
-void sort_spatial_cell(SpatialCell * spacell) {
-    int indices = new int[spacell->num_blocks];
+// Sorts the blockid list and block_data according to blockids
+std::vector<int>* sorted_velocity_block_list(SpatialCell * spacell) {
+    // Container for sorting
+    class sort_indices {
+        private:
+        unsigned int* mparr;
+        public:
+        sort_indices(unsigned int* parr) : mparr(parr) {}
+        bool operator()(int i, int j) { return mparr[i]<mparr[j]; }
+    };
+    std::vector<int> *indices = new std::vector<int>(spacell->number_of_blocks);
     // Initialize the index array
-    for (int i = 0; i < spacell->num_blocks; i++) indices[i] = i;
-}*/
+    for (int i = 0; i < spacell->number_of_blocks; i++) (*indices)[i] = i;
+    // Sort indices to find the correct order
+    std::sort(indices->begin(), indices->end(), sort_indices(spacell->velocity_block_list.data()));
+
+    // Put the values to correct positions
+    return indices;
+}
