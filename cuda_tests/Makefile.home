@@ -13,8 +13,13 @@ INC_PROFILE = -I$(LIBRARY_PREFIX)/phiprof/include
 
 INC_EIGEN = -I$(LIBRARY_PREFIX)/Eigen-3.2.1
 
+INC_DCCRG = -I$(LIBRARY_PREFIX)/dccrg
+
 OPENMPI_PATH = /usr/lib/openmpi/
 
 LIB_MPI = -L$(OPENMPI_PATH)/lib
 INC_MPI = -I$(OPENMPI_PATH)/include
+
+INC_ZOLTAN = -I$(LIBRARY_PREFIX)/zoltan/include
+LIB_ZOLTAN = -L$(LIBRARY_PREFIX)/zoltan/lib
 
