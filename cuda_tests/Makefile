@@ -13,7 +13,7 @@ NVCC_FLAGS +=-DBOOST_NOINLINE='__attribute__ ((noinline))'
 # This enables linking across multiple cuda files. A separate nvcc linking is needed for this (gpu_link.o).
 NVCC_FLAGS +=--relocatable-device-code=true
 CCFLAGS += -O3 -std=c++11 -Wno-write-strings
-CCFLAGS += -DUSE_AGNER_VECTORCLASS -DACC_SEMILAG_PPM
+CCFLAGS += -DUSE_AGNER_VECTORCLASS -DACC_SEMILAG_PPM 
 
 LIBS += $(LIB_BOOST) $(LIB_PROFILE) $(LIB_MPI) $(LIB_ZOLTAN)
 INCS += $(INC_BOOST) $(INC_PROFILE) $(SOURCE_FOLDER) $(INC_MPI) $(INC_EIGEN) $(INC_DCCRG) $(INC_ZOLTAN) -I../vlasovsolver/ -I../ -I$(HOME)/include

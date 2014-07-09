@@ -6,6 +6,7 @@
 #include <fstream>
 #include "../spatial_cell.hpp"
 
+
 void init_spatial_cell_static(void);
 void print_blocks(spatial_cell::SpatialCell *cell);
 spatial_cell::SpatialCell *create_index_test_cell(void);
@@ -14,4 +15,5 @@ void fprint_projection(float *projection, std::string filename);
 float *xy_projection(spatial_cell::SpatialCell *spacell);
 void clear_data(spatial_cell::SpatialCell *spacell);
 std::vector<int>* sorted_velocity_block_list(spatial_cell::SpatialCell * spacell);
+void cpu_acc_cell(spatial_cell::SpatialCell *spacell, const Real dt);
 #endif

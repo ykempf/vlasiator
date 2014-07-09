@@ -125,6 +125,8 @@ int main(void) {
     cudaEventSynchronize(stop);
     print_elapsed_time(start, stop);
     
+    cpu_acc_cell(spacell, 1e-5);
+    
     ggrid->del();
     putchar('\n');
     return 0;

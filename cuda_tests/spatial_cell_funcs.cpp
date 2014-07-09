@@ -1,5 +1,6 @@
 #include "spatial_cell_funcs.hpp"
 #include <vector>
+#include "../vlasovsolver/cpu_acc_semilag.hpp"
 using namespace spatial_cell;
 
 // Use same values for all dimensions for this test
@@ -8,7 +9,11 @@ const Real v_min = -4e6;
 const Real v_max = 4e6;
 const Real min_value = 1e-17;
 
-int Parameters::sparseBlockAddWidthV = 0;
+// Required parameters hard coded here
+int  Parameters::sparseBlockAddWidthV = 0;
+Real Parameters::q = 1.60217653e-19;
+Real Parameters::maxSlAccelerationRotation=10.0;
+Real P::lorentzHallMinimumRho=1.0;
 
 // Initializes the SpatialCell static variables to values given above
 void init_spatial_cell_static(void) {
@@ -208,4 +213,9 @@ std::vector<int>* sorted_velocity_block_list(SpatialCell * spacell) {
 
     // Put the values to correct positions
     return indices;
+}
+
+// Wrapper for the Vlasiator function
+void cpu_acc_cell(SpatialCell *spacell, const Real dt) {
+    cpu_accelerate_cell(spacell, dt);
 }

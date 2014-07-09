@@ -3,6 +3,7 @@
 
 #include "common.h"
 #include "spatial_cell.hpp"
+#include "cpu_moments.h"
 
 #include <Eigen/Geometry>
 #include <Eigen/Core>
