@@ -125,7 +125,22 @@ int main(void) {
     cudaEventSynchronize(stop);
     print_elapsed_time(start, stop);
     
+    putchar('\n');
+    printf("CPU acceleration:\n");
+    cudaEventRecord(start);
     cpu_acc_cell(spacell, 1e-5);
+    CUDACALL(cudaEventRecord(stop));
+    print_elapsed_time(start, stop);
+    putchar('\n');
+    printf("spacell:\n");
+    printf("Number of relevant blocks: %4lu\n", spacell->velocity_block_list.size());
+    for (int i = 0; i < spacell->velocity_block_list.size(); i++) {
+        int ind = spacell->velocity_block_list[(*sorted_ind)[i]];
+        ind3d inds = GPU_velocity_grid::get_velocity_block_indices_host(ind);
+        Velocity_Block* block_ptr = spacell->at(ind);
+        printf("%4i(%03u,%03u,%03u)%5.2e, ", ind, inds.x, inds.y, inds.z, block_ptr->data[0]);
+    }
+    putchar('\n');
     
     ggrid->del();
     putchar('\n');
