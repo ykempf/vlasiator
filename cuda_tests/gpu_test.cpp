@@ -106,6 +106,7 @@ int main(void) {
     printf("Number of relevant blocks: %4lu\n", spacell->velocity_block_list.size());
     for (int i = 0; i < spacell->velocity_block_list.size(); i++) {
         int ind = spacell->velocity_block_list[(*sorted_ind)[i]];
+        //int ind = spacell->velocity_block_list[i];
         ind3d inds = GPU_velocity_grid::get_velocity_block_indices_host(ind);
         Velocity_Block* block_ptr = spacell->at(ind);
         printf("%4i(%03u,%03u,%03u)%5.2e, ", ind, inds.x, inds.y, inds.z, block_ptr->data[0]);
@@ -132,10 +133,15 @@ int main(void) {
     CUDACALL(cudaEventRecord(stop));
     print_elapsed_time(start, stop);
     putchar('\n');
+    std::vector<SpatialCell*> neighbor_ptrs;
+    spacell->update_velocity_block_content_lists();
+    spacell->adjust_velocity_blocks(neighbor_ptrs,true);
+    sorted_ind = sorted_velocity_block_list(spacell); // New blocks are likely created so first remove unnecessary and then make a new sorted index list
     printf("spacell:\n");
     printf("Number of relevant blocks: %4lu\n", spacell->velocity_block_list.size());
     for (int i = 0; i < spacell->velocity_block_list.size(); i++) {
         int ind = spacell->velocity_block_list[(*sorted_ind)[i]];
+        //int ind = spacell->velocity_block_list[i];
         ind3d inds = GPU_velocity_grid::get_velocity_block_indices_host(ind);
         Velocity_Block* block_ptr = spacell->at(ind);
         printf("%4i(%03u,%03u,%03u)%5.2e, ", ind, inds.x, inds.y, inds.z, block_ptr->data[0]);
