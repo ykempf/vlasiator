@@ -151,6 +151,25 @@ Real Maxwell(Real vx, Real vy, Real vz, Real T, Real rho) {
 SpatialCell *create_maxwellian(Real T, Real rho) {
     SpatialCell *spacell;
     spacell = new SpatialCell();
+    // Add some parameters by hand
+    spacell->parameters[CellParams::BGBX] = 1.0e-9;
+    spacell->parameters[CellParams::BGBY] = 1.0e-9;
+    spacell->parameters[CellParams::BGBZ] = 1.0e-9;
+    spacell->parameters[CellParams::BGBXVOL] = 1.0e-9;
+    spacell->parameters[CellParams::BGBYVOL] = 1.0e-9;
+    spacell->parameters[CellParams::BGBZVOL] = 1.0e-9;
+    spacell->parameters[CellParams::PERBXVOL] = 0.0;
+    spacell->parameters[CellParams::PERBYVOL] = 0.0;
+    spacell->parameters[CellParams::PERBZVOL] = 0.0;
+    spacell->derivativesBVOL[bvolderivatives::dPERBXVOLdy] = 0.0;
+    spacell->derivativesBVOL[bvolderivatives::dPERBXVOLdz] = 0.0;
+    spacell->derivativesBVOL[bvolderivatives::dPERBYVOLdx] = 0.0;
+    spacell->derivativesBVOL[bvolderivatives::dPERBYVOLdz] = 0.0;
+    spacell->derivativesBVOL[bvolderivatives::dPERBZVOLdx] = 0.0;
+    spacell->derivativesBVOL[bvolderivatives::dPERBZVOLdy] = 0.0;
+    spacell->parameters[CellParams::DX] = 100;
+    spacell->parameters[CellParams::DY] = 100;
+    spacell->parameters[CellParams::DZ] = 100;
     // Loop over the whole velocity space
     Real val;
     Real block_vx;
