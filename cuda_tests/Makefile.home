@@ -5,7 +5,7 @@ NVCC = nvcc
 NVCC_FLAGS = -arch=compute_20 -code=sm_20
 CCFLAGS = -lgomp -lcudart -lcuda -lcudadevrt
 CUDAFLAGS = -I${CUDA_HOME}/include -L$(CUDA_HOME)/lib64
-LIBRARY_PREFIX = /home/eskelinej/programs/
+LIBRARY_PREFIX = $(HOME)/programs/
 
 # Libraries
 LIB_PROFILE = -L$(LIBRARY_PREFIX)/phiprof/lib -lphiprof
@@ -23,3 +23,4 @@ INC_MPI = -I$(OPENMPI_PATH)/include
 INC_ZOLTAN = -I$(LIBRARY_PREFIX)/zoltan/include
 LIB_ZOLTAN = -L$(LIBRARY_PREFIX)/zoltan/lib
 
+INC_VECTORCLASS = -I$(LIBRARY_PREFIX)/vectorclass
