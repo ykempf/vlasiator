@@ -11,7 +11,7 @@ LIBRARY_PREFIX = $(USERAPPL)/openmpi/libraries
 MPI_HOME = /appl/opt/openmpi/1.8-cuda/gcc/4.8.2/
 
 INC_BOOST = -I$(LIBRARY_PREFIX)/boost/include
-LIB_BOOST = -L$(LIBRARY_PREFIX)/boost/lib -lboost_program_options
+LIB_BOOST = 
 
 LIB_PROFILE = -L$(LIBRARY_PREFIX)/phiprof/lib -lphiprof
 INC_PROFILE = -I$(LIBRARY_PREFIX)/phiprof/include
