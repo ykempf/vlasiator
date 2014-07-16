@@ -334,7 +334,7 @@ __host__ SpatialCell* GPU_velocity_grid::toSpatialCell(void) {
         int ind = rel_block_inds[i];
         Velocity_Block* block_ptr = spacell->at(ind);
         ind3d inds = GPU_velocity_grid::get_velocity_block_indices_host(ind);
-        printf("%4i(%03u,%03u,%03u)%5.2e, ", ind, inds.x, inds.y, inds.z, block_ptr->data[0]);
+        printf(block_print_format, ind, inds.x, inds.y, inds.z, block_ptr->data[0]);
     }
     putchar('\n');
     
@@ -350,7 +350,7 @@ __global__ void print_velocity_block_list_k(GPU_velocity_grid ggrid) {
     for (int i = 0; i < *(ggrid.num_blocks); i++) {
         int ind = ggrid.velocity_block_list[i];
         ind3d inds = GPU_velocity_grid::get_velocity_block_indices(ind);
-        printf("%4i(%03u,%03u,%03u)%5.2e, ", ind, inds.x, inds.y, inds.z, ggrid.block_data[i*WID3 + cellid]);
+        printf(block_print_format, ind, inds.x, inds.y, inds.z, ggrid.block_data[i*WID3 + cellid]);
     }
 }
 

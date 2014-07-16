@@ -15,7 +15,7 @@ void print_elapsed_time(cudaEvent_t start, cudaEvent_t stop) {
 int main(void) {
     putchar('\n');
     init_spatial_cell_static();
-    SpatialCell *spacell = create_maxwellian(1.0e6, 1.0e6);
+    SpatialCell *spacell = create_maxwellian(1.0e6, 1.0e5, 1e5);
     std::vector<int> *sorted_ind = sorted_velocity_block_list(spacell);
     cudaEvent_t start, stop;
     // Initialize cuda events
@@ -109,7 +109,7 @@ int main(void) {
         //int ind = spacell->velocity_block_list[i];
         ind3d inds = GPU_velocity_grid::get_velocity_block_indices_host(ind);
         Velocity_Block* block_ptr = spacell->at(ind);
-        printf("%4i(%03u,%03u,%03u)%5.2e, ", ind, inds.x, inds.y, inds.z, block_ptr->data[0]);
+        printf(block_print_format, ind, inds.x, inds.y, inds.z, block_ptr->data[0]);
     }
     putchar('\n');
     
@@ -129,14 +129,17 @@ int main(void) {
     putchar('\n');
     printf("CPU acceleration:\n");
     cudaEventRecord(start);
-    cpu_acc_cell(spacell, 1e-5);
+    cpu_acc_cell(spacell, 1e-3);
     CUDACALL(cudaEventRecord(stop));
     print_elapsed_time(start, stop);
     putchar('\n');
+    
+    // New blocks are likely created so first remove unnecessary and then make a new sorted index list
     std::vector<SpatialCell*> neighbor_ptrs;
     spacell->update_velocity_block_content_lists();
     spacell->adjust_velocity_blocks(neighbor_ptrs,true);
-    sorted_ind = sorted_velocity_block_list(spacell); // New blocks are likely created so first remove unnecessary and then make a new sorted index list
+    
+    sorted_ind = sorted_velocity_block_list(spacell);
     printf("spacell:\n");
     printf("Number of relevant blocks: %4lu\n", spacell->velocity_block_list.size());
     for (int i = 0; i < spacell->velocity_block_list.size(); i++) {
@@ -144,7 +147,7 @@ int main(void) {
         //int ind = spacell->velocity_block_list[i];
         ind3d inds = GPU_velocity_grid::get_velocity_block_indices_host(ind);
         Velocity_Block* block_ptr = spacell->at(ind);
-        printf("%4i(%03u,%03u,%03u)%5.2e, ", ind, inds.x, inds.y, inds.z, block_ptr->data[0]);
+        printf(block_print_format, ind, inds.x, inds.y, inds.z, block_ptr->data[0]);
     }
     putchar('\n');
     

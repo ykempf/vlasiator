@@ -40,7 +40,7 @@ gpu_velocity_grid.o: gpu_velocity_grid.cu gpu_velocity_grid.hpp bounding_box.cu
 spatial_cell.o: ../spatial_cell.cpp ../spatial_cell.hpp
 	$(CC) $(DEBUG) -c ../spatial_cell.cpp $(INCS) $(CCFLAGS) $(CUDAFLAGS)
 
-spatial_cell_funcs.o: spatial_cell_funcs.cpp gpu_velocity_grid.hpp
+spatial_cell_funcs.o: spatial_cell_funcs.cpp gpu_velocity_grid.hpp spatial_cell_funcs.hpp
 	$(CC) $(DEBUG) $(INCS) $(CCFLAGS) $(CUDAFLAGS) -c spatial_cell_funcs.cpp
 
 bounding_box.o: bounding_box.cu gpu_velocity_grid.hpp

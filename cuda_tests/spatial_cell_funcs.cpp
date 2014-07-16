@@ -1,5 +1,6 @@
 #include "spatial_cell_funcs.hpp"
 #include <vector>
+#include <math.h>
 #include "../vlasovsolver/cpu_acc_semilag.hpp"
 using namespace spatial_cell;
 
@@ -148,16 +149,17 @@ Real Maxwell(Real vx, Real vy, Real vz, Real T, Real rho) {
 }
 
 // Returns a spatial cell with a Maxwellian velocity space of size len_side^3
-SpatialCell *create_maxwellian(Real T, Real rho) {
+// x-offset: how much the center of the Maxwellian is moved along the x-axis
+SpatialCell *create_maxwellian(Real T, Real rho, Real x_offset) {
     SpatialCell *spacell;
     spacell = new SpatialCell();
     // Add some parameters by hand
-    spacell->parameters[CellParams::BGBX] = 1.0e-9;
-    spacell->parameters[CellParams::BGBY] = 1.0e-9;
-    spacell->parameters[CellParams::BGBZ] = 1.0e-9;
-    spacell->parameters[CellParams::BGBXVOL] = 1.0e-9;
-    spacell->parameters[CellParams::BGBYVOL] = 1.0e-9;
-    spacell->parameters[CellParams::BGBZVOL] = 1.0e-9;
+    spacell->parameters[CellParams::BGBX] = 0.0;
+    spacell->parameters[CellParams::BGBY] = 0.0;
+    spacell->parameters[CellParams::BGBZ] = 1.0e-5;
+    spacell->parameters[CellParams::BGBXVOL] = 0.0;
+    spacell->parameters[CellParams::BGBYVOL] = 0.0;
+    spacell->parameters[CellParams::BGBZVOL] = 1.0e-5;
     spacell->parameters[CellParams::PERBXVOL] = 0.0;
     spacell->parameters[CellParams::PERBYVOL] = 0.0;
     spacell->parameters[CellParams::PERBZVOL] = 0.0;
@@ -167,9 +169,9 @@ SpatialCell *create_maxwellian(Real T, Real rho) {
     spacell->derivativesBVOL[bvolderivatives::dPERBYVOLdz] = 0.0;
     spacell->derivativesBVOL[bvolderivatives::dPERBZVOLdx] = 0.0;
     spacell->derivativesBVOL[bvolderivatives::dPERBZVOLdy] = 0.0;
-    spacell->parameters[CellParams::DX] = 100;
-    spacell->parameters[CellParams::DY] = 100;
-    spacell->parameters[CellParams::DZ] = 100;
+    spacell->parameters[CellParams::DX] = spatial_cell_side_length;
+    spacell->parameters[CellParams::DY] = spatial_cell_side_length;
+    spacell->parameters[CellParams::DZ] = spatial_cell_side_length;
     // Loop over the whole velocity space
     Real val;
     Real block_vx;
@@ -190,10 +192,17 @@ SpatialCell *create_maxwellian(Real T, Real rho) {
                 for (unsigned int ci = 0; ci < VELOCITY_BLOCK_LENGTH; ci++) {
                     // Add the offset for each cell
                     cell_indices = SpatialCell::get_velocity_cell_indices(ci);
-                    cell_vx = block_vx + cell_indices[0]*SpatialCell::cell_dvx;
+                    cell_vx = block_vx + cell_indices[0]*SpatialCell::cell_dvx + x_offset;
                     cell_vy = block_vy + cell_indices[1]*SpatialCell::cell_dvy;
                     cell_vz = block_vz + cell_indices[2]*SpatialCell::cell_dvz;
-                    
+                    // Limit the velocities to fit within the velocity space
+                    cell_vx = fmaxf(cell_vx, v_min);
+                    cell_vy = fmaxf(cell_vy, v_min);
+                    cell_vz = fmaxf(cell_vz, v_min);
+                    cell_vx = fminf(cell_vx, v_max-.1);
+                    cell_vy = fminf(cell_vy, v_max-.1);
+                    cell_vz = fminf(cell_vz, v_max-.1);
+                    //printf("%f %f %f\n", cell_vx, cell_vy, cell_vz);
                     val = Maxwell(cell_vx, cell_vy, cell_vz, T, rho);
                     /*
                     if (ci == 0 && i == j && j == k) {

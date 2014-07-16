@@ -12,6 +12,8 @@
 #define ERROR_CELL -1.0f
 #define ERROR_BLOCK NULL
 
+#define block_print_format "%4i(%03u,%03u,%03u)%+5.2e, "
+
 #define CUDACALL(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 inline void gpuAssert(cudaError_t code, char *file, int line, bool abort=false)
 {
