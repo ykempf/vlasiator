@@ -111,8 +111,8 @@ int main(void) {
   /*define grid size*/
   const int dv = 20000;
   const Real v_min = -2e6;
-  const int blocks_per_dim_x = 50;
-  const int blocks_per_dim_y = 50;
+  const int blocks_per_dim_x = 1;
+  const int blocks_per_dim_y = 1;
   const int blocks_per_dim_z = 50;
   
 
@@ -145,7 +145,7 @@ int main(void) {
 
   /*loop over propagations*/
   for(int step = 0; step < iterations; step++){
-    if(step % 10 ==0)
+    if(step % 100 ==0)
       print_values(step, values + colindex(0,0), blocks_per_dim_z, v_min, dv);
     for(int i = 0; i < blocks_per_dim_x * WID; i++){
       for(int j = 0; j < blocks_per_dim_y * WID; j++){

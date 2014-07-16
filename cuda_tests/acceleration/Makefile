@@ -36,6 +36,9 @@ CXXFLAGS += ${INC_PROFILE}
 #define precision
 CXXFLAGS += -D${FP_PRECISION} -D${DISTRIBUTION_FP_PRECISION}
 
+# Get rid of some warnings
+CXXFLAGS += -Wno-sign-compare
+LDFLAGS  += -Wno-sign-compare
 
 default: map_test map_test_3d
 
