@@ -4,9 +4,9 @@
 using namespace spatial_cell;
 
 // Use same values for all dimensions for this test
-const int spatial_cell_side_length = 30; // 30 is the realistic case, 10 or 100 good for testing
-const Real v_min = -4e6;
-const Real v_max = 4e6;
+const int spatial_cell_side_length = 25; // 30 is the realistic case, 10 or 100 good for testing
+const Real v_min = -1e6;
+const Real v_max = 1e6;
 const Real min_value = 1e-17;
 
 // Required parameters hard coded here
@@ -129,8 +129,8 @@ void fprint_projection(float *projection, std::string filename) {
             fout << projection[i] << " ";
         }
         fout << endl;
-	}
-	fout.close();
+    }
+    fout.close();
 }
 
 // Returns values for the given index

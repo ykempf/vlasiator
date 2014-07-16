@@ -14,35 +14,35 @@ __constant__ ind3d min3d, max3d, box_dims;
 GPU_velocity_grid::GPU_velocity_grid(SpatialCell *spacell) {
     cpu_cell = spacell;
     // Allocate memory on the gpu
-	unsigned int vel_block_list_size = spacell->number_of_blocks*sizeof(unsigned int);
-	unsigned int block_data_size = spacell->block_data.size() * sizeof(Real);
+    unsigned int vel_block_list_size = spacell->number_of_blocks*sizeof(unsigned int);
+    unsigned int block_data_size = spacell->block_data.size() * sizeof(Real);
 
     CUDACALL(cudaMalloc(&num_blocks, sizeof(unsigned int)));
-	CUDACALL(cudaMalloc(&velocity_block_list, vel_block_list_size));
-	CUDACALL(cudaMalloc(&block_data, block_data_size));
+    CUDACALL(cudaMalloc(&velocity_block_list, vel_block_list_size));
+    CUDACALL(cudaMalloc(&block_data, block_data_size));
     CUDACALL(cudaMalloc(&min_val, sizeof(Real)));
-	
-	// Copy to gpu
-	unsigned int *velocity_block_list_arr = &(spacell->velocity_block_list[0]);
-	Real *block_data_arr = &(spacell->block_data[0]);
+    
+    // Copy to gpu
+    unsigned int *velocity_block_list_arr = &(spacell->velocity_block_list[0]);
+    Real *block_data_arr = &(spacell->block_data[0]);
 
-	num_blocks_host = spacell->number_of_blocks;
-	CUDACALL(cudaMemcpy(min_val, &(SpatialCell::velocity_block_min_value), sizeof(Real), cudaMemcpyHostToDevice));
-	CUDACALL(cudaMemcpy(num_blocks, &(spacell->number_of_blocks), sizeof(unsigned int), cudaMemcpyHostToDevice));
-	CUDACALL(cudaMemcpyToSymbol(vx_length, &SpatialCell::vx_length, sizeof(unsigned int)));
-	CUDACALL(cudaMemcpyToSymbol(vy_length, &SpatialCell::vy_length, sizeof(unsigned int)));
-	CUDACALL(cudaMemcpyToSymbol(vz_length, &SpatialCell::vz_length, sizeof(unsigned int)));
-	CUDACALL(cudaMemcpy(velocity_block_list, velocity_block_list_arr, vel_block_list_size, cudaMemcpyHostToDevice));
-	CUDACALL(cudaMemcpy(block_data, block_data_arr, block_data_size, cudaMemcpyHostToDevice));
+    num_blocks_host = spacell->number_of_blocks;
+    CUDACALL(cudaMemcpy(min_val, &(SpatialCell::velocity_block_min_value), sizeof(Real), cudaMemcpyHostToDevice));
+    CUDACALL(cudaMemcpy(num_blocks, &(spacell->number_of_blocks), sizeof(unsigned int), cudaMemcpyHostToDevice));
+    CUDACALL(cudaMemcpyToSymbol(vx_length, &SpatialCell::vx_length, sizeof(unsigned int)));
+    CUDACALL(cudaMemcpyToSymbol(vy_length, &SpatialCell::vy_length, sizeof(unsigned int)));
+    CUDACALL(cudaMemcpyToSymbol(vz_length, &SpatialCell::vz_length, sizeof(unsigned int)));
+    CUDACALL(cudaMemcpy(velocity_block_list, velocity_block_list_arr, vel_block_list_size, cudaMemcpyHostToDevice));
+    CUDACALL(cudaMemcpy(block_data, block_data_arr, block_data_size, cudaMemcpyHostToDevice));
 }
 
 // The proper destructor for GPU_velocity_grid that has to be called manually. See the destructor comments for details.
 __host__ void GPU_velocity_grid::del(void) {
 // Free memory
     CUDACALL(cudaFree(num_blocks));
-	CUDACALL(cudaFree(velocity_block_list));
-	CUDACALL(cudaFree(block_data));
-	CUDACALL(cudaFree(vel_grid));
+    CUDACALL(cudaFree(velocity_block_list));
+    CUDACALL(cudaFree(block_data));
+    CUDACALL(cudaFree(vel_grid));
 }
 
 // Nothing in here because this is called whenever a copy-by-value goes out of scope. Call dell when you want to free memory related to the instance.

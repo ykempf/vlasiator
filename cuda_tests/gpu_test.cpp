@@ -15,7 +15,7 @@ void print_elapsed_time(cudaEvent_t start, cudaEvent_t stop) {
 int main(void) {
     putchar('\n');
     init_spatial_cell_static();
-    SpatialCell *spacell = create_maxwellian(1.0e6, 1.0e5);
+    SpatialCell *spacell = create_maxwellian(1.0e6, 1.0e6);
     std::vector<int> *sorted_ind = sorted_velocity_block_list(spacell);
     cudaEvent_t start, stop;
     // Initialize cuda events
