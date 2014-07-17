@@ -23,16 +23,8 @@ void print_values(int step, Real *values, uint blocks_per_dim, Real v_min, Real 
 void propagate(Real *values, uint  blocks_per_dim, Real v_min, Real dv,
 	       uint i_block, uint i_cell, uint j_block, uint j_cell,
 	       Real intersection, Real intersection_di, Real intersection_dj, Real intersection_dk){
-  Real a[MAX_BLOCKS_PER_DIM*WID][RECONSTRUCTION_ORDER + 1];  
+  Real a[RECONSTRUCTION_ORDER + 1];  
   Real target[(MAX_BLOCKS_PER_DIM+2)*WID]; 
-  
-  
-#ifdef ACC_SEMILAG_PLM
-  compute_plm_coeff_explicit_column(values, blocks_per_dim, a);
-#endif
-#ifdef ACC_SEMILAG_PPM
-  compute_ppm_coeff_explicit_column(values, blocks_per_dim, a);
-#endif
 
   /*clear temporary taret*/
   for (uint k=0; k<WID* (blocks_per_dim + 2); ++k){ 
@@ -73,25 +65,32 @@ void propagate(Real *values, uint  blocks_per_dim, Real v_min, Real dv,
   const Real v_int_norm_l = (v_int_l - v_l)/dv;
   const Real v_int_r = min((Real)(gk + 1) * intersection_dk + intersection_min, v_r);
   const Real v_int_norm_r = (v_int_r - v_l)/dv;
-        
+
+  uint k = k_block * WID + k_cell;
+  #ifdef ACC_SEMILAG_PLM
+    compute_plm_coeff_explicit_column(values, a, k);
+  #endif
+  #ifdef ACC_SEMILAG_PPM
+    compute_ppm_coeff_explicit_column(values, a, k);
+  #endif
 	 /*compute left and right integrand*/
 #ifdef ACC_SEMILAG_PLM
 	 Real target_density_l =
-	   v_int_norm_l * a[k_block * WID + k_cell][0] +
-	   v_int_norm_l * v_int_norm_l * a[k_block * WID + k_cell][1];
+	   v_int_norm_l * a[0] +
+	   v_int_norm_l * v_int_norm_l * a[1];
 	 Real target_density_r =
-	   v_int_norm_r * a[k_block * WID + k_cell][0] +
-	   v_int_norm_r * v_int_norm_r * a[k_block * WID + k_cell][1];
+	   v_int_norm_r * a[0] +
+	   v_int_norm_r * v_int_norm_r * a[1];
 #endif
 #ifdef ACC_SEMILAG_PPM
 	 Real target_density_l =
-	   v_int_norm_l * a[k_block * WID + k_cell][0] +
-	   v_int_norm_l * v_int_norm_l * a[k_block * WID + k_cell][1] +
-	   v_int_norm_l * v_int_norm_l * v_int_norm_l * a[k_block * WID + k_cell][2];
+	   v_int_norm_l * a[0] +
+	   v_int_norm_l * v_int_norm_l * a[1] +
+	   v_int_norm_l * v_int_norm_l * v_int_norm_l * a[2];
 	 Real target_density_r =
-	   v_int_norm_r * a[k_block * WID + k_cell][0] +
-	   v_int_norm_r * v_int_norm_r * a[k_block * WID + k_cell][1] +
-	   v_int_norm_r * v_int_norm_r * v_int_norm_r * a[k_block * WID + k_cell][2];
+	   v_int_norm_r * a[0] +
+	   v_int_norm_r * v_int_norm_r * a[1] +
+	   v_int_norm_r * v_int_norm_r * v_int_norm_r * a[2];
 #endif
 	 /*total value of integrand, if it is wihtin bounds*/
          if ( gk >= 0 && gk <= blocks_per_dim * WID )

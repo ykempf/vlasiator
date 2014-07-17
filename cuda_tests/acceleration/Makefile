@@ -41,7 +41,7 @@ CXXFLAGS += -D${FP_PRECISION} -D${DISTRIBUTION_FP_PRECISION}
 CXXFLAGS += -Wno-sign-compare
 LDFLAGS  += -Wno-sign-compare
 
-default: map_test map_test_3d
+default: map_test_3d
 
 all: map_test map_test_3d
 

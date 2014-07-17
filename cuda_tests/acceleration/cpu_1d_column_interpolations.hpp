@@ -60,12 +60,10 @@ inline void filter_boundedness(Real *values, Real &fv_l, Real &fv_r, int k) {
  t=(v-v_{i-0.5})/dv where v_{i-0.5} is the left face of a cell
  The factor 2.0 is in the polynom to ease integration, then integral is a[0]*t + a[1]*t**2
 */
-inline void compute_plm_coeff_explicit_column(Real *values, uint n_cblocks, Real a[][RECONSTRUCTION_ORDER + 1]){
-   for (uint k = 0; k < n_cblocks * WID; k++){   
-      const Real d_cv=slope_limiter(values[k - 1 + WID], values[k + WID], values[k + 1 + WID]);
-      a[k][0] = values[k + WID] - d_cv * 0.5;
-      a[k][1] = d_cv * 0.5;
-   }
+inline void compute_plm_coeff_explicit_column(Real *values, Real a[RECONSTRUCTION_ORDER + 1], uint k){ 
+   const Real d_cv=slope_limiter(values[k - 1 + WID], values[k + WID], values[k + 1 + WID]);
+   a[0] = values[k + WID] - d_cv * 0.5;
+   a[1] = d_cv * 0.5;
 }
 
 /*
@@ -75,7 +73,7 @@ inline void compute_plm_coeff_explicit_column(Real *values, uint n_cblocks, Real
   corresponds to the current (centered) cell.
 */
 
-inline void compute_ppm_coeff_explicit_column(Real *values, uint n_cblocks, Real a[][RECONSTRUCTION_ORDER + 1]){
+inline void compute_ppm_coeff_explicit_column(Real *values, Real a[RECONSTRUCTION_ORDER + 1], uint k){
    Real p_face;
    Real m_face;
    Real fv_l; /*left face value, extra space for ease of implementation*/
@@ -85,31 +83,24 @@ inline void compute_ppm_coeff_explicit_column(Real *values, uint n_cblocks, Real
    // filter_boundedness(values,n_cblocks,fv_l, fv_r); 
    // filter_extrema(values,n_cblocks,fv_l, fv_r);
 
-   // Set first face value by hand. This is actually the k=0 left face value (fv_l=fv_r in compute_h6_face_values)
-   uint k = 0;
-   fv_r = 1.0/60.0 * (values[k - 3 + WID]  - 8.0 * values[k - 2 + WID]  + 37.0 * values[k - 1 + WID] +
-          37.0 * values[k  + WID] - 8.0 * values[k + 1 + WID] + values[k + 2 + WID]);
+   compute_h6_face_values(values,fv_l, fv_r, k);
+   filter_boundedness(values,fv_l, fv_r, k);
+   filter_extrema(values,fv_l, fv_r, k);
+   m_face = fv_l;
+   p_face = fv_r;
+   
+   //Coella et al, check for monotonicity   
+   m_face = (p_face - m_face) * (values[k + WID] - 0.5 * (m_face + p_face)) > (p_face - m_face)*(p_face - m_face) / 6.0 ?
+      3 * values[k + WID] - 2 * p_face : m_face;
+   p_face = -(p_face - m_face) * (p_face - m_face) / 6.0 > (p_face - m_face) * (values[k + WID] - 0.5 * (m_face + p_face)) ?
+      3 * values[k + WID] - 2 * m_face : p_face;
 
-   for (uint k = 0; k < n_cblocks * WID; k++){
-      compute_h6_face_values(values,fv_l, fv_r, k);
-      filter_boundedness(values,fv_l, fv_r, k);
-      filter_extrema(values,fv_l, fv_r, k);
-      m_face = fv_l;
-      p_face = fv_r;
-      
-      //Coella et al, check for monotonicity   
-      m_face = (p_face - m_face) * (values[k + WID] - 0.5 * (m_face + p_face)) > (p_face - m_face)*(p_face - m_face) / 6.0 ?
-         3 * values[k + WID] - 2 * p_face : m_face;
-      p_face = -(p_face - m_face) * (p_face - m_face) / 6.0 > (p_face - m_face) * (values[k + WID] - 0.5 * (m_face + p_face)) ?
-         3 * values[k + WID] - 2 * m_face : p_face;
-
-      //Fit a second order polynomial for reconstruction see, e.g., White
-      //2008 (PQM article) (note additional integration factors built in,
-      //contrary to White (2008) eq. 4
-      a[k][0] = m_face;
-      a[k][1] = 3.0 * values[k + WID] - 2.0 * m_face - p_face;
-      a[k][2] = (m_face + p_face - 2.0 * values[k + WID]);
-   }
+   //Fit a second order polynomial for reconstruction see, e.g., White
+   //2008 (PQM article) (note additional integration factors built in,
+   //contrary to White (2008) eq. 4
+   a[0] = m_face;
+   a[1] = 3.0 * values[k + WID] - 2.0 * m_face - p_face;
+   a[2] = (m_face + p_face - 2.0 * values[k + WID]);
 }
 
 
