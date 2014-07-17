@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <vector>
+#include <time.h>
 #include "gpu_velocity_grid.hpp"
 using namespace spatial_cell;
 
@@ -128,10 +129,11 @@ int main(void) {
     
     putchar('\n');
     printf("CPU acceleration:\n");
-    cudaEventRecord(start);
+    clock_t cstart = clock(), diff;
     cpu_acc_cell(spacell, 1e-3);
-    CUDACALL(cudaEventRecord(stop));
-    print_elapsed_time(start, stop);
+    diff = clock() - cstart;
+    int msec = diff * 1000 / CLOCKS_PER_SEC;
+    printf("Time taken %d seconds %d milliseconds", msec/1000, msec%1000);
     putchar('\n');
     
     // New blocks are likely created so first remove unnecessary and then make a new sorted index list

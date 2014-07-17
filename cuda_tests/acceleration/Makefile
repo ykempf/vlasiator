@@ -12,13 +12,14 @@ DISTRIBUTION_FP_PRECISION = DPF
 CXXFLAGS += -DPROFILE
 
 #Add -DNDEBUG to turn debugging off. If debugging is enabled performance will degrade significantly
-CXXFLAGS += -DNDEBUG
+#CXXFLAGS += -DNDEBUG
+CXXFLAGS += -g -O0
 
 #Set order of semilag solver in velocity space acceleration
 #  ACC_SEMILAG_PLM 	2nd order	
 #  ACC_SEMILAG_PPM	3rd order (use this one unless you are testing)
 #  ACC_SEMILAG_PQM      5th order (in development)
-CXXFLAGS += -DACC_SEMILAG_PLM 
+CXXFLAGS += -DACC_SEMILAG_PPM 
 #define USE_AGNER_VECTORCLASS to use an external vector class that is used in some of the solvers
 #If not defined a slower but portable implementation is used, as the external one only supports 
 #Linux & x86 processors  

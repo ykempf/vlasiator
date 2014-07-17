@@ -69,10 +69,10 @@ void propagate(Real *values, uint  blocks_per_dim, Real v_min, Real dv,
          //in the targe cell. If both v_r and v_l are in same target cell
          //then v_int_l,v_int_r should be between v_l and v_r.
          //v_int_norm_l and v_int_norm_r normalized to be between 0 and 1 in the cell.
-	const Real v_int_l = min( max((Real)(gk) * intersection_dk + intersection_min, v_l), v_r);
-	const Real v_int_norm_l = (v_int_l - v_l)/dv;
-	const Real v_int_r = min((Real)(gk + 1) * intersection_dk + intersection_min, v_r);
-	const Real v_int_norm_r = (v_int_r - v_l)/dv;
+  const Real v_int_l = min( max((Real)(gk) * intersection_dk + intersection_min, v_l), v_r);
+  const Real v_int_norm_l = (v_int_l - v_l)/dv;
+  const Real v_int_r = min((Real)(gk + 1) * intersection_dk + intersection_min, v_r);
+  const Real v_int_norm_r = (v_int_r - v_l)/dv;
         
 	 /*compute left and right integrand*/
 #ifdef ACC_SEMILAG_PLM
