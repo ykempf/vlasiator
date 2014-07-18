@@ -7,6 +7,8 @@ Copyright 2013, 2014 Finnish Meteorological Institute
 #ifndef CPU_SLOPE_LIMITERS_H
 #define CPU_SLOPE_LIMITERS_H
 
+#include "common.h"
+
 using namespace std;
 
 /*!

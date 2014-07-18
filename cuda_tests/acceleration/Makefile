@@ -1,7 +1,8 @@
 #set default architecture, can be overridden from the compile line
 ARCH = $(VLASIATOR_ARCH)
-include ../../MAKE/Makefile.${ARCH}
-
+include ../Makefile.${ARCH}
+CMP = ${CC}
+LNK = ${CC}
 #set FP precision to SP (single) or DP (double)
 FP_PRECISION = DP
 
@@ -25,7 +26,10 @@ CXXFLAGS += -DACC_SEMILAG_PPM
 #Linux & x86 processors  
 CXXFLAGS += -DUSE_AGNER_VECTORCLASS
 
+LIBS += $(LIB_BOOST) $(LIB_PROFILE) $(LIB_MPI) $(LIB_ZOLTAN)
+INCS += $(INC_BOOST) $(INC_PROFILE) $(SOURCE_FOLDER) $(INC_MPI) $(INC_EIGEN) $(INC_DCCRG) $(INC_ZOLTAN) -I../../vlasovsolver/ -I../.. $(INC_VECTORCLASS)
 
+CXXFLAGS += -std=c++11
 
 #//////////////////////////////////////////////////////
 # The rest of this file users shouldn't need to change
@@ -68,14 +72,14 @@ clean:
 # Rules for making each object file needed by the executable
 
 map_test.o: map_test.cpp 
-	${CMP} ${CXXFLAGS} ${FLAG_OPENMP} ${MATHFLAGS} ${FLAGS}  -c map_test.cpp   ${INC_PROFILE}  ${INC_VECTORCLASS} 
+	${CMP} ${CXXFLAGS} ${FLAG_OPENMP} ${MATHFLAGS} ${FLAGS} ${INCS} -c map_test.cpp   ${INC_PROFILE}  ${INC_VECTORCLASS} 
 
 # Make executable
 map_test: map_test.o
 	$(LNK) ${LDFLAGS} -o map_test map_test.o $(LIBS)
 
 map_test_3d.o: map_test_3d.cpp 
-	${CMP} ${CXXFLAGS} ${FLAG_OPENMP} ${MATHFLAGS} ${FLAGS}  -c map_test_3d.cpp   ${INC_PROFILE}  ${INC_VECTORCLASS} 
+	${CMP} ${CXXFLAGS} ${FLAG_OPENMP} ${MATHFLAGS} ${FLAGS} ${INCS} -c map_test_3d.cpp   ${INC_PROFILE}  ${INC_VECTORCLASS} 
 
 # Make executable
 map_test_3d: map_test_3d.o

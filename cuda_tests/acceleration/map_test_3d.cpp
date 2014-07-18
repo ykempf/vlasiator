@@ -1,6 +1,7 @@
 #include <stdio.h>
-#include "common.h"
 #include "cpu_1d_column_interpolations.hpp"
+#include "cpu_acc_semilag_full.hpp"
+#include "common.h"
 
 #define index(i,j,k)   ( k + WID + j * (blocks_per_dim_z + 2) * WID + i * (blocks_per_dim_z + 2) * blocks_per_dim_y * WID2 )
 #define colindex(i,j)   ( j * (blocks_per_dim_z + 2) * WID + i * (blocks_per_dim_z + 2) * blocks_per_dim_y * WID2 )
@@ -21,7 +22,7 @@ void print_values(int step, Real *values, uint blocks_per_dim, Real v_min, Real 
 
 
 void propagate(Real *values, uint  blocks_per_dim, Real v_min, Real dv,
-	       uint i_block, uint i_cell, uint j_block, uint j_cell,
+       uint i_block, uint i_cell, uint j_block, uint j_cell,
 	       Real intersection, Real intersection_di, Real intersection_dj, Real intersection_dk){
   Real a[RECONSTRUCTION_ORDER + 1];  
   Real target[(MAX_BLOCKS_PER_DIM+2)*WID]; 
@@ -110,9 +111,9 @@ int main(void) {
   /*define grid size*/
   const int dv = 20000;
   const Real v_min = -2e6;
-  const int blocks_per_dim_x = 1;
-  const int blocks_per_dim_y = 1;
-  const int blocks_per_dim_z = 50;
+  const int blocks_per_dim_x = 10;
+  const int blocks_per_dim_y = 10;
+  const int blocks_per_dim_z = 10;
   
 
   Real *values = new Real[(blocks_per_dim_z+2) * blocks_per_dim_x * blocks_per_dim_z * WID3];
@@ -120,7 +121,7 @@ int main(void) {
   /*intersection values define the acceleration transformation. These would be obtained from other routines, but are here fixed*/
   Real intersection = v_min + 0.6*dv;
   Real intersection_di = dv/4.0;
-  Real intersection_dk = dv; 
+  Real intersection_dk = dv;
   Real intersection_dj = dv; //does not matter here, fixed j.
   
   const int iterations=1000;
@@ -148,15 +149,15 @@ int main(void) {
       print_values(step, values + colindex(0,0), blocks_per_dim_z, v_min, dv);
     for(int i = 0; i < blocks_per_dim_x * WID; i++){
       for(int j = 0; j < blocks_per_dim_y * WID; j++){
-	const int i_block = i / WID;
-	const int i_cell = i % WID;
-	const int j_block = j / WID;
-	const int j_cell = j % WID;
+        const int i_block = i / WID;
+        const int i_cell = i % WID;
+        const int j_block = j / WID;
+        const int j_cell = j % WID;
 
-	propagate(values + colindex(i,j), blocks_per_dim_z, v_min, dv,
-		  i_block, i_cell, j_block, j_cell,
-		  intersection, intersection_di, intersection_dj, intersection_dk);
+	       propagate(values + colindex(i,j), blocks_per_dim_z, v_min, dv,
+		      i_block, i_cell, j_block, j_cell,
+		      intersection, intersection_di, intersection_dj, intersection_dk);
       }
     }
   }
-} 
+}
