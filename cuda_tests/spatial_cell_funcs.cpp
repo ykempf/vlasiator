@@ -2,7 +2,7 @@
 #include <vector>
 #include <math.h>
 #include "../vlasovsolver/cpu_acc_semilag.hpp"
-#include "acceleration/map_test_3d.cpp"
+#include "acceleration/map_3d.hpp"
 
 using namespace spatial_cell;
 
