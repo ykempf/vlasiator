@@ -2,6 +2,7 @@
 #include <vector>
 #include <time.h>
 #include "gpu_velocity_grid.hpp"
+
 using namespace spatial_cell;
 
 const unsigned int min_lim = 5;

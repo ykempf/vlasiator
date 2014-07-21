@@ -2,6 +2,8 @@
 #include <vector>
 #include <math.h>
 #include "../vlasovsolver/cpu_acc_semilag.hpp"
+#include "acceleration/map_test_3d.cpp"
+
 using namespace spatial_cell;
 
 // Use same values for all dimensions for this test

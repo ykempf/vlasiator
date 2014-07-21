@@ -6,7 +6,6 @@
 #include <fstream>
 #include "../spatial_cell.hpp"
 
-
 void init_spatial_cell_static(void);
 void print_blocks(spatial_cell::SpatialCell *cell);
 spatial_cell::SpatialCell *create_index_test_cell(void);

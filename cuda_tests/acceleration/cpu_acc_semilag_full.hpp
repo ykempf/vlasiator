@@ -6,6 +6,13 @@
 #ifndef CPU_ACC_SEMILAG_H
 #define CPU_ACC_SEMILAG_H
 
+#ifdef ACC_SEMILAG_PLM
+#define RECONSTRUCTION_ORDER 1
+#endif
+#ifdef ACC_SEMILAG_PPM
+#define RECONSTRUCTION_ORDER 2
+#endif
+
 #include "algorithm"
 #include "cmath"
 #include "utility"

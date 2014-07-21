@@ -1,6 +1,6 @@
 #include <stdio.h>
-#include "cpu_1d_column_interpolations.hpp"
 #include "cpu_acc_semilag_full.hpp"
+#include "cpu_1d_column_interpolation.hpp"
 #include "common.h"
 
 #define index(i,j,k)   ( k + WID + j * (blocks_per_dim_z + 2) * WID + i * (blocks_per_dim_z + 2) * blocks_per_dim_y * WID2 )
@@ -47,7 +47,7 @@ void propagate(Real *values, uint  blocks_per_dim, Real v_min, Real dv,
    * explanations of their meening*/
 
   /*loop through all blocks in column and compute the mapping as integrals*/
-  for (unsigned int k_block = 0; k_block<blocks_per_dim;k_block++){
+  for (unsigned int k_block = 0; k_block<blocks_per_dim;k_block++) {
     for (uint k_cell=0; k_cell<WID; ++k_cell){ 
       /*v_l, v_r are the left and right velocity coordinates of source cell*/
       Real v_l = v_min + (k_block * WID + k_cell) * dv;
@@ -69,10 +69,10 @@ void propagate(Real *values, uint  blocks_per_dim, Real v_min, Real dv,
 
   uint k = k_block * WID + k_cell;
   #ifdef ACC_SEMILAG_PLM
-    compute_plm_coeff_explicit_column(values, a, k);
+    compute_plm_coeff_explicit_columns(values, a, k);
   #endif
   #ifdef ACC_SEMILAG_PPM
-    compute_ppm_coeff_explicit_column(values, a, k);
+    compute_ppm_coeff_explicit_columns(values, a, k);
   #endif
 	 /*compute left and right integrand*/
 #ifdef ACC_SEMILAG_PLM
@@ -107,57 +107,57 @@ void propagate(Real *values, uint  blocks_per_dim, Real v_min, Real dv,
   }   
 }
 
-int main(void) {
-  /*define grid size*/
-  const int dv = 20000;
-  const Real v_min = -2e6;
-  const int blocks_per_dim_x = 10;
-  const int blocks_per_dim_y = 10;
-  const int blocks_per_dim_z = 10;
+// int main(void) {
+//   /*define grid size*/
+//   const int dv = 20000;
+//   const Real v_min = -2e6;
+//   const int blocks_per_dim_x = 10;
+//   const int blocks_per_dim_y = 10;
+//   const int blocks_per_dim_z = 10;
   
 
-  Real *values = new Real[(blocks_per_dim_z+2) * blocks_per_dim_x * blocks_per_dim_z * WID3];
+//   Real *values = new Real[(blocks_per_dim_z+2) * blocks_per_dim_x * blocks_per_dim_z * WID3];
    
-  /*intersection values define the acceleration transformation. These would be obtained from other routines, but are here fixed*/
-  Real intersection = v_min + 0.6*dv;
-  Real intersection_di = dv/4.0;
-  Real intersection_dk = dv;
-  Real intersection_dj = dv; //does not matter here, fixed j.
+//   /*intersection values define the acceleration transformation. These would be obtained from other routines, but are here fixed*/
+//   Real intersection = v_min + 0.6*dv;
+//   Real intersection_di = dv/4.0;
+//   Real intersection_dk = dv;
+//   Real intersection_dj = dv; //does not matter here, fixed j.
   
-  const int iterations=1000;
+//   const int iterations=1000;
   
-  /*clear target & values array*/
-  for (uint k=0; k< (blocks_per_dim_z+2) * blocks_per_dim_x * blocks_per_dim_z * WID3; ++k){ 
-     values[k] = 0.0;
-  }
+//   /*clear target & values array*/
+//   for (uint k=0; k< (blocks_per_dim_z+2) * blocks_per_dim_x * blocks_per_dim_z * WID3; ++k){ 
+//      values[k] = 0.0;
+//   }
 
- /*Add square wave*/
-  for(int i=0; i < blocks_per_dim_x * WID; i++){
-    for(int j=0; j < blocks_per_dim_y * WID; j++){
-      for(int k=0; k < blocks_per_dim_z * WID; k++){
-	Real v = v_min + k * dv;
-	if (v > v_min +  0.8 * (blocks_per_dim_z * WID * dv) &&
-	    v < v_min +  0.9 * (blocks_per_dim_z * WID * dv))
-	  values[index(i,j,k)] = 1.0;
-      }
-    }
-  }
+//  /*Add square wave*/
+//   for(int i=0; i < blocks_per_dim_x * WID; i++){
+//     for(int j=0; j < blocks_per_dim_y * WID; j++){
+//       for(int k=0; k < blocks_per_dim_z * WID; k++){
+// 	Real v = v_min + k * dv;
+// 	if (v > v_min +  0.8 * (blocks_per_dim_z * WID * dv) &&
+// 	    v < v_min +  0.9 * (blocks_per_dim_z * WID * dv))
+// 	  values[index(i,j,k)] = 1.0;
+//       }
+//     }
+//   }
 
-  /*loop over propagations*/
-  for(int step = 0; step < iterations; step++){
-    if(step % 100 ==0)
-      print_values(step, values + colindex(0,0), blocks_per_dim_z, v_min, dv);
-    for(int i = 0; i < blocks_per_dim_x * WID; i++){
-      for(int j = 0; j < blocks_per_dim_y * WID; j++){
-        const int i_block = i / WID;
-        const int i_cell = i % WID;
-        const int j_block = j / WID;
-        const int j_cell = j % WID;
+//   /*loop over propagations*/
+//   for(int step = 0; step < iterations; step++){
+//     if(step % 100 ==0)
+//       print_values(step, values + colindex(0,0), blocks_per_dim_z, v_min, dv);
+//     for(int i = 0; i < blocks_per_dim_x * WID; i++){
+//       for(int j = 0; j < blocks_per_dim_y * WID; j++){
+//         const int i_block = i / WID;
+//         const int i_cell = i % WID;
+//         const int j_block = j / WID;
+//         const int j_cell = j % WID;
 
-	       propagate(values + colindex(i,j), blocks_per_dim_z, v_min, dv,
-		      i_block, i_cell, j_block, j_cell,
-		      intersection, intersection_di, intersection_dj, intersection_dk);
-      }
-    }
-  }
-}
+// 	       propagate(values + colindex(i,j), blocks_per_dim_z, v_min, dv,
+// 		      i_block, i_cell, j_block, j_cell,
+// 		      intersection, intersection_di, intersection_dj, intersection_dk);
+//       }
+//     }
+//   }
+// }

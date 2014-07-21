@@ -4,12 +4,12 @@ Copyright 2013, 2014 Finnish Meteorological Institute
 
 */
 
-#ifndef CPU_1D_COLUMN_INTERP_H
-#define CPU_1D_COLUMN_INTERP_H
+#ifndef CPU_1D_COLUMN_INTERPS_H
+#define CPU_1D_COLUMN_INTERPS_H
 
 #include "algorithm"
-#include "cmath"
-#include "cpu_slope_limiters.hpp"
+#include "math.h"
+#include "cpu_slope_limiter.hpp"
 
 using namespace std;
 
@@ -42,13 +42,13 @@ inline void filter_boundedness(Real *values, Real &fv_l, Real &fv_r, int k) {
       (values[k + 1 + WID] - fv_r) * (fv_r - values[k + WID]) < 0;
    if(do_fix_bounds) {
       Real slope_abs,slope_sign;
-      slope_limiter(values[k -1 + WID], values[k + WID], values[k + 1 + WID], slope_abs, slope_sign);
+      slope_limiter_(values[k -1 + WID], values[k + WID], values[k + 1 + WID], slope_abs, slope_sign);
       //detect and  fix boundedness, as in WHITE 2008
       fv_l = (values[k -1 + WID] - fv_l) * (fv_l - values[k + WID]) < 0 ?
-         values[k + WID] - slope_sign * min( 0.5 * slope_abs, abs(fv_l - values[k + WID])) :
+         values[k + WID] - slope_sign * std::min((Real)0.5 * slope_abs, (Real)abs(fv_l - values[k + WID])) :
          fv_l;
       fv_r = (values[k + 1 + WID] - fv_r) * (fv_r - values[k + WID]) < 0 ?
-         values[k + WID] + slope_sign * min( 0.5 * slope_abs, abs(fv_r- values[k + WID])) :
+         values[k + WID] + slope_sign * std::min( (Real)0.5 * slope_abs, (Real)abs(fv_r- values[k + WID])) :
          fv_r;
    }
 }
@@ -60,8 +60,8 @@ inline void filter_boundedness(Real *values, Real &fv_l, Real &fv_r, int k) {
  t=(v-v_{i-0.5})/dv where v_{i-0.5} is the left face of a cell
  The factor 2.0 is in the polynom to ease integration, then integral is a[0]*t + a[1]*t**2
 */
-inline void compute_plm_coeff_explicit_column(Real *values, Real a[RECONSTRUCTION_ORDER + 1], uint k){ 
-   const Real d_cv=slope_limiter(values[k - 1 + WID], values[k + WID], values[k + 1 + WID]);
+inline void compute_plm_coeff_explicit_columns(Real *values, Real a[RECONSTRUCTION_ORDER + 1], uint k){ 
+   const Real d_cv=slope_limiter_(values[k - 1 + WID], values[k + WID], values[k + 1 + WID]);
    a[0] = values[k + WID] - d_cv * 0.5;
    a[1] = d_cv * 0.5;
 }
@@ -73,7 +73,7 @@ inline void compute_plm_coeff_explicit_column(Real *values, Real a[RECONSTRUCTIO
   corresponds to the current (centered) cell.
 */
 
-inline void compute_ppm_coeff_explicit_column(Real *values, Real a[RECONSTRUCTION_ORDER + 1], uint k){
+inline void compute_ppm_coeff_explicit_columns(Real *values, Real a[RECONSTRUCTION_ORDER + 1], uint k){
    Real p_face;
    Real m_face;
    Real fv_l; /*left face value, extra space for ease of implementation*/
