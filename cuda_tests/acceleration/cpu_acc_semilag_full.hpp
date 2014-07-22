@@ -3,8 +3,8 @@
   Copyright 2013,2014 Finnish Meteorological Institute
 */
 
-#ifndef CPU_ACC_SEMILAG_H
-#define CPU_ACC_SEMILAG_H
+#ifndef CPU_ACC_SEMILAG_FULL_H
+#define CPU_ACC_SEMILAG__FULL_H
 
 #ifdef ACC_SEMILAG_PLM
 #define RECONSTRUCTION_ORDER 1
@@ -31,9 +31,13 @@
 #include "vlasovsolver/cpu_acc_intersections.hpp"
 #include "vlasovsolver/cpu_acc_map.hpp"
 
+#include "map_3d.hpp"
+
 using namespace std;
 using namespace spatial_cell;
 using namespace Eigen;
+
+int dx, dy, dz; // Dimensions of the full grid
 
 Real* to_full_grid(SpatialCell *spacell) {
   // First we find the bounding box of existing blocks
@@ -51,17 +55,17 @@ Real* to_full_grid(SpatialCell *spacell) {
     blockid = spacell->velocity_block_list[i];
     indices = SpatialCell::get_velocity_block_indices(blockid);
     if (indices[0] < min_x) min_x = indices[0];
-    if (indices[0] < min_y) min_y = indices[1];
-    if (indices[0] < min_z) min_z = indices[2];
+    if (indices[1] < min_y) min_y = indices[1];
+    if (indices[2] < min_z) min_z = indices[2];
     if (indices[0] > max_x) max_x = indices[0];
-    if (indices[0] > max_y) max_y = indices[1];
-    if (indices[0] > max_z) max_z = indices[2];
+    if (indices[1] > max_y) max_y = indices[1];
+    if (indices[2] > max_z) max_z = indices[2];
   }
 
   // Calculate the dimensions of the full grid. +1 because the box has to include both min and max.
-  int dx = max_x - min_x + 1;
-  int dy = max_y - min_y + 1;
-  int dz = max_z - min_z + 1;
+  dx = max_x - min_x + 1;
+  dy = max_y - min_y + 1;
+  dz = max_z - min_z + 1;
   Real *full_grid = new Real[dx*dy*dz * WID3];
 
   // Initialize cell values to 0
@@ -85,8 +89,7 @@ Real* to_full_grid(SpatialCell *spacell) {
   return full_grid;
 }
 
-void cpu_accelerate_cell(SpatialCell* spatial_cell,const Real dt) {
-
+void cpu_accelerate_cell_(SpatialCell* spatial_cell,const Real dt) {
    double t1=MPI_Wtime();
    /*compute transform, forward in time and backward in time*/
    phiprof::start("compute-transform");
@@ -95,9 +98,9 @@ void cpu_accelerate_cell(SpatialCell* spatial_cell,const Real dt) {
    Transform<Real,3,Affine> bwd_transform= fwd_transform.inverse();
    phiprof::stop("compute-transform");
    phiprof::start("compute-intersections");
-   Real intersection_z,intersection_z_di,intersection_z_dj,intersection_z_dk;  
-   Real intersection_x,intersection_x_di,intersection_x_dj,intersection_x_dk;  
-   Real intersection_y,intersection_y_di,intersection_y_dj,intersection_y_dk;  
+   Real intersection_z,intersection_z_di,intersection_z_dj,intersection_z_dk;
+   Real intersection_x,intersection_x_di,intersection_x_dj,intersection_x_dk;
+   Real intersection_y,intersection_y_di,intersection_y_dj,intersection_y_dk;
    compute_intersections_z(spatial_cell, bwd_transform, fwd_transform,
                            intersection_z,intersection_z_di,intersection_z_dj,intersection_z_dk);
    compute_intersections_x(spatial_cell, bwd_transform, fwd_transform,
@@ -106,12 +109,15 @@ void cpu_accelerate_cell(SpatialCell* spatial_cell,const Real dt) {
                            intersection_y,intersection_y_di,intersection_y_dj,intersection_y_dk);
    phiprof::stop("compute-intersections");
    phiprof::start("compute-mapping");
-   //propagate(Real *values, uint  blocks_per_dim, Real v_min, Real dv,
-   //    uint i_block, uint i_cell, uint j_block, uint j_cell,
-   //      Real intersection, Real intersection_di, Real intersection_dj, Real intersection_dk)
-   map_1d(spatial_cell, intersection_z,intersection_z_di,intersection_z_dj,intersection_z_dk,2); /*< map along z*/
-   map_1d(spatial_cell, intersection_x,intersection_x_di,intersection_x_dj,intersection_x_dk,0); /*< map along x*/
-   map_1d(spatial_cell, intersection_y,intersection_y_di,intersection_y_dj,intersection_y_dk,1); /*< map along y*/
+   Real *full_grid = to_full_grid(spatial_cell);
+   printf("%i %i %i\n", dx, dy, dz);
+   propagate(full_grid, dz, Real v_min, Real dv,
+       uint i_block, uint i_cell, uint j_block, uint j_cell,
+         intersection_z, Real intersection_z_di, Real intersection_z_dj, Real intersection_z_dk);
+   //map_1d(spatial_cell, intersection_z,intersection_z_di,intersection_z_dj,intersection_z_dk,2); /*< map along z*/
+   //map_1d(spatial_cell, intersection_x,intersection_x_di,intersection_x_dj,intersection_x_dk,0); /*< map along x*/
+   //map_1d(spatial_cell, intersection_y,intersection_y_di,intersection_y_dj,intersection_y_dk,1); /*< map along y*/
+   free(full_grid);
    phiprof::stop("compute-mapping");
    double t2=MPI_Wtime();
    spatial_cell->parameters[CellParams::LBWEIGHTCOUNTER] += t2 - t1;

@@ -328,7 +328,7 @@ __host__ SpatialCell* GPU_velocity_grid::toSpatialCell(void) {
         //CUDACALL(cudaMemcpyAsync(&(block_ptr->data[0]), &(vel_grid[i].data[0]), 1 * sizeof(Real), cudaMemcpyDeviceToHost));
         CUDACALL(cudaMemcpy(&(block_ptr->data[0]), &(vel_grid[i].data[0]), WID3 * sizeof(Real), cudaMemcpyDeviceToHost));
     }
-    
+    /*
     printf("Number of relevant blocks: %4lu\n", rel_block_inds.size());
     for (int i = 0; i < rel_block_inds.size(); i++) {
         int ind = rel_block_inds[i];
@@ -337,7 +337,7 @@ __host__ SpatialCell* GPU_velocity_grid::toSpatialCell(void) {
         printf(block_print_format, ind, inds.x, inds.y, inds.z, block_ptr->data[0]);
     }
     putchar('\n');
-    
+    */
     CUDACALL(cudaFree(relevant_blocks));
     CUDACALL(cudaDeviceSynchronize());
     return spacell;

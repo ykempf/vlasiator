@@ -65,7 +65,8 @@ int main(void) {
     ggrid->k_print_blocks();
     */
     //print_constants();
-    
+
+    // Initial kernel launch to try and get rid of any warmup delays
     cudaEventRecord(start);
     unsigned int min_ind = ggrid->min_ind();
     cudaEventRecord(stop);
@@ -103,6 +104,7 @@ int main(void) {
     ggrid->print_cells();
     CUDACALL(cudaDeviceSynchronize());
 
+    /*
     putchar('\n');
     printf("spacell:\n");
     printf("Number of relevant blocks: %4lu\n", spacell->velocity_block_list.size());
@@ -118,7 +120,7 @@ int main(void) {
     putchar('\n');
     ggrid->print_velocity_block_list();
     putchar('\n');
-    
+    */
     putchar('\n');
     printf("Back to CPU:\n");
     CUDACALL(cudaDeviceSynchronize());
@@ -143,6 +145,8 @@ int main(void) {
     spacell->adjust_velocity_blocks(neighbor_ptrs,true);
     
     sorted_ind = sorted_velocity_block_list(spacell);
+
+    /*
     printf("spacell:\n");
     printf("Number of relevant blocks: %4lu\n", spacell->velocity_block_list.size());
     for (int i = 0; i < spacell->velocity_block_list.size(); i++) {
@@ -153,7 +157,7 @@ int main(void) {
         printf(block_print_format, ind, inds.x, inds.y, inds.z, block_ptr->data[0]);
     }
     putchar('\n');
-    
+    */
     ggrid->del();
     putchar('\n');
     return 0;
