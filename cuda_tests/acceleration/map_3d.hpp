@@ -22,7 +22,7 @@ void print_values(int step, Real *values, uint blocks_per_dim, Real v_min, Real 
 
 void propagate(Real *values, uint  blocks_per_dim, Real v_min, Real dv,
        uint i_block, uint i_cell, uint j_block, uint j_cell,
-	       Real intersection, Real intersection_di, Real intersection_dj, Real intersection_dk){
+       Real intersection, Real intersection_di, Real intersection_dj, Real intersection_dk){
   Real a[RECONSTRUCTION_ORDER + 1];  
   Real target[(MAX_BLOCKS_PER_DIM+2)*WID]; 
 
@@ -34,7 +34,7 @@ void propagate(Real *values, uint  blocks_per_dim, Real v_min, Real dv,
    /* intersection_min is the intersection z coordinate (z after
       swaps that is) of the lowest possible z plane for each i,j
       index 
-   */	 
+   */
   const Real intersection_min = intersection +
      (i_block * WID + i_cell) * intersection_di + 
      (j_block * WID + j_cell) * intersection_dj;

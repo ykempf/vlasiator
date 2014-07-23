@@ -54,19 +54,6 @@ void init_spatial_cell_static(void) {
     SpatialCell::cell_dvz = SpatialCell::block_dvz / block_vz_length;
 }
 
-// Sets the data on all existing cells to zero.
-void clear_data(SpatialCell *spacell) {
-    unsigned int ind;
-    Velocity_Block* block_ptr;
-    for(int i = 0; i < spacell->number_of_blocks; i++) {
-        ind = spacell->velocity_block_list[i];
-        block_ptr = spacell->at(ind);
-        for (int j = 0; j < WID3; j++) {
-            block_ptr->data[j] = (Real)0.0;
-        }
-    }
-}
-
 // Prints information about the velocity blocks on the CPU. Used to check correct transfer to GPU.
 void print_blocks(SpatialCell *cell) {
     velocity_block_indices_t indices;

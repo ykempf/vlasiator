@@ -22,7 +22,7 @@
 #include "boost/unordered_map.hpp"
 
 #include "common.h"
-#include "spatial_cell.hpp"
+#include "../../spatial_cell.hpp"
 
 #include <Eigen/Geometry>
 #include <Eigen/Core>
@@ -35,15 +35,15 @@
 
 using namespace std;
 using namespace spatial_cell;
-using namespace Eigen;
 
 int dx, dy, dz; // Dimensions of the full grid
+int min_x, min_y, min_z; // 
 
 Real* to_full_grid(SpatialCell *spacell) {
   // First we find the bounding box of existing blocks
-  int min_x = SpatialCell::vx_length;
-  int min_y = SpatialCell::vy_length;
-  int min_z = SpatialCell::vz_length;
+  min_x = SpatialCell::vx_length;
+  min_y = SpatialCell::vy_length;
+  min_z = SpatialCell::vz_length;
   int max_x = 0;
   int max_y = 0;
   int max_z = 0;
@@ -82,11 +82,16 @@ Real* to_full_grid(SpatialCell *spacell) {
     int full_y = indices[1] - min_y;
     int full_z = indices[2] - min_z;
     int blockpos = (full_x + full_y*dx + full_z*dx*dy) * WID3;
+    // Copy data cell by cell
     for (int cell_i = 0; cell_i < WID3; cell_i++) {
       full_grid[blockpos + cell_i] = block_ptr->data[cell_i];
     }
   }
   return full_grid;
+}
+
+void data_to_SpatialCell(SpatialCell *spacell, Real *full_grid) {
+   clear_data(spacell);
 }
 
 void cpu_accelerate_cell_(SpatialCell* spatial_cell,const Real dt) {
@@ -95,7 +100,7 @@ void cpu_accelerate_cell_(SpatialCell* spatial_cell,const Real dt) {
    phiprof::start("compute-transform");
    //compute the transform performed in this acceleration
    Transform<Real,3,Affine> fwd_transform= compute_acceleration_transformation(spatial_cell,dt);
-   Transform<Real,3,Affine> bwd_transform= fwd_transform.inverse();
+   Transform<Real,3,Affine> bwd_transform = fwd_transform.inverse();
    phiprof::stop("compute-transform");
    phiprof::start("compute-intersections");
    Real intersection_z,intersection_z_di,intersection_z_dj,intersection_z_dk;
@@ -110,13 +115,33 @@ void cpu_accelerate_cell_(SpatialCell* spatial_cell,const Real dt) {
    phiprof::stop("compute-intersections");
    phiprof::start("compute-mapping");
    Real *full_grid = to_full_grid(spatial_cell);
+
+   // Some debug prints
    printf("%i %i %i\n", dx, dy, dz);
-   propagate(full_grid, dz, Real v_min, Real dv,
-       uint i_block, uint i_cell, uint j_block, uint j_cell,
-         intersection_z, Real intersection_z_di, Real intersection_z_dj, Real intersection_z_dk);
+   int first_ind = 103619;
+   Real block_sum = 0.0;
+   for (int ind = first_ind; ind < first_ind + WID3; ind++) block_sum += full_grid[ind];
+   printf("%e\n", block_sum);
+   
+   Real v_min = SpatialCell::vz_min + min_z * SpatialCell::cell_dvz;
+   for (int block_i = 0; block_i < dx; block_i++) {
+      for (int block_j = 0; block_j < dy; block_j++) {
+         for (int cell_i = 0; cell_i < WID; cell_i++) {
+            for (int cell_j = 0; cell_j < WID; cell_j++) {
+               propagate(full_grid, dz, v_min, SpatialCell::cell_dvz,
+                  block_i, cell_i,block_j, cell_j,
+                  intersection_z, intersection_z_di, intersection_z_dj, intersection_z_dk);
+            }
+         }
+      }
+   }
+   
    //map_1d(spatial_cell, intersection_z,intersection_z_di,intersection_z_dj,intersection_z_dk,2); /*< map along z*/
    //map_1d(spatial_cell, intersection_x,intersection_x_di,intersection_x_dj,intersection_x_dk,0); /*< map along x*/
    //map_1d(spatial_cell, intersection_y,intersection_y_di,intersection_y_dj,intersection_y_dk,1); /*< map along y*/
+
+
+
    free(full_grid);
    phiprof::stop("compute-mapping");
    double t2=MPI_Wtime();
