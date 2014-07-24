@@ -32,7 +32,7 @@ cpu_test.o: cpu_test.cpp gpu_velocity_grid.hpp spatial_cell.o
 	$(CC) $(DEBUG) $(INCS) $(CCFLAGS) -c cpu_test.cpp
 
 gpu_test.o: gpu_test.cpp gpu_velocity_grid.hpp spatial_cell.o
-	$(CC) $(DEBUG) -c gpu_test.cpp $(INCS) $(CCFLAGS) $(CUDAFLAGS) spatial_cell.o
+	$(CC) $(DEBUG) -c gpu_test.cpp $(INCS) $(CCFLAGS) $(CUDAFLAGS)
 
 gpu_velocity_grid.o: gpu_velocity_grid.cu gpu_velocity_grid.hpp bounding_box.cu spatial_cell.o
 	$(NVCC) $(DEBUG) $(NVCC_FLAGS) $(INCS) $(INC_MPI) -c gpu_velocity_grid.cu

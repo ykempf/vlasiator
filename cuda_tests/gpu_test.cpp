@@ -17,7 +17,7 @@ void print_elapsed_time(cudaEvent_t start, cudaEvent_t stop) {
 int main(void) {
     putchar('\n');
     init_spatial_cell_static();
-    SpatialCell *spacell = create_maxwellian(1.0e6, 1.0e5, 1e5);
+    SpatialCell *spacell = create_maxwellian(1.0e6, 1.0e3, 1e5);
     std::vector<int> *sorted_ind = sorted_velocity_block_list(spacell);
     cudaEvent_t start, stop;
     // Initialize cuda events
@@ -104,7 +104,6 @@ int main(void) {
     ggrid->print_cells();
     CUDACALL(cudaDeviceSynchronize());
 
-    /*
     putchar('\n');
     printf("spacell:\n");
     printf("Number of relevant blocks: %4lu\n", spacell->velocity_block_list.size());
@@ -120,7 +119,7 @@ int main(void) {
     putchar('\n');
     ggrid->print_velocity_block_list();
     putchar('\n');
-    */
+
     putchar('\n');
     printf("Back to CPU:\n");
     CUDACALL(cudaDeviceSynchronize());
@@ -140,13 +139,13 @@ int main(void) {
     putchar('\n');
     
     // New blocks are likely created so first remove unnecessary and then make a new sorted index list
+    /*
     std::vector<SpatialCell*> neighbor_ptrs;
     spacell->update_velocity_block_content_lists();
     spacell->adjust_velocity_blocks(neighbor_ptrs,true);
-    
+    */
     sorted_ind = sorted_velocity_block_list(spacell);
 
-    /*
     printf("spacell:\n");
     printf("Number of relevant blocks: %4lu\n", spacell->velocity_block_list.size());
     for (int i = 0; i < spacell->velocity_block_list.size(); i++) {
@@ -157,7 +156,7 @@ int main(void) {
         printf(block_print_format, ind, inds.x, inds.y, inds.z, block_ptr->data[0]);
     }
     putchar('\n');
-    */
+
     ggrid->del();
     putchar('\n');
     return 0;

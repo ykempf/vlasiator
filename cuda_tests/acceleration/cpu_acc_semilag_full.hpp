@@ -82,6 +82,7 @@ Real* to_full_grid(SpatialCell *spacell) {
     int full_y = indices[1] - min_y;
     int full_z = indices[2] - min_z;
     int blockpos = (full_x + full_y*dx + full_z*dx*dy) * WID3;
+    if (i==0) printf("first ind %i\n", blockpos);
     // Copy data cell by cell
     for (int cell_i = 0; cell_i < WID3; cell_i++) {
       full_grid[blockpos + cell_i] = block_ptr->data[cell_i];
@@ -90,25 +91,33 @@ Real* to_full_grid(SpatialCell *spacell) {
   return full_grid;
 }
 
+static int relevant_blocks = 0;
+
 void data_to_SpatialCell(SpatialCell *spacell, Real *full_grid) {
+  printf("data_to_SpatialCell:\n");
   clear_data(spacell);
   bool relevant_block;
   Real minval = SpatialCell::velocity_block_min_value;
+  printf("minval : %e\n", minval);
   // Loop over blocks
-  for (int block_i = 0; block_i < dx; block_i++) {
+  for (int block_k = 0; block_k < dz; block_k++) {
     for (int block_j = 0; block_j < dy; block_j++) {
-      for (int block_k = 0; block_k < dz; block_k++) {
+      for (int block_i = 0; block_i < dx; block_i++) {
         relevant_block = false;
         //Check if block contains relevant data
+        int full_block_ind = block_i + block_j*dx + block_k*dx*dy;
         for (int cell_i = 0; cell_i < WID3; cell_i++) {
-          if (full_grid[(block_i + block_j*dx + block_k*dx*dy)*WID3 + cell_i] > minval) {
+          //printf("%e, %e\n", full_grid[(block_i + block_j*dx + block_k*dx*dy)*WID3 + cell_i], minval);
+          if (full_grid[full_block_ind*WID3 + cell_i] > minval) {
             relevant_block = true;
             break;
           }
         }
         if (relevant_block) {
+          relevant_blocks++;
           // Construct index to sparse grid
-          int ind = (min_x + block_i) + (min_y + block_j*dx) + (min_z + block_k*dx*dy);
+          int ind = (min_x + block_i) + (min_y + block_j)*SpatialCell::vx_length + (min_z + block_k)*SpatialCell::vx_length*SpatialCell::vy_length;
+          printf("(%2i,%2i,%2i): %i\n", block_i, block_j, block_k, ind);
           spacell->add_velocity_block(ind);
           Velocity_Block* block_ptr = spacell->at(ind);
           for (int cell_i; cell_i < WID3; cell_i++) {
@@ -144,11 +153,11 @@ void cpu_accelerate_cell_(SpatialCell* spatial_cell,const Real dt) {
 
    // Some debug prints
    printf("%i %i %i\n", dx, dy, dz);
-   int first_ind = 103619;
+   int first_ind = 64256;
    Real block_sum = 0.0;
    for (int ind = first_ind; ind < first_ind + WID3; ind++) block_sum += full_grid[ind];
    printf("%e\n", block_sum);
-   
+
    Real v_min = SpatialCell::vz_min + min_z * SpatialCell::cell_dvz;
    for (int block_i = 0; block_i < dx; block_i++) {
       for (int block_j = 0; block_j < dy; block_j++) {
@@ -162,12 +171,25 @@ void cpu_accelerate_cell_(SpatialCell* spatial_cell,const Real dt) {
       }
    }
    
+   first_ind = 64256;
+   block_sum = 0.0;
+   for (int ind = first_ind; ind < first_ind + WID3; ind++) block_sum += full_grid[ind];
+   printf("%e\n", block_sum);
+
    //map_1d(spatial_cell, intersection_z,intersection_z_di,intersection_z_dj,intersection_z_dk,2); /*< map along z*/
    //map_1d(spatial_cell, intersection_x,intersection_x_di,intersection_x_dj,intersection_x_dk,0); /*< map along x*/
    //map_1d(spatial_cell, intersection_y,intersection_y_di,intersection_y_dj,intersection_y_dk,1); /*< map along y*/
 
-
    data_to_SpatialCell(spatial_cell, full_grid);
+   printf("rel blocks %i\n", relevant_blocks);
+   
+   /*
+   // Remove unnecessary blocks
+   std::vector<SpatialCell*> neighbor_ptrs;
+   spatial_cell->update_velocity_block_content_lists();
+   spatial_cell->adjust_velocity_blocks(neighbor_ptrs,true);
+   */
+
    free(full_grid);
    phiprof::stop("compute-mapping");
    double t2=MPI_Wtime();
