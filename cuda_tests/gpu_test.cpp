@@ -139,11 +139,10 @@ int main(void) {
     putchar('\n');
     
     // New blocks are likely created so first remove unnecessary and then make a new sorted index list
-    /*
     std::vector<SpatialCell*> neighbor_ptrs;
     spacell->update_velocity_block_content_lists();
     spacell->adjust_velocity_blocks(neighbor_ptrs,true);
-    */
+    
     sorted_ind = sorted_velocity_block_list(spacell);
 
     printf("spacell:\n");

@@ -24,8 +24,8 @@ void propagate(Real *values, uint  blocks_per_dim, Real v_min, Real dv,
        uint i_block, uint i_cell, uint j_block, uint j_cell,
        Real intersection, Real intersection_di, Real intersection_dj, Real intersection_dk){
   Real a[RECONSTRUCTION_ORDER + 1];  
-  Real target[(MAX_BLOCKS_PER_DIM+2)*WID]; 
-
+  Real target[((int)spatial_cell::SpatialCell::grid_dvx+2)*WID]; 
+  printf("size:%i\n", ((int)spatial_cell::SpatialCell::grid_dvx+2));
   /*clear temporary taret*/
   for (uint k=0; k<WID* (blocks_per_dim + 2); ++k){ 
        target[k] = 0.0;

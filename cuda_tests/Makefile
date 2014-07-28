@@ -12,7 +12,7 @@ NVCC_FLAGS += -Xcompiler -march=native -O3 -lmpi $(CUDADEBUG)
 NVCC_FLAGS +=-DBOOST_NOINLINE='__attribute__ ((noinline))'
 # This enables linking across multiple cuda files. A separate nvcc linking is needed for this (gpu_link.o).
 NVCC_FLAGS +=--relocatable-device-code=true
-CCFLAGS += -O3 -std=c++11 -Wno-write-strings
+CCFLAGS += -O3 -std=c++11 -Wno-write-strings -fpermissive
 CCFLAGS += -DUSE_AGNER_VECTORCLASS -DACC_SEMILAG_PPM 
 
 LIBS += $(LIB_BOOST) $(LIB_PROFILE) $(LIB_MPI) $(LIB_ZOLTAN)
@@ -40,7 +40,7 @@ gpu_velocity_grid.o: gpu_velocity_grid.cu gpu_velocity_grid.hpp bounding_box.cu 
 spatial_cell.o: ../spatial_cell.cpp ../spatial_cell.hpp
 	$(CC) $(DEBUG) -c ../spatial_cell.cpp $(INCS) $(CCFLAGS) $(CUDAFLAGS)
 
-spatial_cell_funcs.o: spatial_cell_funcs.cpp gpu_velocity_grid.hpp spatial_cell_funcs.hpp acceleration/cpu_acc_semilag_full.hpp
+spatial_cell_funcs.o: spatial_cell_funcs.cpp gpu_velocity_grid.hpp spatial_cell_funcs.hpp acceleration/cpu_acc_semilag_full.hpp acceleration/map_3d.hpp
 	$(CC) $(DEBUG) $(INCS) $(CCFLAGS) $(CUDAFLAGS) -c spatial_cell_funcs.cpp
 
 bounding_box.o: bounding_box.cu gpu_velocity_grid.hpp
