@@ -138,6 +138,41 @@ void data_to_SpatialCell(SpatialCell *spacell, full_grid_t *full_grid) {
   }
 }
 
+void map_column(full_grid_t *full_grid, Real intersection_z, Real intersection_z_di, Real intersection_z_dj, Real intersection_z_dk) {
+  Real v_min = SpatialCell::vz_min + full_grid->min_z * SpatialCell::cell_dvz;
+  int column_size = full_grid->dz*WID; // In cells
+  Real *column_data = new Real[column_size + 2*WID]; // propagate needs the extra cells
+  Real *target_column_data = new Real[(column_size+2)*WID];
+  for (int block_i = 0; block_i < full_grid->dx; block_i++) {
+    for (int block_j = 0; block_j < full_grid->dy; block_j++) {
+      int blockid = block_i + block_j * full_grid->dx;
+      for (int cell_i = 0; cell_i < WID; cell_i++) {
+        for (int cell_j = 0; cell_j < WID; cell_j++) {
+          int cellid = cell_i + cell_j*WID;
+          // Construct a temporary array with only data from one column of velocity CELLS
+          for (int block_k = 0; block_k < full_grid->dz; block_k++) {
+            for (int cell_k = 0; cell_k < WID; ++cell_k)
+            {
+              column_data[block_k*WID + cell_k + WID] = full_grid->grid[blockid*WID3 + cellid + cell_k*WID2]; // Cells in the same k column in a block are WID2 apart
+            }
+          }
+          propagate(column_data, target_column_data, full_grid->dz, v_min, SpatialCell::cell_dvz,
+            block_i, cell_i,block_j, cell_j,
+            intersection_z, intersection_z_di, intersection_z_dj, intersection_z_dk);
+          // Copy back to full grid
+          for (int block_k = 0; block_k < full_grid->dz; block_k++) {
+            for (int cell_k = 0; cell_k < WID; ++cell_k) {
+              full_grid->grid[blockid*WID3 + cellid + cell_k*WID2] = target_column_data[block_k*WID + cell_k + WID];
+            }
+          }
+        }
+      }
+    } 
+  }
+  delete[] column_data;
+  delete[] target_column_data;
+}
+
 void cpu_accelerate_cell_(SpatialCell* spatial_cell,const Real dt) {
    double t1=MPI_Wtime();
    /*compute transform, forward in time and backward in time*/
@@ -167,39 +202,7 @@ void cpu_accelerate_cell_(SpatialCell* spatial_cell,const Real dt) {
    for (int ind = first_ind; ind < first_ind + WID3; ind++) block_sum += full_grid->grid[ind];
    printf("%e\n", block_sum);
 
-   Real v_min = SpatialCell::vz_min + full_grid->min_z * SpatialCell::cell_dvz;
-   int column_size = full_grid->dz*WID; // In cells
-   Real *column_data = new Real[column_size + 2*WID]; // propagate needs the extra cells
-   Real *target_column_data = new Real[(column_size+2)*WID];
-   for (int block_i = 0; block_i < full_grid->dx; block_i++) {
-      for (int block_j = 0; block_j < full_grid->dy; block_j++) {
-        int blockid = block_i + block_j * full_grid->dx;
-         for (int cell_i = 0; cell_i < WID; cell_i++) {
-            for (int cell_j = 0; cell_j < WID; cell_j++) {
-              int cellid = cell_i + cell_j*WID;
-              // Construct a temporary array with only data from one column of velocity CELLS
-              for (int block_k = 0; block_k < full_grid->dz; block_k++) {
-                for (int cell_k = 0; cell_k < WID; ++cell_k)
-                {
-                  column_data[block_k*WID + cell_k + WID] = full_grid->grid[blockid*WID3 + cellid + cell_k*WID2]; // Cells in the same k column in a block are WID2 apart
-                }
-              }
-              propagate(column_data, target_column_data, full_grid->dz, v_min, SpatialCell::cell_dvz,
-                block_i, cell_i,block_j, cell_j,
-                intersection_z, intersection_z_di, intersection_z_dj, intersection_z_dk);
-              // Copy back to full grid
-              for (int block_k = 0; block_k < full_grid->dz; block_k++) {
-                for (int cell_k = 0; cell_k < WID; ++cell_k)
-                {
-                  full_grid->grid[blockid*WID3 + cellid + cell_k*WID2] = target_column_data[block_k*WID + cell_k + WID];
-                }
-              }
-            }
-         }
-      } 
-   }
-   delete[] column_data;
-   delete[] target_column_data;
+   map_column(full_grid, intersection_z,intersection_z_di,intersection_z_dj,intersection_z_dk);
 
 
    
