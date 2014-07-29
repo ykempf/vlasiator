@@ -208,19 +208,17 @@ void cpu_accelerate_cell_(SpatialCell* spatial_cell,const Real dt) {
    for (int ind = first_ind; ind < first_ind + WID3; ind++) block_sum += full_grid->grid[ind];
    printf("%e\n", block_sum);
 
-   map_1d(spatial_cell, intersection_z,intersection_z_di,intersection_z_dj,intersection_z_dk,2); /*< map along z*/
+   //map_1d(spatial_cell, intersection_z,intersection_z_di,intersection_z_dj,intersection_z_dk,2); /*< map along z*/
    //map_1d(spatial_cell, intersection_x,intersection_x_di,intersection_x_dj,intersection_x_dk,0); /*< map along x*/
    //map_1d(spatial_cell, intersection_y,intersection_y_di,intersection_y_dj,intersection_y_dk,1); /*< map along y*/
 
-   //data_to_SpatialCell(spatial_cell, full_grid);
+   data_to_SpatialCell(spatial_cell, full_grid);
    printf("rel blocks %i\n", relevant_blocks);
    
-   /*
    // Remove unnecessary blocks
    std::vector<SpatialCell*> neighbor_ptrs;
    spatial_cell->update_velocity_block_content_lists();
    spatial_cell->adjust_velocity_blocks(neighbor_ptrs,true);
-   */
 
    phiprof::stop("compute-mapping");
    double t2=MPI_Wtime();
