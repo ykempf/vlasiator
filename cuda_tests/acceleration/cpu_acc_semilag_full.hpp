@@ -170,6 +170,7 @@ void cpu_accelerate_cell_(SpatialCell* spatial_cell,const Real dt) {
    Real v_min = SpatialCell::vz_min + full_grid->min_z * SpatialCell::cell_dvz;
    int column_size = full_grid->dz*WID; // In cells
    Real *column_data = new Real[column_size + 2*WID]; // propagate needs the extra cells
+   Real *target_column_data;
    for (int block_i = 0; block_i < full_grid->dx; block_i++) {
       for (int block_j = 0; block_j < full_grid->dy; block_j++) {
         int blockid = block_i + block_j * full_grid->dx;
@@ -183,7 +184,7 @@ void cpu_accelerate_cell_(SpatialCell* spatial_cell,const Real dt) {
                   column_data[block_k*WID + cell_k + WID] = full_grid->grid[blockid*WID3 + cellid + cell_k*WID2]; // Cells in the same k column in a block are WID2 apart
                 }
               }
-              propagate(column_data, full_grid->dz, v_min, SpatialCell::cell_dvz,
+              propagate(column_data, target_column_data, full_grid->dz, v_min, SpatialCell::cell_dvz,
                 block_i, cell_i,block_j, cell_j,
                 intersection_z, intersection_z_di, intersection_z_dj, intersection_z_dk);
               // Copy back to full grid

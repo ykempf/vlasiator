@@ -20,14 +20,13 @@ void print_values(int step, Real *values, uint blocks_per_dim, Real v_min, Real 
 }
 
 
-void propagate(Real *values, uint  blocks_per_dim, Real v_min, Real dv,
+void propagate(Real *values, Real *result, uint  blocks_per_dim, Real v_min, Real dv,
        uint i_block, uint i_cell, uint j_block, uint j_cell,
        Real intersection, Real intersection_di, Real intersection_dj, Real intersection_dk){
-  Real a[RECONSTRUCTION_ORDER + 1];  
-  Real target[((int)spatial_cell::SpatialCell::grid_dvx+2)*WID]; 
-  printf("size:%i\n", ((int)spatial_cell::SpatialCell::grid_dvx+2));
+  Real a[RECONSTRUCTION_ORDER + 1];
+  Real *target = new Real[((int)spatial_cell::SpatialCell::vx_length+2)*WID];
   /*clear temporary taret*/
-  for (uint k=0; k<WID* (blocks_per_dim + 2); ++k){ 
+  for (uint k=0; k<WID* (blocks_per_dim + 2); ++k){
        target[k] = 0.0;
   }
    
@@ -98,10 +97,13 @@ void propagate(Real *values, uint  blocks_per_dim, Real v_min, Real dv,
       }
     }
   }
+  result = target;
   /*copy target to values*/
+  /*
   for (unsigned int k_block = 0; k_block<blocks_per_dim;k_block++){
-     for (uint k=0; k<WID; ++k){ 
+     for (uint k=0; k<WID; ++k){
         values[k_block * WID + k + WID] = target[k_block * WID + k + WID];
      }
-  }   
+  }
+  */
 }
