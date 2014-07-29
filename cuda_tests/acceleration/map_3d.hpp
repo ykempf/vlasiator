@@ -19,13 +19,13 @@ void print_values(int step, Real *values, uint blocks_per_dim, Real v_min, Real 
   fclose(fp);
 }
 
-
-void propagate(Real *values, Real *result, uint  blocks_per_dim, Real v_min, Real dv,
+// Target needs to be allocated
+void propagate(Real *values, Real *target, uint  blocks_per_dim, Real v_min, Real dv,
        uint i_block, uint i_cell, uint j_block, uint j_cell,
        Real intersection, Real intersection_di, Real intersection_dj, Real intersection_dk){
   Real a[RECONSTRUCTION_ORDER + 1];
-  Real *target = new Real[((int)spatial_cell::SpatialCell::vx_length+2)*WID];
-  /*clear temporary taret*/
+  //Real *target = new Real[((int)spatial_cell::SpatialCell::vx_length+2)*WID];
+  /*clear target*/
   for (uint k=0; k<WID* (blocks_per_dim + 2); ++k){
        target[k] = 0.0;
   }
@@ -97,7 +97,6 @@ void propagate(Real *values, Real *result, uint  blocks_per_dim, Real v_min, Rea
       }
     }
   }
-  result = target;
   /*copy target to values*/
   /*
   for (unsigned int k_block = 0; k_block<blocks_per_dim;k_block++){
