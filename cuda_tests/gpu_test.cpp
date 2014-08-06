@@ -17,7 +17,9 @@ void print_elapsed_time(cudaEvent_t start, cudaEvent_t stop) {
 int main(void) {
     putchar('\n');
     init_spatial_cell_static();
-    SpatialCell *spacell = create_maxwellian(1.0e6, 1.0e3, 1e5);
+    //SpatialCell *spacell = create_maxwellian(1.0e6, 1.0e3, 1e5);
+    SpatialCell *spacell = create_cubic(6, 3.14);
+    //printf("\n%i\n", spacell->number_of_blocks);
     std::vector<int> *sorted_ind = sorted_velocity_block_list(spacell);
     cudaEvent_t start, stop;
     // Initialize cuda events
@@ -148,6 +150,7 @@ int main(void) {
     printf("spacell:\n");
     printf("Number of relevant blocks: %4lu\n", spacell->velocity_block_list.size());
     for (int i = 0; i < spacell->velocity_block_list.size(); i++) {
+        if(i % 2 == 0) putchar('\n');
         int ind = spacell->velocity_block_list[(*sorted_ind)[i]];
         //int ind = spacell->velocity_block_list[i];
         ind3d inds = GPU_velocity_grid::get_velocity_block_indices_host(ind);

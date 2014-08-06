@@ -123,6 +123,51 @@ void fprint_projection(float *projection, std::string filename) {
     fout.close();
 }
 
+// Creates a SpatialCell with a cubic velocity distribution with a given width and constant value
+SpatialCell *create_cubic(const uint width, const Real value) {
+    SpatialCell *spacell;
+    spacell = new SpatialCell();
+    // Add some parameters by hand
+    spacell->parameters[CellParams::BGBX] = 0.0;
+    spacell->parameters[CellParams::BGBY] = 0.0;
+    spacell->parameters[CellParams::BGBZ] = 1.0e-5;
+    spacell->parameters[CellParams::BGBXVOL] = 0.0;
+    spacell->parameters[CellParams::BGBYVOL] = 0.0;
+    spacell->parameters[CellParams::BGBZVOL] = 1.0e-5;
+    spacell->parameters[CellParams::PERBXVOL] = 0.0;
+    spacell->parameters[CellParams::PERBYVOL] = 0.0;
+    spacell->parameters[CellParams::PERBZVOL] = 0.0;
+    spacell->derivativesBVOL[bvolderivatives::dPERBXVOLdy] = 0.0;
+    spacell->derivativesBVOL[bvolderivatives::dPERBXVOLdz] = 0.0;
+    spacell->derivativesBVOL[bvolderivatives::dPERBYVOLdx] = 0.0;
+    spacell->derivativesBVOL[bvolderivatives::dPERBYVOLdz] = 0.0;
+    spacell->derivativesBVOL[bvolderivatives::dPERBZVOLdx] = 0.0;
+    spacell->derivativesBVOL[bvolderivatives::dPERBZVOLdy] = 0.0;
+    spacell->parameters[CellParams::DX] = spatial_cell_side_length;
+    spacell->parameters[CellParams::DY] = spatial_cell_side_length;
+    spacell->parameters[CellParams::DZ] = spatial_cell_side_length;
+
+    velocity_block_indices_t mid;
+    mid[0] = SpatialCell::vx_length / 2;
+    mid[1] = SpatialCell::vy_length / 2;
+    mid[2] = SpatialCell::vz_length / 2;
+    for (int block_i = 0; block_i < SpatialCell::vx_length; ++block_i) {
+        for (int block_j = 0; block_j < SpatialCell::vy_length; ++block_j) {
+            for (int block_k = 0; block_k < SpatialCell::vz_length; ++block_k) {
+                if (abs(block_i-mid[0]) <= width && abs(block_j-mid[1]) <= width && abs(block_k-mid[2]) <= width) {
+                    printf("Creating block %i %i %i\n", block_i, block_j, block_k);
+                    velocity_block_indices_t block_indices = {block_i, block_j, block_k};
+                    uint blockid = SpatialCell::get_velocity_block(block_indices);
+                    for (int cell_i = 0; cell_i < WID3; ++cell_i) {
+                        spacell->set_value(blockid, cell_i, (Real)blockid);
+                    }
+                }
+            }
+        }
+    }
+    return spacell;
+}
+
 // Returns values for the given index
 Real Maxwell(Real vx, Real vy, Real vz, Real T, Real rho) {
     Real temp;
@@ -232,7 +277,32 @@ std::vector<int>* sorted_velocity_block_list(SpatialCell * spacell) {
     return indices;
 }
 
-// Wrapper for the Vlasiator function
+// Wrapper for the non-Vlasiator version of cpu_accelerate_cell
 void cpu_acc_cell(SpatialCell *spacell, const Real dt) {
     cpu_accelerate_cell_(spacell, dt);
+}
+
+// Prints the xy-column given as parameter to file
+void print_column_to_file(const char *filename, SpatialCell *spacell, const uint x, const uint y) {
+    // Output only ony cell column within the blocks
+    const int cell_i = 1;
+    const int cell_j = 1;
+    FILE *filep = fopen(filename, "w");
+    velocity_block_indices_t indices;
+    uint ind;
+    for(uint i = 0; i < spacell->number_of_blocks; i++) {
+        ind = spacell->velocity_block_list[i];
+        indices = SpatialCell::get_velocity_block_indices(ind);
+        if (indices[0] == x && indices[1] == y) {
+            Velocity_Block* block_ptr = spacell->at(ind);
+            fprintf(filep, "%2u ", indices[2]);
+            // Output one z-column of cells from the block
+            for (int cell_k = 0; cell_k < WID; ++cell_k) {
+                fprintf(filep, "%3.2e ", block_ptr->data[cell_i + cell_j * WID + cell_k * WID2]);
+            }
+            fprintf(filep, "\n");
+        }
+        
+    }
+    fclose(filep);
 }

@@ -7,7 +7,7 @@ DEBUG = -g
 CUDADEBUG = -G
 
 
-NVCC_FLAGS += -Xcompiler -march=native -O3 -lmpi $(CUDADEBUG) 
+NVCC_FLAGS += -Xcompiler -march=native -O0 -lmpi $(CUDADEBUG) 
 # Next line fixes a clash with nvcc parser and boost
 NVCC_FLAGS +=-DBOOST_NOINLINE='__attribute__ ((noinline))'
 # This enables linking across multiple cuda files. A separate nvcc linking is needed for this (gpu_link.o).
@@ -31,7 +31,7 @@ cpu: $(CPU_OBJS)
 cpu_test.o: cpu_test.cpp gpu_velocity_grid.hpp spatial_cell.o
 	$(CC) $(DEBUG) $(INCS) $(CCFLAGS) -c cpu_test.cpp
 
-gpu_test.o: gpu_test.cpp gpu_velocity_grid.hpp spatial_cell.o
+gpu_test.o: gpu_test.cpp gpu_velocity_grid.hpp spatial_cell.o spatial_cell_funcs.o
 	$(CC) $(DEBUG) -c gpu_test.cpp $(INCS) $(CCFLAGS) $(CUDAFLAGS)
 
 gpu_velocity_grid.o: gpu_velocity_grid.cu gpu_velocity_grid.hpp bounding_box.cu spatial_cell.o

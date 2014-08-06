@@ -23,8 +23,10 @@ void init_spatial_cell_static(void);
 void print_blocks(spatial_cell::SpatialCell *cell);
 spatial_cell::SpatialCell *create_index_test_cell(void);
 spatial_cell::SpatialCell *create_maxwellian(Real T, Real rho, Real x_offset = 0.0);
+spatial_cell::SpatialCell *create_cubic(const uint width, const Real value);
 void fprint_projection(float *projection, std::string filename);
 float *xy_projection(spatial_cell::SpatialCell *spacell);
 std::vector<int>* sorted_velocity_block_list(spatial_cell::SpatialCell * spacell);
 void cpu_acc_cell(spatial_cell::SpatialCell *spacell, const Real dt);
+void print_column_to_file(const char *filename, spatial_cell::SpatialCell *spacell, const uint x, const uint y);
 #endif

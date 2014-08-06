@@ -100,11 +100,9 @@ full_grid_t* to_full_grid(SpatialCell *spacell) {
 static int relevant_blocks = 0;
 
 void data_to_SpatialCell(SpatialCell *spacell, full_grid_t *full_grid) {
-  printf("data_to_SpatialCell:\n");
   clear_data(spacell);
   bool relevant_block;
   Real minval = SpatialCell::velocity_block_min_value;
-  printf("minval : %e\n", minval);
   // Loop over blocks
   for (int block_k = 0; block_k < full_grid->dz; block_k++) {
     for (int block_j = 0; block_j < full_grid->dy; block_j++) {
@@ -138,6 +136,15 @@ void data_to_SpatialCell(SpatialCell *spacell, full_grid_t *full_grid) {
   }
 }
 
+// Outputs the elements of the given array with the given size to a file
+void fprint_column(const char *filename, Real *column, const uint size, const uint min_ind) {
+  FILE *filep = fopen(filename, "w");
+  for (int i = 0; i < size; i+=WID) {
+    fprintf(filep, "%2u ", min_ind + i/WID);
+    fprintf(filep, "%3.2e %3.2e %3.2e %3.2e\n", column[i+WID], column[i+1+WID], column[i+2+WID], column[i+3+WID]);
+  }
+}
+
 // Analogous to map_1d
 void map_column(full_grid_t *full_grid, Real intersection, Real intersection_di, Real intersection_dj, Real intersection_dk, int dimension) {
   Real cell_dv, v_min;
@@ -152,7 +159,7 @@ void map_column(full_grid_t *full_grid, Real intersection, Real intersection_di,
       /* i and k coordinates have been swapped*/
       /*set cell size in dimension direction*/
       cell_dv=SpatialCell::cell_dvx; 
-      v_min=SpatialCell::vx_min + full_grid->min_z * cell_dv;
+      v_min=SpatialCell::vx_min + full_grid->min_x * cell_dv;
       column_size = full_grid->dx*WID;
       block_di = full_grid->dz;
       block_dj = full_grid->dy;
@@ -174,7 +181,7 @@ void map_column(full_grid_t *full_grid, Real intersection, Real intersection_di,
       /* j and k coordinates have been swapped*/
       /*set cell size in dimension direction*/
       cell_dv=SpatialCell::cell_dvy;
-      v_min=SpatialCell::vy_min + full_grid->min_z * cell_dv;
+      v_min=SpatialCell::vy_min + full_grid->min_y * cell_dv;
       column_size = full_grid->dy*WID;
       block_di = full_grid->dx;
       block_dj = full_grid->dz;
@@ -194,8 +201,8 @@ void map_column(full_grid_t *full_grid, Real intersection, Real intersection_di,
       break;
     case 2:
       /*set cell size in dimension direction*/
-      cell_dv=SpatialCell::cell_dvz + full_grid->min_z * cell_dv;
-      v_min=SpatialCell::vz_min;
+      cell_dv=SpatialCell::cell_dvz;
+      v_min=SpatialCell::vz_min + full_grid->min_z * cell_dv;
       column_size = full_grid->dz*WID;
       block_di = full_grid->dx;
       block_dj = full_grid->dy;
@@ -211,7 +218,7 @@ void map_column(full_grid_t *full_grid, Real intersection, Real intersection_di,
       break;
   }
   Real *column_data = new Real[column_size + 2*WID]; // propagate needs the extra cells
-  Real *target_column_data = new Real[(column_size+2)*WID];
+  Real *target_column_data = new Real[column_size+2*WID];
   for (int block_i = 0; block_i < block_di; block_i++) {
     for (int block_j = 0; block_j < block_dj; block_j++) {
       int blockid = block_i * block_indices_to_id[0] + block_j * block_indices_to_id[1];
@@ -224,9 +231,13 @@ void map_column(full_grid_t *full_grid, Real intersection, Real intersection_di,
               column_data[block_k*WID + cell_k + WID] = full_grid->grid[(blockid+block_k*block_indices_to_id[2])*WID3 + cellid + cell_k*cell_indices_to_id[2]]; // Cells in the same k column in a block are WID2 apart
             }
           }
+          if (dimension == 2 && full_grid->min_x + block_i == 15 && full_grid->min_y + block_j == 15 && cell_i == 1 && cell_j == 1)
+            fprint_column("input_column.dat", column_data, column_size, full_grid->min_z);
           propagate(column_data, target_column_data, full_grid->dz, v_min, cell_dv,
             block_i, cell_i,block_j, cell_j,
             intersection, intersection_di, intersection_dj, intersection_dk);
+          if (dimension == 2 && full_grid->min_x + block_i == 15 && full_grid->min_y + block_j == 15 && cell_i == 1 && cell_j == 1)
+            fprint_column("output_column.dat", target_column_data, column_size, full_grid->min_z);
           // Copy back to full grid
           for (int block_k = 0; block_k < block_dk; block_k++) {
             for (int cell_k = 0; cell_k < WID; ++cell_k) {
@@ -262,15 +273,26 @@ void cpu_accelerate_cell_(SpatialCell* spatial_cell,const Real dt) {
    phiprof::stop("compute-intersections");
    phiprof::start("compute-mapping");
    full_grid_t *full_grid = to_full_grid(spatial_cell);
+   //printf("BB: %i %i %i, %i %i %i\n", full_grid->min_x, full_grid->min_y, full_grid->min_z, full_grid->min_x + full_grid->dx, full_grid->min_y + full_grid->dy, full_grid->min_z + full_grid->dz);
 
+   // Do the actual mapping
+   data_to_SpatialCell(spatial_cell, full_grid);
+   print_column_to_file("mapnone.dat",spatial_cell, 15, 15);
    map_column(full_grid, intersection_z,intersection_z_di,intersection_z_dj,intersection_z_dk, 2);
+   data_to_SpatialCell(spatial_cell, full_grid);
+   print_column_to_file("mapz.dat",spatial_cell, 15, 15);
    map_column(full_grid, intersection_x,intersection_x_di,intersection_x_dj,intersection_x_dk, 0);
+   data_to_SpatialCell(spatial_cell, full_grid);
+   print_column_to_file("mapzx.dat",spatial_cell, 15, 15);
    map_column(full_grid, intersection_y,intersection_y_di,intersection_y_dj,intersection_y_dk, 1);
+   data_to_SpatialCell(spatial_cell, full_grid);
+   print_column_to_file("mapzxy.dat",spatial_cell, 15, 15);
 
+   //print_column_to_file(spatial_cell, 15, 15);
    //map_1d(spatial_cell, intersection_z,intersection_z_di,intersection_z_dj,intersection_z_dk,2); /*< map along z*/
    //map_1d(spatial_cell, intersection_x,intersection_x_di,intersection_x_dj,intersection_x_dk,0); /*< map along x*/
    //map_1d(spatial_cell, intersection_y,intersection_y_di,intersection_y_dj,intersection_y_dk,1); /*< map along y*/
-
+   
    // Transfer data back to the SpatialCell
    data_to_SpatialCell(spatial_cell, full_grid);
    printf("rel blocks %i\n", relevant_blocks);
@@ -279,7 +301,7 @@ void cpu_accelerate_cell_(SpatialCell* spatial_cell,const Real dt) {
    std::vector<SpatialCell*> neighbor_ptrs;
    spatial_cell->update_velocity_block_content_lists();
    spatial_cell->adjust_velocity_blocks(neighbor_ptrs,true);
-
+   
    phiprof::stop("compute-mapping");
    double t2=MPI_Wtime();
    spatial_cell->parameters[CellParams::LBWEIGHTCOUNTER] += t2 - t1;
