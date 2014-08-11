@@ -155,7 +155,6 @@ SpatialCell *create_cubic(const uint width, const Real value) {
         for (int block_j = 0; block_j < SpatialCell::vy_length; ++block_j) {
             for (int block_k = 0; block_k < SpatialCell::vz_length; ++block_k) {
                 if (abs(block_i-mid[0]) <= width && abs(block_j-mid[1]) <= width && abs(block_k-mid[2]) <= width) {
-                    printf("Creating block %i %i %i\n", block_i, block_j, block_k);
                     velocity_block_indices_t block_indices = {block_i, block_j, block_k};
                     uint blockid = SpatialCell::get_velocity_block(block_indices);
                     for (int cell_i = 0; cell_i < WID3; ++cell_i) {

@@ -154,12 +154,20 @@ void map_column(full_grid_t *full_grid, Real intersection, Real intersection_di,
   uint max_v_length;
   uint block_indices_to_id[3]; /*< used when computing id of target block */
   uint cell_indices_to_id[3]; /*< used when computing id of target cell in block*/
-  switch (dimension){
+
+  // Move the intersection point to correspond to the full grid.
+  intersection +=
+     (full_grid->min_x * WID) * intersection_di + 
+     (full_grid->min_y * WID) * intersection_dj +
+     (full_grid->min_z * WID) * intersection_dk;
+
+
+ switch (dimension){
      case 0:
       /* i and k coordinates have been swapped*/
       /*set cell size in dimension direction*/
       cell_dv=SpatialCell::cell_dvx; 
-      v_min=SpatialCell::vx_min + full_grid->min_x * cell_dv;
+      v_min=SpatialCell::vx_min + full_grid->min_x * WID * cell_dv;
       column_size = full_grid->dx*WID;
       block_di = full_grid->dz;
       block_dj = full_grid->dy;
@@ -181,7 +189,7 @@ void map_column(full_grid_t *full_grid, Real intersection, Real intersection_di,
       /* j and k coordinates have been swapped*/
       /*set cell size in dimension direction*/
       cell_dv=SpatialCell::cell_dvy;
-      v_min=SpatialCell::vy_min + full_grid->min_y * cell_dv;
+      v_min=SpatialCell::vy_min + full_grid->min_y * WID * cell_dv;
       column_size = full_grid->dy*WID;
       block_di = full_grid->dx;
       block_dj = full_grid->dz;
@@ -202,7 +210,7 @@ void map_column(full_grid_t *full_grid, Real intersection, Real intersection_di,
     case 2:
       /*set cell size in dimension direction*/
       cell_dv=SpatialCell::cell_dvz;
-      v_min=SpatialCell::vz_min + full_grid->min_z * cell_dv;
+      v_min=SpatialCell::vz_min + full_grid->min_z * WID * cell_dv;
       column_size = full_grid->dz*WID;
       block_di = full_grid->dx;
       block_dj = full_grid->dy;
@@ -215,33 +223,44 @@ void map_column(full_grid_t *full_grid, Real intersection, Real intersection_di,
       cell_indices_to_id[0]=1;
       cell_indices_to_id[1]=WID;
       cell_indices_to_id[2]=WID2;
-      break;
+     break;
   }
+
+   
+
   Real *column_data = new Real[column_size + 2*WID]; // propagate needs the extra cells
   Real *target_column_data = new Real[column_size+2*WID];
   for (int block_i = 0; block_i < block_di; block_i++) {
     for (int block_j = 0; block_j < block_dj; block_j++) {
-      int blockid = block_i * block_indices_to_id[0] + block_j * block_indices_to_id[1];
+      int blockid = block_i * block_indices_to_id[0] + block_j * block_indices_to_id[1]; // Here k = 0
       for (int cell_i = 0; cell_i < WID; cell_i++) {
         for (int cell_j = 0; cell_j < WID; cell_j++) {
-          int cellid = cell_i * cell_indices_to_id[0] + cell_j * cell_indices_to_id[1];
+          int cellid = cell_i * cell_indices_to_id[0] + cell_j * cell_indices_to_id[1]; // Here k = 0
           // Construct a temporary array with only data from one column of velocity CELLS
           for (int block_k = 0; block_k < block_dk; block_k++) {
             for (int cell_k = 0; cell_k < WID; ++cell_k) {
               column_data[block_k*WID + cell_k + WID] = full_grid->grid[(blockid+block_k*block_indices_to_id[2])*WID3 + cellid + cell_k*cell_indices_to_id[2]]; // Cells in the same k column in a block are WID2 apart
             }
           }
-          if (dimension == 2 && full_grid->min_x + block_i == 15 && full_grid->min_y + block_j == 15 && cell_i == 1 && cell_j == 1)
+          if (dimension == 2 && full_grid->min_x + block_i == 15 && full_grid->min_y + block_j == 15 && cell_i == 1 && cell_j == 1) {
             fprint_column("input_column.dat", column_data, column_size, full_grid->min_z);
-          propagate(column_data, target_column_data, full_grid->dz, v_min, cell_dv,
-            block_i, cell_i,block_j, cell_j,
-            intersection, intersection_di, intersection_dj, intersection_dk);
+            printf("%e %e %e %e\n", intersection, intersection_di, intersection_dj, intersection_dk);
+          }
+          propagate(column_data, target_column_data, block_dk, v_min, cell_dv,
+             block_i, cell_i,block_j, cell_j,
+             intersection, intersection_di, intersection_dj, intersection_dk);
+          //propagate_old(column_data, block_dk, v_min, cell_dv,
+          //   block_i, cell_i,block_j, cell_j,
+          //   intersection, intersection_di, intersection_dj, intersection_dk);
           if (dimension == 2 && full_grid->min_x + block_i == 15 && full_grid->min_y + block_j == 15 && cell_i == 1 && cell_j == 1)
-            fprint_column("output_column.dat", target_column_data, column_size, full_grid->min_z);
+            //fprint_column("output_column.dat", column_data, column_size, full_grid->min_z);
+            fprint_column("output_column.dat", target_column_data, column_size+2*WID, full_grid->min_z);
+
           // Copy back to full grid
           for (int block_k = 0; block_k < block_dk; block_k++) {
             for (int cell_k = 0; cell_k < WID; ++cell_k) {
               full_grid->grid[(blockid+block_k*block_indices_to_id[2])*WID3 + cellid + cell_k*cell_indices_to_id[2]] = target_column_data[block_k*WID + cell_k + WID];
+              //full_grid->grid[(blockid+block_k*block_indices_to_id[2])*WID3 + cellid + cell_k*cell_indices_to_id[2]] = column_data[block_k*WID + cell_k + WID];
             }
           }
         }
@@ -272,10 +291,13 @@ void cpu_accelerate_cell_(SpatialCell* spatial_cell,const Real dt) {
                            intersection_y,intersection_y_di,intersection_y_dj,intersection_y_dk);
    phiprof::stop("compute-intersections");
    phiprof::start("compute-mapping");
+
+   // Create a full grid from the sparse spatialCell
    full_grid_t *full_grid = to_full_grid(spatial_cell);
    //printf("BB: %i %i %i, %i %i %i\n", full_grid->min_x, full_grid->min_y, full_grid->min_z, full_grid->min_x + full_grid->dx, full_grid->min_y + full_grid->dy, full_grid->min_z + full_grid->dz);
 
-   // Do the actual mapping
+
+   //Do the actual mapping
    data_to_SpatialCell(spatial_cell, full_grid);
    print_column_to_file("mapnone.dat",spatial_cell, 15, 15);
    map_column(full_grid, intersection_z,intersection_z_di,intersection_z_dj,intersection_z_dk, 2);
@@ -288,8 +310,9 @@ void cpu_accelerate_cell_(SpatialCell* spatial_cell,const Real dt) {
    data_to_SpatialCell(spatial_cell, full_grid);
    print_column_to_file("mapzxy.dat",spatial_cell, 15, 15);
 
-   //print_column_to_file(spatial_cell, 15, 15);
+   //print_column_to_file("vlasmapz.dat",spatial_cell, 15, 15);
    //map_1d(spatial_cell, intersection_z,intersection_z_di,intersection_z_dj,intersection_z_dk,2); /*< map along z*/
+   //print_column_to_file("vlasmapz2.dat",spatial_cell, 15, 15);
    //map_1d(spatial_cell, intersection_x,intersection_x_di,intersection_x_dj,intersection_x_dk,0); /*< map along x*/
    //map_1d(spatial_cell, intersection_y,intersection_y_di,intersection_y_dj,intersection_y_dk,1); /*< map along y*/
    
