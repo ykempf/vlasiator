@@ -298,6 +298,7 @@ void cpu_accelerate_cell_(SpatialCell* spatial_cell,const Real dt) {
 
 
    //Do the actual mapping
+   /*
    data_to_SpatialCell(spatial_cell, full_grid);
    print_column_to_file("mapnone.dat",spatial_cell, 15, 15);
    map_column(full_grid, intersection_z,intersection_z_di,intersection_z_dj,intersection_z_dk, 2);
@@ -309,17 +310,20 @@ void cpu_accelerate_cell_(SpatialCell* spatial_cell,const Real dt) {
    map_column(full_grid, intersection_y,intersection_y_di,intersection_y_dj,intersection_y_dk, 1);
    data_to_SpatialCell(spatial_cell, full_grid);
    print_column_to_file("mapzxy.dat",spatial_cell, 15, 15);
+   */
+   print_column_to_file("vlasmapnone.dat",spatial_cell, 15, 15);
+   map_1d(spatial_cell, intersection_z,intersection_z_di,intersection_z_dj,intersection_z_dk,2); /*< map along z*/
+   print_column_to_file("vlasmapz.dat",spatial_cell, 15, 15);
+   map_1d(spatial_cell, intersection_x,intersection_x_di,intersection_x_dj,intersection_x_dk,0); /*< map along x*/
+   print_column_to_file("vlasmapzx.dat",spatial_cell, 15, 15);
+   map_1d(spatial_cell, intersection_y,intersection_y_di,intersection_y_dj,intersection_y_dk,1); /*< map along y*/
+   print_column_to_file("vlasmapzxy.dat",spatial_cell, 15, 15);
 
-   //print_column_to_file("vlasmapz.dat",spatial_cell, 15, 15);
-   //map_1d(spatial_cell, intersection_z,intersection_z_di,intersection_z_dj,intersection_z_dk,2); /*< map along z*/
-   //print_column_to_file("vlasmapz2.dat",spatial_cell, 15, 15);
-   //map_1d(spatial_cell, intersection_x,intersection_x_di,intersection_x_dj,intersection_x_dk,0); /*< map along x*/
-   //map_1d(spatial_cell, intersection_y,intersection_y_di,intersection_y_dj,intersection_y_dk,1); /*< map along y*/
-   
    // Transfer data back to the SpatialCell
+   /*
    data_to_SpatialCell(spatial_cell, full_grid);
    printf("rel blocks %i\n", relevant_blocks);
-   
+   */
    // Remove unnecessary blocks
    std::vector<SpatialCell*> neighbor_ptrs;
    spatial_cell->update_velocity_block_content_lists();
