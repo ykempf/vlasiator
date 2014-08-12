@@ -150,7 +150,7 @@ void map_column(full_grid_t *full_grid, Real intersection, Real intersection_di,
   Real cell_dv, v_min;
   Real is_temp;
   int column_size;
-  int block_di, block_dj, block_dk;
+  int block_di, block_dj, block_dk, min_i, min_j;
   uint max_v_length;
   uint block_indices_to_id[3]; /*< used when computing id of target block */
   uint cell_indices_to_id[3]; /*< used when computing id of target cell in block*/
@@ -166,6 +166,8 @@ void map_column(full_grid_t *full_grid, Real intersection, Real intersection_di,
      case 0:
       /* i and k coordinates have been swapped*/
       /*set cell size in dimension direction*/
+      min_i = full_grid->min_z;
+      min_j = full_grid->min_y;
       cell_dv=SpatialCell::cell_dvx; 
       v_min=SpatialCell::vx_min + full_grid->min_x * WID * cell_dv;
       column_size = full_grid->dx*WID;
@@ -188,6 +190,8 @@ void map_column(full_grid_t *full_grid, Real intersection, Real intersection_di,
     case 1:
       /* j and k coordinates have been swapped*/
       /*set cell size in dimension direction*/
+      min_i = full_grid->min_x;
+      min_j = full_grid->min_z;
       cell_dv=SpatialCell::cell_dvy;
       v_min=SpatialCell::vy_min + full_grid->min_y * WID * cell_dv;
       column_size = full_grid->dy*WID;
@@ -209,6 +213,8 @@ void map_column(full_grid_t *full_grid, Real intersection, Real intersection_di,
       break;
     case 2:
       /*set cell size in dimension direction*/
+      min_i = full_grid->min_x;
+      min_j = full_grid->min_y;
       cell_dv=SpatialCell::cell_dvz;
       v_min=SpatialCell::vz_min + full_grid->min_z * WID * cell_dv;
       column_size = full_grid->dz*WID;
@@ -247,7 +253,7 @@ void map_column(full_grid_t *full_grid, Real intersection, Real intersection_di,
             printf("%e %e %e %e\n", intersection, intersection_di, intersection_dj, intersection_dk);
           }
           propagate(column_data, target_column_data, block_dk, v_min, cell_dv,
-             block_i, cell_i,block_j, cell_j,
+             block_i, cell_i, block_j, cell_j,
              intersection, intersection_di, intersection_dj, intersection_dk);
           //propagate_old(column_data, block_dk, v_min, cell_dv,
           //   block_i, cell_i,block_j, cell_j,
@@ -298,7 +304,7 @@ void cpu_accelerate_cell_(SpatialCell* spatial_cell,const Real dt) {
 
 
    //Do the actual mapping
-   /*
+   
    data_to_SpatialCell(spatial_cell, full_grid);
    print_column_to_file("mapnone.dat",spatial_cell, 15, 15);
    map_column(full_grid, intersection_z,intersection_z_di,intersection_z_dj,intersection_z_dk, 2);
@@ -310,14 +316,14 @@ void cpu_accelerate_cell_(SpatialCell* spatial_cell,const Real dt) {
    map_column(full_grid, intersection_y,intersection_y_di,intersection_y_dj,intersection_y_dk, 1);
    data_to_SpatialCell(spatial_cell, full_grid);
    print_column_to_file("mapzxy.dat",spatial_cell, 15, 15);
-   */
-   print_column_to_file("vlasmapnone.dat",spatial_cell, 15, 15);
-   map_1d(spatial_cell, intersection_z,intersection_z_di,intersection_z_dj,intersection_z_dk,2); /*< map along z*/
-   print_column_to_file("vlasmapz.dat",spatial_cell, 15, 15);
-   map_1d(spatial_cell, intersection_x,intersection_x_di,intersection_x_dj,intersection_x_dk,0); /*< map along x*/
-   print_column_to_file("vlasmapzx.dat",spatial_cell, 15, 15);
-   map_1d(spatial_cell, intersection_y,intersection_y_di,intersection_y_dj,intersection_y_dk,1); /*< map along y*/
-   print_column_to_file("vlasmapzxy.dat",spatial_cell, 15, 15);
+   
+   // print_column_to_file("vlasmapnone.dat",spatial_cell, 15, 15);
+   // map_1d(spatial_cell, intersection_z,intersection_z_di,intersection_z_dj,intersection_z_dk,2); /*< map along z*/
+   // print_column_to_file("vlasmapz.dat",spatial_cell, 15, 15);
+   // map_1d(spatial_cell, intersection_x,intersection_x_di,intersection_x_dj,intersection_x_dk,0); /*< map along x*/
+   // print_column_to_file("vlasmapzx.dat",spatial_cell, 15, 15);
+   // map_1d(spatial_cell, intersection_y,intersection_y_di,intersection_y_dj,intersection_y_dk,1); /*< map along y*/
+   // print_column_to_file("vlasmapzxy.dat",spatial_cell, 15, 15);
 
    // Transfer data back to the SpatialCell
    /*

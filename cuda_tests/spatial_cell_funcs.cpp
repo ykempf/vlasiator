@@ -128,11 +128,11 @@ SpatialCell *create_cubic(const uint width, const Real value) {
     SpatialCell *spacell;
     spacell = new SpatialCell();
     // Add some parameters by hand
-    spacell->parameters[CellParams::BGBX] = 0.0;
-    spacell->parameters[CellParams::BGBY] = 0.0;
+    spacell->parameters[CellParams::BGBX] = 1.0e-5;
+    spacell->parameters[CellParams::BGBY] = 1.0e-5;
     spacell->parameters[CellParams::BGBZ] = 1.0e-5;
-    spacell->parameters[CellParams::BGBXVOL] = 0.0;
-    spacell->parameters[CellParams::BGBYVOL] = 0.0;
+    spacell->parameters[CellParams::BGBXVOL] = 1.0e-5;
+    spacell->parameters[CellParams::BGBYVOL] = 1.0e-5;
     spacell->parameters[CellParams::BGBZVOL] = 1.0e-5;
     spacell->parameters[CellParams::PERBXVOL] = 0.0;
     spacell->parameters[CellParams::PERBYVOL] = 0.0;
