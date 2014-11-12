@@ -208,8 +208,7 @@ int main(int argn,char* args[]) {
    MPI_Comm comm = MPI_COMM_WORLD;
    MPI_Comm_rank(comm,&myRank);
    SysBoundary sysBoundaries;
-   bool isSysBoundaryCondDynamic;
-
+   
    #ifdef CATCH_FPE
    // WARNING FE_INEXACT is too sensitive to be used. See man fenv.
    //feenableexcept(FE_DIVBYZERO|FE_INVALID|FE_OVERFLOW|FE_UNDERFLOW);
@@ -280,7 +279,6 @@ int main(int argn,char* args[]) {
       VLASOV_SOLVER_NEIGHBORHOOD (but dist function has not been communicated)
    */
    initializeGrid(argn,args,mpiGrid,sysBoundaries,*project);
-   isSysBoundaryCondDynamic = sysBoundaries.isDynamic();
    phiprof::stop("Init grid");
    phiprof::start("Init DROs");
    // Initialize data reduction operators. This should be done elsewhere in order to initialize 
@@ -604,6 +602,24 @@ int main(int argn,char* args[]) {
       
       phiprof::start("Propagate");
       //Propagate the state of simulation forward in time by dt:
+      
+      phiprof::start("Update system boundaries");
+      phiprof::start("Update templates");
+      if(!sysBoundaries.update(mpiGrid, P::t)) {
+         std::cerr << "System boundary update failed!" << std::endl;
+         abort();
+      }
+      phiprof::stop("Update templates");
+      if (P::propagateVlasovTranslation || P::propagateVlasovAcceleration ) {
+         phiprof::start("Update system boundaries (Vlasov)");
+         sysBoundaries.applySysBoundaryVlasovConditions(mpiGrid, P::t+0.5*P::dt); 
+         phiprof::stop("Update system boundaries (Vlasov)");
+         addTimedBarrier("barrier-boundary-conditions");
+      }
+      phiprof::stop("Update system boundaries");
+      
+      updateRemoteVelocityBlockLists(mpiGrid);
+      
       
       phiprof::start("Spatial-space");
       if( P::propagateVlasovTranslation) {
