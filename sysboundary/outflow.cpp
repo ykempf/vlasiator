@@ -70,7 +70,7 @@ namespace SBC {
       
       this->getParameters();
       
-      isThisDynamic = false;
+      this->isThisDynamic = false;
       
       vector<string>::const_iterator it;
       for (it = faceList.begin();

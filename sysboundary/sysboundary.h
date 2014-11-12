@@ -58,6 +58,10 @@ class SysBoundary {
          Project& project,
          creal& t
       );
+      bool update(
+         const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
+         creal& t
+      );
       bool classifyCells(dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid);
       bool applyInitialState(
          dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
@@ -66,7 +70,6 @@ class SysBoundary {
       void applySysBoundaryVlasovConditions(dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid, creal& t);
       unsigned int size() const;
       SBC::SysBoundaryCondition* getSysBoundary(cuint sysBoundaryType) const;
-      bool isDynamic() const;
       bool isBoundaryPeriodic(uint direction) const;
       bool updateSysBoundariesAfterLoadBalance(dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid);
 
@@ -82,7 +85,6 @@ class SysBoundary {
       std::vector<std::string> sysBoundaryCondList;
       /*! bool telling whether any system boundary condition is dynamic in time (and thus needs updating). */
       bool isThisDynamic;
-   
       /*! Array of bool telling whether the system is periodic in any direction. */
       bool isPeriodic[3];
 };

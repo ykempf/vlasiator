@@ -384,7 +384,6 @@ namespace SBC {
             }
          }
       }
-      // WARNING Time-independence assumed here. _R and _V not copied, as boundary conditions cells should not set/use them
       to->parameters[CellParams::RHO_DT2] = from->parameters[CellParams::RHO_DT2];
       to->parameters[CellParams::RHOVX_DT2] = from->parameters[CellParams::RHOVX_DT2];
       to->parameters[CellParams::RHOVY_DT2] = from->parameters[CellParams::RHOVY_DT2];
@@ -682,6 +681,14 @@ namespace SBC {
       std::vector<CellID> & closestCells = allClosestNonsysboundaryCells.at(cellID);
       phiprof::stop("getAllClosestNonsysboundaryCells");
       return closestCells;
+   }
+   
+   /*! Function used to update time-dynamic system boundary conditions.*/
+   bool SysBoundaryCondition::update(
+      const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
+      creal& t
+   ) {
+      return true;
    }
    
    /*! Function used in some cases to know which faces the system boundary condition is being applied to.*/

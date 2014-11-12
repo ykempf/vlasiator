@@ -130,7 +130,7 @@ namespace projects {
       creal dx = cell->parameters[CellParams::DX];
       creal dy = cell->parameters[CellParams::DY];
       creal dz = cell->parameters[CellParams::DZ];
-
+      
       for (uint i=0; i<blocksToInitialize.size(); ++i) {
          const vmesh::GlobalID blockGID = blocksToInitialize.at(i);
          const vmesh::LocalID blockLID = cell->get_velocity_block_local_id(blockGID);
@@ -140,8 +140,9 @@ namespace projects {
          creal dvxCell = parameters[blockLID*BlockParams::N_VELOCITY_BLOCK_PARAMS + BlockParams::DVX];
          creal dvyCell = parameters[blockLID*BlockParams::N_VELOCITY_BLOCK_PARAMS + BlockParams::DVY];
          creal dvzCell = parameters[blockLID*BlockParams::N_VELOCITY_BLOCK_PARAMS + BlockParams::DVZ];
-
+         
          // Calculate volume average of distrib. function for each cell in the block.
+         uint vcell = 0;
          for (uint kc=0; kc<WID; ++kc) 
             for (uint jc=0; jc<WID; ++jc) 
                for (uint ic=0; ic<WID; ++ic) {
@@ -156,16 +157,12 @@ namespace projects {
                      dvxCell,dvyCell,dvzCell);
 
                   if (average != 0.0){
-                     //FIXME!!! set_value is slow as we again have to convert v -> index
-                     // We should set_value to a specific block index (as we already have it!)
-                     creal vxCellCenter = vxBlock + (ic+convert<Real>(0.5))*dvxCell;
-                     creal vyCellCenter = vyBlock + (jc+convert<Real>(0.5))*dvyCell;
-                     creal vzCellCenter = vzBlock + (kc+convert<Real>(0.5))*dvzCell;
-                     cell->set_value(vxCellCenter,vyCellCenter,vzCellCenter,average);
+                     cell->set_value(blockGID, vcell, average);
                   }
+                  vcell++;
                }
       }
-
+      
       // Get AMR refinement criterion and use it to test which blocks should be refined
       amr_ref_criteria::Base* refCriterion = getObjectWrapper().amrVelRefCriteria.create(Parameters::amrVelRefCriterion);
       if (refCriterion == NULL) return;

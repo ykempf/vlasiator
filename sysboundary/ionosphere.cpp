@@ -119,7 +119,7 @@ namespace SBC {
       Project &project
    ) {
       getParameters();
-      isThisDynamic = false;
+      this->isThisDynamic = false;
       
       generateTemplateCell(project);
       
@@ -607,6 +607,7 @@ namespace SBC {
          creal dz = templateCell.parameters[CellParams::DZ];
          
          // Calculate volume average of distrib. function for each cell in the block.
+         uint vcell = 0;
          for (uint kc=0; kc<WID; ++kc) 
             for (uint jc=0; jc<WID; ++jc) 
                for (uint ic=0; ic<WID; ++ic) {
@@ -637,11 +638,9 @@ namespace SBC {
                   }
                   
                   if(average!=0.0){
-                     creal vxCellCenter = vxBlock + (ic+convert<Real>(0.5))*dvxCell;
-                     creal vyCellCenter = vyBlock + (jc+convert<Real>(0.5))*dvyCell;
-                     creal vzCellCenter = vzBlock + (kc+convert<Real>(0.5))*dvzCell;
-                     templateCell.set_value(vxCellCenter,vyCellCenter,vzCellCenter,average);
+                     templateCell.set_value(blockGID, vcell, average);
                   }
+            vcell++;
          }
       }
       //let's get rid of blocks not fulfilling the criteria here to save
