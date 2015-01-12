@@ -323,6 +323,7 @@ namespace sysboundarytype {
       NOT_SYSBOUNDARY, /*!< Cells within the simulation domain are not boundary cells. */
       IONOSPHERE, /*!< Initially a perfectly conducting sphere. */
       OUTFLOW, /*!< No fixed conditions on the fields and distribution function. */
+      REFLECTING, /*!< Reflect outgoing distribution inwards, perfect conductor field condition. */
       SET_MAXWELLIAN, /*!< Set Maxwellian boundary condition, i.e. set fields and distribution function. */
       N_SYSBOUNDARY_CONDITIONS
    };

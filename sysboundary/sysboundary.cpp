@@ -54,7 +54,7 @@ SysBoundary::~SysBoundary() {
  * help.
  */
 void SysBoundary::addParameters() {
-   Readparameters::addComposing("boundaries.boundary", "List of boundary condition (BC) types to be used. Each boundary condition to be used has to be on a new line boundary = YYY. Available (20140113) are Outflow Ionosphere Maxwellian.");
+   Readparameters::addComposing("boundaries.boundary", "List of boundary condition (BC) types to be used. Each boundary condition to be used has to be on a new line boundary = YYY. Available (20150112) are Reflecting Outflow Ionosphere Maxwellian.");
    Readparameters::add("boundaries.periodic_x","If 'yes' the grid is periodic in x-direction. Defaults to 'no'.","no");
    Readparameters::add("boundaries.periodic_y","If 'yes' the grid is periodic in y-direction. Defaults to 'no'.","no");
    Readparameters::add("boundaries.periodic_z","If 'yes' the grid is periodic in z-direction. Defaults to 'no'.","no");
@@ -63,6 +63,7 @@ void SysBoundary::addParameters() {
    SBC::DoNotCompute::addParameters();
    SBC::Ionosphere::addParameters();
    SBC::Outflow::addParameters();
+   SBC::Reflecting::addParameters();
    SBC::SetMaxwellian::addParameters();
 }
 
@@ -176,6 +177,24 @@ bool SysBoundary::initSysBoundaries(
          }
          if((faces[4] || faces[5]) && isPeriodic[2]) {
             if(myRank == MASTER_RANK) cerr << "You set boundaries.periodic_z = yes and load Outflow system boundary conditions on the z+ or z- face, are you sure this is correct?" << endl;
+         }
+      }
+      if(*it == "Reflecting") {
+         if(this->addSysBoundary(new SBC::Reflecting, project, t) == false) {
+            if(myRank == MASTER_RANK) cerr << "Error in adding Reflecting boundary." << endl;
+            success = false;
+         }
+         isThisDynamic = isThisDynamic|this->getSysBoundary(sysboundarytype::REFLECTING)->isDynamic();
+         bool faces[6];
+         this->getSysBoundary(sysboundarytype::REFLECTING)->getFaces(&faces[0]);
+         if((faces[0] || faces[1]) && isPeriodic[0]) {
+            if(myRank == MASTER_RANK) cerr << "You set boundaries.periodic_x = yes and load Reflecting system boundary conditions on the x+ or x- face, are you sure this is correct?" << endl;
+         }
+         if((faces[2] || faces[3]) && isPeriodic[1]) {
+            if(myRank == MASTER_RANK) cerr << "You set boundaries.periodic_y = yes and load Reflecting system boundary conditions on the y+ or y- face, are you sure this is correct?" << endl;
+         }
+         if((faces[4] || faces[5]) && isPeriodic[2]) {
+            if(myRank == MASTER_RANK) cerr << "You set boundaries.periodic_z = yes and load Reflecting system boundary conditions on the z+ or z- face, are you sure this is correct?" << endl;
          }
       }
       if(*it == "Ionosphere") {
