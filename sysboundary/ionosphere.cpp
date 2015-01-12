@@ -500,7 +500,6 @@ namespace SBC {
       } else {// RKCase == RK_ORDER2_STEP1
          mpiGrid[cellID]->parameters[CellParams::EX_DT2+component] = 0.0;
       }
-      return;
    }
    
    void Ionosphere::fieldSolverBoundaryCondHallElectricField(
