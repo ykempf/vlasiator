@@ -126,6 +126,7 @@ LIBS += ${LIB_PROFILE}
 LIBS += ${LIB_VLSV}
 LIBS += ${LIB_JEMALLOC} 
 LIBS += ${LIB_PAPI}
+LIBS += ${LIB_CUDA}
 
 # Define common dependencies
 DEPS_COMMON = common.h common.cpp definitions.h mpiconversion.h logger.h
@@ -181,6 +182,8 @@ OBJS = 	version.o memoryallocation.o backgroundfield.o quadr.o dipole.o linedipo
 	vlscommon.o vlsvreader2.o vlasovmover.o $(FIELDSOLVER).o fs_common.o fs_limiters.o
 
 OBJS_POISSON = poisson_solver.o poisson_test.o poisson_solver_jacobi.o poisson_solver_sor.o
+
+OBJS_CUDA = velocity_mesh_cuda.o
 
 help:
 	@echo ''
@@ -317,6 +320,9 @@ testHall.o: ${DEPS_COMMON} projects/testHall/testHall.h projects/testHall/testHa
 test_trans.o: ${DEPS_COMMON} projects/test_trans/test_trans.h projects/test_trans/test_trans.cpp
 	${CMP} ${CXXFLAGS} ${FLAGS} -c projects/test_trans/test_trans.cpp ${INC_DCCRG} ${INC_ZOLTAN} ${INC_BOOST} ${INC_EIGEN}
 
+velocity_mesh_cuda.o: velocity_mesh_cuda.cu velocity_mesh_cuda.h
+	${CUDACMP} ${NVCCFLAGS} -c velocity_mesh_cuda.cu 
+
 verificationLarmor.o: ${DEPS_COMMON} projects/verificationLarmor/verificationLarmor.h projects/verificationLarmor/verificationLarmor.cpp
 	${CMP} ${CXXFLAGS} ${FLAGS} -c projects/verificationLarmor/verificationLarmor.cpp ${INC_DCCRG} ${INC_ZOLTAN} ${INC_BOOST} ${INC_EIGEN}
 
@@ -400,8 +406,8 @@ vlsvreader2extra.o:  muxml.h muxml.cpp vlscommon.h vlsvreader2.h vlsvreader2.cpp
 
 
 # Make executable
-vlasiator: $(OBJS) $(OBJS_POISSON)
-	$(LNK) ${LDFLAGS} -o ${EXE} $(OBJS) $(LIBS) $(OBJS_POISSON)
+vlasiator: $(OBJS) $(OBJS_POISSON) $(OBJS_CUDA)
+	$(LNK) ${LDFLAGS} -o ${EXE} $(OBJS)  $(OBJS_POISSON) $(OBJS_CUDA) $(LIBS)
 
 
 #/// TOOLS section/////

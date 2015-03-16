@@ -1,20 +1,27 @@
+
 CMP = mpic++
 LNK = mpic++
+CUDACMP = nvcc
 
 LIBRARY_PREFIX = $(HOME)/libraries
 FLAGS =
 
 
 CXXFLAGS = -I$(LIBRARY_PREFIX)/include  -O3  -funroll-loops -std=c++0x -fopenmp  -fabi-version=0 -mavx
+NVCCFLAGS = -O2 -arch=sm_20
 MATHFLAGS = -ffast-math
 LDFLAGS = -L$(LIBRARY_PREFIX)/lib
 LIB_MPI = -lgomp 
+LIB_CUDA =  -L/usr/local/cuda-6.5/lib64/ -lcudart -lstdc++ 
+PAPI_FLAG =
+
 
 
 INC_EIGEN = -I$(LIBRARY_PREFIX)/eigen
 
 INC_BOOST =
 LIB_BOOST = -lboost_program_options
+
 
 
 LIB_ZOLTAN = -lzoltan
