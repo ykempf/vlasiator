@@ -525,15 +525,7 @@ namespace SBC {
                      creal vzCellCenter = vzBlock + (kc+convert<Real>(0.5))*dvzCell;
                      // scalar product v.n
                      creal vNormal = vxCellCenter*nx + vyCellCenter*ny + vzCellCenter*nz;
-                     if(vNormal >= 0.0) {
-                        // Not flowing in, leave as is.
-                        cell->increment_value(
-                           vxCellCenter,
-                           vyCellCenter,
-                           vzCellCenter,
-                           factor*incomingCell->get_value(vxCellCenter, vyCellCenter, vzCellCenter)
-                        );
-                     } else {
+                     if(vNormal < 0.0) {
                         // Flowing in, bounce off.
                         cell->increment_value(
                            vxCellCenter - 2.0*vNormal*nx,

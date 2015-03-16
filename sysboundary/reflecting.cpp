@@ -24,6 +24,7 @@
 #include <iostream>
 
 #include "reflecting.h"
+#include "../vlasovmover.h"
 #include "../projects/projects_common.h"
 #include "../fieldsolver/fs_common.h"
 
@@ -241,6 +242,9 @@ namespace SBC {
          normalDirection[1],
          normalDirection[2]
       );
+      
+      calculateCellVelocityMoments(mpiGrid[cellID]);
+      
    }
    
    std::array<Real, 3> Reflecting::fieldSolverGetNormalDirection(
