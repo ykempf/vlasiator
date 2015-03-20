@@ -5,10 +5,23 @@
  */
 #include "velocity_mesh_cuda.h"
 
-using namespace vmesh;
+
+//using namespace vmesh;
 
 
-__device__ __host__ VelocityMeshCuda::VelocityMeshCuda() { }
+__device__  vmesh::VelocityMeshCuda::VelocityMeshCuda() { }
 
 
-__device__ __host__ VelocityMeshCuda::~VelocityMeshCuda() { }
+__device__  vmesh::VelocityMeshCuda::~VelocityMeshCuda() { }
+
+
+
+
+__global__ void vmesh::readInMesh(realf *d_data, GlobalID *d_blockIDs, uint nBlocks){
+
+
+}
+
+
+
+

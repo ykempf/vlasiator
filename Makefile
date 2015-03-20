@@ -159,7 +159,7 @@ DEPS_PROJECTS =	projects/project.h projects/project.cpp \
 
 DEPS_VLSVMOVER = ${DEPS_CELL} vlasovsolver/vlasovmover.cpp vlasovsolver/cpu_acc_map.hpp vlasovsolver/cpu_acc_intersections.hpp \
 	vlasovsolver/cpu_acc_intersections.hpp vlasovsolver/cpu_acc_semilag.hpp vlasovsolver/cpu_acc_transform.hpp \
-	vlasovsolver/cpu_moments.h vlasovsolver/cpu_trans_map.hpp
+	vlasovsolver/cpu_moments.h vlasovsolver/cpu_trans_map.hpp vlasovsolver/cuda_acc_map.h 
 
 DEPS_VLSVMOVER_AMR = ${DEPS_CELL} vlasovsolver_amr/vlasovmover.cpp vlasovsolver_amr/cpu_acc_map.hpp vlasovsolver_amr/cpu_acc_intersections.hpp \
 	vlasovsolver_amr/cpu_acc_intersections.hpp vlasovsolver_amr/cpu_acc_semilag.hpp vlasovsolver_amr/cpu_acc_transform.hpp \
@@ -183,7 +183,7 @@ OBJS = 	version.o memoryallocation.o backgroundfield.o quadr.o dipole.o linedipo
 
 OBJS_POISSON = poisson_solver.o poisson_test.o poisson_solver_jacobi.o poisson_solver_sor.o
 
-OBJS_CUDA = velocity_mesh_cuda.o
+OBJS_CUDA = velocity_mesh_cuda.o cuda_acc_map.o
 
 help:
 	@echo ''
@@ -322,6 +322,9 @@ test_trans.o: ${DEPS_COMMON} projects/test_trans/test_trans.h projects/test_tran
 
 velocity_mesh_cuda.o: velocity_mesh_cuda.cu velocity_mesh_cuda.h
 	${CUDACMP} ${NVCCFLAGS} -c velocity_mesh_cuda.cu 
+
+cuda_acc_map.o: vlasovsolver/cuda_acc_map.cu vlasovsolver/cuda_acc_map.h velocity_mesh_cuda.h
+	${CUDACMP} ${NVCCFLAGS} -c vlasovsolver/cuda_acc_map.cu
 
 verificationLarmor.o: ${DEPS_COMMON} projects/verificationLarmor/verificationLarmor.h projects/verificationLarmor/verificationLarmor.cpp
 	${CMP} ${CXXFLAGS} ${FLAGS} -c projects/verificationLarmor/verificationLarmor.cpp ${INC_DCCRG} ${INC_ZOLTAN} ${INC_BOOST} ${INC_EIGEN}
