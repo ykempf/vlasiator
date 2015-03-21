@@ -20,6 +20,7 @@
 #include "cpu_moments.h"
 #include "cpu_acc_semilag.hpp"
 #include "cpu_trans_map.hpp"
+#include "cuda_acc_map.h"
 
 #include <stdint.h>
 #include <dccrg.hpp>
@@ -309,6 +310,17 @@ void calculateAcceleration(
 //    if(dt > 0)  // FIXME this has to be deactivated to support regular projects but it breaks test_trans support most likely, with this on dt stays 0
    phiprof::start("semilag-acc");
 
+
+#warning hack to launch kernels
+   for (size_t c=0; c<cells.size(); ++c) {
+      SpatialCell* SC = mpiGrid[cells[c]];
+      vmesh::GlobalID *blocks = SC->get_velocity_mesh(0).getGrid().data();
+      Realf *blockdata = SC->get_velocity_blocks(0).getData();
+      accelerate_velocity_mesh_cuda(blockdata,blocks);
+   }
+   exit(0);
+
+   
    // Iterate through all local cells and collect cells to propagate.
    // Ghost cells (spatial cells at the boundary of the simulation 
    // volume) do not need to be propagated:
