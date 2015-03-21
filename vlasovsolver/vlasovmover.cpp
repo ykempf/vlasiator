@@ -316,9 +316,10 @@ void calculateAcceleration(
       SpatialCell* SC = mpiGrid[cells[c]];
       vmesh::GlobalID *blocks = SC->get_velocity_mesh(0).getGrid().data();
       Realf *blockdata = SC->get_velocity_blocks(0).getData();
-      accelerate_velocity_mesh_cuda(blockdata,blocks);
+      accelerate_velocity_mesh_cuda(blockdata,blocks,SC->size());
+
    }
-   exit(0);
+
 
    
    // Iterate through all local cells and collect cells to propagate.
