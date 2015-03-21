@@ -10,7 +10,8 @@
 #include "common.h"
 #ifdef __CUDACC__
 #define HOST_DEVICE __host__ __device__
-#define realf float
+#warning "Integrate this Realf with the vec.h machinery"
+#define Realf float
 #else
 #define HOST_DEVICE
 #endif
@@ -18,7 +19,7 @@
 //
 
 namespace vmesh {
-   __global__ void readInMesh(realf *d_data, GlobalID *d_blockIDs, uint nBlocks);
+   __global__ void readInMesh(Realf *d_data, GlobalID *d_blockIDs, uint nBlocks);
    class VelocityMeshCuda {
    public:
       __device__ VelocityMeshCuda();
@@ -28,9 +29,9 @@ namespace vmesh {
       //     __host__ downloadVelocityMesh(SpatialCell* cell);
       
    private:
-      realf dv;
+      Realf dv;
       int columnDimension;
-      realf *data;
+      Realf *data;
       int3 *columnBeginCoordinate; //x,y,z coordinate where column starts
       int *columnOffset; //Offset in data where the column starts
       int *nz;    //Length of column in z direction, size is nx*ny

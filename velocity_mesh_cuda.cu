@@ -17,7 +17,7 @@ __device__  vmesh::VelocityMeshCuda::~VelocityMeshCuda() { }
 
 
 
-__global__ void vmesh::readInMesh(realf *d_data, GlobalID *d_blockIDs, uint nBlocks){
+__global__ void vmesh::readInMesh(Realf *d_data, GlobalID *d_blockIDs, uint nBlocks){
 
 
 }
