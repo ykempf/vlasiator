@@ -344,7 +344,7 @@ int main(int argn,char* args[]) {
       calculateAcceleration(mpiGrid,0.0);
 
       if (P::propagateField) {
-         propagateFields(mpiGrid, sysBoundaries, 0.0, 1.0);
+         propagateFields(mpiGrid, sysBoundaries, 0.0, 1);
       }
       phiprof::stop("compute-dt");
    }
