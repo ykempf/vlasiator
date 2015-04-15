@@ -2,6 +2,6 @@
 
 
 bool accelerate_velocity_mesh_cuda(Realf *blockdata, vmesh::GlobalID *blocks, uint nBlocks ){
-   vmesh::readInMesh<<<1,1>>>(blockdata, blocks, nBlocks);
-   cudaDeviceSynchronize();
+   vmesh::readInMesh(blockdata, blocks, nBlocks);
+//   cudaDeviceSynchronize();
 }

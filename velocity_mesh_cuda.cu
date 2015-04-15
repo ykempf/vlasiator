@@ -4,7 +4,7 @@
  * Copyright 2014 Finnish Meteorological Institute
  */
 #include "velocity_mesh_cuda.h"
-
+#include "common.h"
 
 //using namespace vmesh;
 
@@ -17,10 +17,7 @@ __device__  vmesh::VelocityMeshCuda::~VelocityMeshCuda() { }
 
 
 
-__global__ void vmesh::readInMesh(Realf *d_data, GlobalID *d_blockIDs, uint nBlocks){
-   printf("Hello from your GPU, wohooo");
 
-}
 
 
 
