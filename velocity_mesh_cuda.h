@@ -16,58 +16,63 @@
 #define HOST_DEVICE
 #endif
 
+#include <thrust/host_vector.h>
+#include <thrust/device_vector.h>
+#include <thrust/sort.h>
+#include <thrust/functional.h>
+
 //
 
 namespace vmesh {
    template<typename GID>
    class VelocityMeshCuda {
    public:
-      __device__ VelocityMeshCuda();
-      __device__ ~VelocityMeshCuda();
+      __host__ void init(Realf *h_data, GID *h_blockIDs, uint nBlocks);
       
    private:
-      Realf dv;
-      int columnDimension;
+      Realf dv;      
+      uint nBlocks;
       Realf *data;
-      int3 *columnBeginCoordinate; //x,y,z coordinate where column starts
-      int *columnOffset; //Offset in data where the column starts
-      int *nz;    //Length of column in z direction, size is nx*ny
-      int *ny;    //Length of column in z direction, size is nx*ny
+      GID *blockIDs;      
    };
    
-   template<typename GID> __global__ void initializeMesh(VelocityMeshCuda<GID> *d_vmesh, Realf *d_data, GID *d_blockIDs, uint nBlocks){
-         printf("Hi GPU!");
-   }
-         
 
-
-   template<typename GID> __host__ VelocityMeshCuda<GID>*  readInMesh(Realf *h_data, GID *h_blockIDs, uint nBlocks) {
-      Realf *d_data;
-      GID *d_blockIDs;
-      VelocityMeshCuda<GID> *d_vmesh;
-      cudaEvent_t start, stop;
-      cudaEventCreate(&start);
-      cudaEventCreate(&stop);
-
-      cudaEventRecord(start);
-
-      cudaMalloc((void **)&d_vmesh, sizeof(VelocityMeshCuda<GID>));
-      cudaMalloc(&d_data, nBlocks * WID3 * sizeof(Realf));
-      cudaMalloc(&d_blockIDs, nBlocks * sizeof(GID));
-      cudaEventRecord(start);
-      cudaMemcpy(d_data, h_data, nBlocks *  WID3 * sizeof(Realf), cudaMemcpyHostToDevice);
-      cudaMemcpy(d_blockIDs, h_blockIDs, nBlocks * sizeof(GID), cudaMemcpyHostToDevice);
-      cudaEventRecord(stop);
-
-      initializeMesh<<<1,1>>>(d_vmesh, d_data, d_blockIDs, nBlocks);
-
+   /*init on host side*/
+   template<typename GID> __host__ void VelocityMeshCuda<GID>::init(Realf *h_data, GID *h_blockIDs, uint h_nBlocks) {
+      cudaEvent_t evA, evB;
+      cudaEventCreate(&evA);
+      cudaEventCreate(&evB);
       
-      cudaEventSynchronize(stop);
+      nBlocks=h_nBlocks;
+      cudaMalloc(&data, nBlocks * WID3 * sizeof(Realf));
+      cudaMalloc(&blockIDs, nBlocks * sizeof(GID));
+      
+      
+      cudaEventRecord(evA);      
+      cudaMemcpy(data, h_data, nBlocks *  WID3 * sizeof(Realf), cudaMemcpyHostToDevice);
+      cudaMemcpy(blockIDs, h_blockIDs, nBlocks * sizeof(GID), cudaMemcpyHostToDevice);
+      cudaEventRecord(evB);
+      cudaEventSynchronize(evB);
       uint bytes = nBlocks *  WID3 * sizeof(Realf) +nBlocks * sizeof(GID);
       float milliseconds=0;
-      cudaEventElapsedTime(&milliseconds, start, stop);  
+      cudaEventElapsedTime(&milliseconds, evA, evB);  
       printf("Transferred %d blocks,  %d bytes in %g s to GPU: %g GB/s. \n", nBlocks, bytes, milliseconds * 1e-3, (bytes * 1e-9) / (milliseconds * 1e-3) );
-                              
+      
+      
+   }
+
+   template<typename GID> __host__ VelocityMeshCuda<GID>* initVelocityMeshCuda(Realf *h_data, GID *h_blockIDs, uint nBlocks) {
+      VelocityMeshCuda<GID> h_vmesh;
+      VelocityMeshCuda<GID> *d_vmesh;
+      //allocate space on device for device resident class
+      cudaMalloc((void **)&d_vmesh, sizeof(VelocityMeshCuda<GID>));      
+      //init members on host
+      h_vmesh.init(h_data, h_blockIDs, nBlocks);
+      //copy all  members to device
+      cudaMemcpy(d_vmesh, &h_vmesh, sizeof(VelocityMeshCuda<GID>), cudaMemcpyHostToDevice);
+      
+      
+      return d_vmesh;
    }
 
 
