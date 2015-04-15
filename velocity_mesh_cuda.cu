@@ -9,16 +9,6 @@
 //using namespace vmesh;
 
 
-__device__  vmesh::VelocityMeshCuda::VelocityMeshCuda() { }
-
-
-__device__  vmesh::VelocityMeshCuda::~VelocityMeshCuda() { }
-
-
-
-
-
-
 
 
 
