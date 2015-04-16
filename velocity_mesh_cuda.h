@@ -28,8 +28,7 @@ namespace vmesh {
    class VelocityMeshCuda {
    public:
       __host__ void init(Realf *h_data, GID *h_blockIDs, uint nBlocks);
-      
-   private:
+      private:
       Realf dv;      
       uint nBlocks;
       Realf *data;
@@ -58,23 +57,28 @@ namespace vmesh {
       cudaEventElapsedTime(&milliseconds, evA, evB);  
       printf("Transferred %d blocks,  %d bytes in %g s to GPU: %g GB/s. \n", nBlocks, bytes, milliseconds * 1e-3, (bytes * 1e-9) / (milliseconds * 1e-3) );
       
-      
    }
 
-   template<typename GID> __host__ VelocityMeshCuda<GID>* initVelocityMeshCuda(Realf *h_data, GID *h_blockIDs, uint nBlocks) {
+   /*free on host side*/
+   template<typename GID> __host__ void VelocityMeshCuda<GID>::init(Realf *h_data, GID *h_blockIDs, uint h_nBlocks) {
+      cudaFree(&data);
+      cudaFree(&blockIDs);
+   }
+
+   
+   template<typename GID> __host__ VelocityMeshCuda<GID>* createVelocityMeshCuda(Realf *h_data, GID *h_blockIDs, uint nBlocks) {
       VelocityMeshCuda<GID> h_vmesh;
       VelocityMeshCuda<GID> *d_vmesh;
       //allocate space on device for device resident class
       cudaMalloc((void **)&d_vmesh, sizeof(VelocityMeshCuda<GID>));      
-      //init members on host
+      //init (private) members on host
       h_vmesh.init(h_data, h_blockIDs, nBlocks);
       //copy all  members to device
       cudaMemcpy(d_vmesh, &h_vmesh, sizeof(VelocityMeshCuda<GID>), cudaMemcpyHostToDevice);
-      
-      
       return d_vmesh;
    }
 
+}
 
 }; // namespace vmesh
 
