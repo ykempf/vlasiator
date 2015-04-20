@@ -35,6 +35,10 @@ namespace vmesh {
       Realf *data;
       GID *blockIDs;      
    };
+
+   template<typename GID> __host__ VelocityMeshCuda<GID>* createVelocityMeshCuda(Realf *h_data, GID *h_blockIDs, uint nBlocks);
+   template<typename GID> __host__ void destroyVelocityMeshCuda(VelocityMeshCuda<GID> *d_vmesh);
+   
    
 
    /*init on host side*/
@@ -65,6 +69,9 @@ namespace vmesh {
       cudaFree(blockIDs);
    }
 
+
+
+/*other functions*/
    
    template<typename GID> __host__ VelocityMeshCuda<GID>* createVelocityMeshCuda(Realf *h_data, GID *h_blockIDs, uint nBlocks) {
       VelocityMeshCuda<GID> h_vmesh;

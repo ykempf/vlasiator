@@ -311,15 +311,25 @@ void calculateAcceleration(
    phiprof::start("semilag-acc");
 
 
-#warning hack to launch kernels
+   //collect pointers to relevant spatial cell datas. nvcc is not compatitable with the cpu sptaisl cell / velocity mesh code
+   Realf **blockDatas=new Realf*[cells.size()];
+   vmesh::GlobalID **blockIDs=new  vmesh::GlobalID*[cells.size()];
+   uint *nBlocks=new uint[cells.size()];
    for (size_t c=0; c<cells.size(); ++c) {
       SpatialCell* SC = mpiGrid[cells[c]];
-      vmesh::GlobalID *blocks = SC->get_velocity_mesh(0).getGrid().data();
-      Realf *blockdata = SC->get_velocity_blocks(0).getData();
-      accelerateVelocityMeshCuda(blockdata, blocks, SC->size());
-
+      blockIDs[c] = SC->get_velocity_mesh(0).getGrid().data();
+      blockDatas[c] = SC->get_velocity_blocks(0).getData();
+      nBlocks[c] = SC->size();
    }
 
+   //accelerate all cells on this CPU
+   accelerateVelocityMeshCuda(blockDatas, blockIDs, nBlocks, cells.size());
+   
+   // TODO - glue for putting the accelerated data back to the spatial cells     
+   delete[] nBlocks;
+   delete[] blockIDs;
+   delete[] blockDatas;
+   
 
    
    // Iterate through all local cells and collect cells to propagate.
