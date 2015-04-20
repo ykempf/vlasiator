@@ -316,7 +316,7 @@ void calculateAcceleration(
       SpatialCell* SC = mpiGrid[cells[c]];
       vmesh::GlobalID *blocks = SC->get_velocity_mesh(0).getGrid().data();
       Realf *blockdata = SC->get_velocity_blocks(0).getData();
-      accelerate_velocity_mesh_cuda(blockdata,blocks,SC->size());
+      accelerateVelocityMeshCuda(blockdata, blocks, SC->size());
 
    }
 

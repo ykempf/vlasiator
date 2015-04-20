@@ -28,6 +28,7 @@ namespace vmesh {
    class VelocityMeshCuda {
    public:
       __host__ void init(Realf *h_data, GID *h_blockIDs, uint nBlocks);
+      __host__ void clear();
       private:
       Realf dv;      
       uint nBlocks;
@@ -46,7 +47,6 @@ namespace vmesh {
       cudaMalloc(&data, nBlocks * WID3 * sizeof(Realf));
       cudaMalloc(&blockIDs, nBlocks * sizeof(GID));
       
-      
       cudaEventRecord(evA);      
       cudaMemcpy(data, h_data, nBlocks *  WID3 * sizeof(Realf), cudaMemcpyHostToDevice);
       cudaMemcpy(blockIDs, h_blockIDs, nBlocks * sizeof(GID), cudaMemcpyHostToDevice);
@@ -60,9 +60,9 @@ namespace vmesh {
    }
 
    /*free on host side*/
-   template<typename GID> __host__ void VelocityMeshCuda<GID>::init(Realf *h_data, GID *h_blockIDs, uint h_nBlocks) {
-      cudaFree(&data);
-      cudaFree(&blockIDs);
+   template<typename GID> __host__ void VelocityMeshCuda<GID>::clear(){
+      cudaFree(data);
+      cudaFree(blockIDs);
    }
 
    
@@ -76,10 +76,20 @@ namespace vmesh {
       //copy all  members to device
       cudaMemcpy(d_vmesh, &h_vmesh, sizeof(VelocityMeshCuda<GID>), cudaMemcpyHostToDevice);
       return d_vmesh;
+      //h_vmesh will now be deallocated
    }
-
-}
-
+   
+   template<typename GID> __host__ void destroyVelocityMeshCuda(VelocityMeshCuda<GID> *d_vmesh) {
+      VelocityMeshCuda<GID> h_vmesh;
+      //copy all  members to host (not deep)
+      cudaMemcpy(&h_vmesh, d_vmesh, sizeof(VelocityMeshCuda<GID>), cudaMemcpyDeviceToHost);
+      //clear data in velocity mesh
+      h_vmesh.clear();
+      //free also the mesh itself
+      cudaFree(d_vmesh);
+      //h_vmesh will now be deallocated
+   }
+   
 }; // namespace vmesh
 
 #endif
