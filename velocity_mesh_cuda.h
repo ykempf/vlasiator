@@ -1,3 +1,4 @@
+
 /*
  * This file is part of Vlasiator.
  * 
@@ -7,7 +8,7 @@
 #ifndef VELOCITY_MESH_CUDA_H
 #define VELOCITY_MESH_CUDA_H
 
-#include "common.h"
+#include "common.h" //this gives GlobalID and LocalID types
 #ifdef __CUDACC__
 #define HOST_DEVICE __host__ __device__
 #warning "Integrate this Realf with the vec.h machinery"
@@ -24,25 +25,28 @@
 //
 
 namespace vmesh {
-   template<typename GID>
+   template<typename GID,typename LID>
    class VelocityMeshCuda {
    public:
       __host__ void init(Realf *h_data, GID *h_blockIDs, uint nBlocks);
       __host__ void clear();
-      private:
+
+   private:
       Realf dv;      
       uint nBlocks;
       Realf *data;
-      GID *blockIDs;      
+      GID *blockIDs;
+      LID *blockOffset;
    };
 
-   template<typename GID> __host__ VelocityMeshCuda<GID>* createVelocityMeshCuda(Realf *h_data, GID *h_blockIDs, uint nBlocks);
-   template<typename GID> __host__ void destroyVelocityMeshCuda(VelocityMeshCuda<GID> *d_vmesh);
+   template<typename GID, typename LID> __host__ VelocityMeshCuda<GID,LID>* createVelocityMeshCuda(Realf *h_data, GID *h_blockIDs, uint nBlocks);
+   template<typename GID, typename LID> __host__ void destroyVelocityMeshCuda(VelocityMeshCuda<GID, LID> *d_vmesh);
+   template<typename GID, typename LID> __global__ void sortVelocityBlocks(VelocityMeshCuda<GID, LID> *d_vmesh, uint dimension);
    
+/*----------------------------------------CLASS functions ------------------------------------------*/
    
-
    /*init on host side*/
-   template<typename GID> __host__ void VelocityMeshCuda<GID>::init(Realf *h_data, GID *h_blockIDs, uint h_nBlocks) {
+   template<typename GID, typename LID> __host__ void VelocityMeshCuda<GID,LID>::init(Realf *h_data, GID *h_blockIDs, uint h_nBlocks) {
       cudaEvent_t evA, evB;
       cudaEventCreate(&evA);
       cudaEventCreate(&evB);
@@ -64,32 +68,31 @@ namespace vmesh {
    }
 
    /*free on host side*/
-   template<typename GID> __host__ void VelocityMeshCuda<GID>::clear(){
+   template<typename GID, typename LID> __host__ void VelocityMeshCuda<GID,LID>::clear(){
       cudaFree(data);
       cudaFree(blockIDs);
    }
 
-
-
-/*other functions*/
+/*---------------------------------------- INTERFACE functions ------------------------------------------*/
    
-   template<typename GID> __host__ VelocityMeshCuda<GID>* createVelocityMeshCuda(Realf *h_data, GID *h_blockIDs, uint nBlocks) {
-      VelocityMeshCuda<GID> h_vmesh;
-      VelocityMeshCuda<GID> *d_vmesh;
+   template<typename GID,typename LID>
+   __host__ VelocityMeshCuda<GID,LID>* createVelocityMeshCuda(Realf *h_data, GID *h_blockIDs, LID nBlocks) {
+      VelocityMeshCuda<GID,LID> h_vmesh;
+      VelocityMeshCuda<GID,LID> *d_vmesh;
       //allocate space on device for device resident class
-      cudaMalloc((void **)&d_vmesh, sizeof(VelocityMeshCuda<GID>));      
+      cudaMalloc((void **)&d_vmesh, sizeof(VelocityMeshCuda<GID,LID>));      
       //init (private) members on host
       h_vmesh.init(h_data, h_blockIDs, nBlocks);
       //copy all  members to device
-      cudaMemcpy(d_vmesh, &h_vmesh, sizeof(VelocityMeshCuda<GID>), cudaMemcpyHostToDevice);
+      cudaMemcpy(d_vmesh, &h_vmesh, sizeof(VelocityMeshCuda<GID,LID>), cudaMemcpyHostToDevice);
       return d_vmesh;
       //h_vmesh will now be deallocated
    }
    
-   template<typename GID> __host__ void destroyVelocityMeshCuda(VelocityMeshCuda<GID> *d_vmesh) {
-      VelocityMeshCuda<GID> h_vmesh;
+   template<typename GID,typename LID> __host__ void destroyVelocityMeshCuda(VelocityMeshCuda<GID,LID> *d_vmesh) {
+      VelocityMeshCuda<GID,LID> h_vmesh;
       //copy all  members to host (not deep)
-      cudaMemcpy(&h_vmesh, d_vmesh, sizeof(VelocityMeshCuda<GID>), cudaMemcpyDeviceToHost);
+      cudaMemcpy(&h_vmesh, d_vmesh, sizeof(VelocityMeshCuda<GID,LID>), cudaMemcpyDeviceToHost);
       //clear data in velocity mesh
       h_vmesh.clear();
       //free also the mesh itself
