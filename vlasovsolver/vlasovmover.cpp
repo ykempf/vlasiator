@@ -305,31 +305,47 @@ void calculateAcceleration(
    dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
    Real dt
 ) {
+   
+   uint pop=0;
    typedef Parameters P;
    const vector<CellID> cells = getLocalCells();
 //    if(dt > 0)  // FIXME this has to be deactivated to support regular projects but it breaks test_trans support most likely, with this on dt stays 0
+
    phiprof::start("semilag-acc");
+   
+   if(cells.size() > 0) {
+   
+      //collect pointers to relevant spatial cell datas. nvcc is not compatitable with the cpu sptaisl cell / velocity mesh code
+      Realf **blockDatas=new Realf*[cells.size()];
+      vmesh::GlobalID **blockIDs=new  vmesh::GlobalID*[cells.size()];
+      vmesh::LocalID *nBlocks=new uint[cells.size()];
+      Real blockSize[3];
+      vmesh::LocalID gridLength[3];
 
+      
+   
+      /*here we take the values from the first cell (exists since this
+       * is inside if check for that), grid dimensions are the same for all
+       * cells*/
+      const vmesh::LocalID *gridLengthConst = mpiGrid[cells[0]]->get_velocity_mesh(pop).getGridLength(0);
+      mpiGrid[cells[0]]->get_velocity_mesh(pop).getBlockSize(0, blockSize);
+      
+      for (size_t c=0; c<cells.size(); ++c) {
+         SpatialCell* SC = mpiGrid[cells[c]];
+         blockIDs[c] = SC->get_velocity_mesh(pop).getGrid().data();
+         blockDatas[c] = SC->get_velocity_blocks(pop).getData();
+         nBlocks[c] = SC->size();
+      }
+      
+      
+      //accelerate all cells on this CPU
+      accelerateVelocityMeshCuda(blockDatas, blockIDs, nBlocks, gridLength, blockSize, cells.size());
 
-   //collect pointers to relevant spatial cell datas. nvcc is not compatitable with the cpu sptaisl cell / velocity mesh code
-   Realf **blockDatas=new Realf*[cells.size()];
-   vmesh::GlobalID **blockIDs=new  vmesh::GlobalID*[cells.size()];
-   vmesh::LocalID *nBlocks=new uint[cells.size()];
-   for (size_t c=0; c<cells.size(); ++c) {
-      SpatialCell* SC = mpiGrid[cells[c]];
-      blockIDs[c] = SC->get_velocity_mesh(0).getGrid().data();
-      blockDatas[c] = SC->get_velocity_blocks(0).getData();
-      nBlocks[c] = SC->size();
+      // TODO - glue for putting the accelerated data back to the spatial cells     
+      delete[] nBlocks;
+      delete[] blockIDs;
+      delete[] blockDatas;
    }
-
-   //accelerate all cells on this CPU
-   accelerateVelocityMeshCuda(blockDatas, blockIDs, nBlocks, cells.size());
-   
-   // TODO - glue for putting the accelerated data back to the spatial cells     
-   delete[] nBlocks;
-   delete[] blockIDs;
-   delete[] blockDatas;
-   
 
    
    // Iterate through all local cells and collect cells to propagate.
