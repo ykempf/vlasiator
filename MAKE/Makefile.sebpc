@@ -12,7 +12,7 @@ NVCCFLAGS = -O2 -arch=sm_20 -std=c++11
 MATHFLAGS = -ffast-math
 LDFLAGS = -L$(LIBRARY_PREFIX)/lib
 LIB_MPI = -lgomp 
-LIB_CUDA =  -L/usr/local/cuda-6.5/lib64/ -lcudart -lstdc++ 
+LIB_CUDA =  -L/usr/local/cuda/lib64/ -lcudart -lstdc++ 
 PAPI_FLAG =
 
 

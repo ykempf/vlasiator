@@ -23,7 +23,7 @@
 #include <thrust/device_vector.h>
 #include <thrust/sort.h>
 #include <thrust/functional.h>
-
+#include <thrust/execution_policy.h>
 //
 
 /*todo
@@ -226,14 +226,38 @@ namespace vmesh {
    template<typename GID, typename LID> __host__ void sortVelocityBlocks(VelocityMeshCuda<GID, LID> *d_vmesh, uint dimension, cudaStream_t stream) {
       int cuBlockSize = 512; 
       int cuGridSize = 1 + d_vmesh->size() / cuBlockSize; // value determine by block size and total work
-      vmesh::prepareSort<<<cuGridSize, cuBlockSize, 0, stream>>>(d_vmesh);
-//      thrust::sort(thrust::cuda::par.on(s), keys.begin(), keys.end());
+      vmesh::prepareSort<<<cuGridSize, cuBlockSize, 0, stream>>>(d_vmesh, dimension);
+      thrust::sort_by_key(thrust::cuda::par.on(stream),
+                          d_vmesh->blockIDsMapped, d_vmesh->blockIDsMapped + d_vmesh->size(),
+                          d_vmesh->blockOffset);
+      cudaStreamSynchronize(stream);
+
+      /*print out result of sort*/
+      GID *blockIDs = (GID *)malloc(sizeof(GID) *  d_vmesh->size());
+      GID *blockIDsMapped = (GID *)malloc(sizeof(GID) *  d_vmesh->size());
+      LID *blockOffset = (LID *)malloc(sizeof(LID) * d_vmesh->size());
+      cudaMemcpyAsync(blockIDs, d_vmesh->blockIDs , sizeof(GID) * d_vmesh->size() , cudaMemcpyDeviceToHost, stream);
+      cudaMemcpyAsync(blockIDsMapped, d_vmesh->blockIDsMapped , sizeof(GID) * d_vmesh->size() , cudaMemcpyDeviceToHost, stream);
+      cudaMemcpyAsync(blockOffset, d_vmesh->blockOffset , sizeof(LID) * d_vmesh->size() , cudaMemcpyDeviceToHost, stream);
+      cudaStreamSynchronize(stream);
+
+      printf("--------------------------------------------\n");
+      printf("Sort results - dimension = %d\n", dimension);
+      printf("mappedblock[i] block[offset[i]] offset[i]\n");
+      for(int i = 0; i < d_vmesh->size() ; i++) {
+         printf("%d %d %d\n",blockIDsMapped[i], blockIDs[blockOffset[i]], blockOffset[i]);
+      }
+      printf("--------------------------------------------\n");
+
+      free(blockIDs);
+      free(blockIDsMapped);
+      free(blockOffset);
 
    }
    
    template<typename GID, typename LID> __host__ void destroyVelocityMeshCuda(VelocityMeshCuda<GID,LID> *d_vmesh, cudaStream_t stream) {
       VelocityMeshCuda<GID,LID> h_vmesh;
-      //copy all  members to host (not deep), not async since we need to 
+      //copy all  members to host (not deep, so has pointers to device arrays)
       cudaMemcpyAsync(&h_vmesh, d_vmesh, sizeof(VelocityMeshCuda<GID,LID>), cudaMemcpyDeviceToHost, stream);
       cudaStreamSynchronize(stream);
       //clear data in velocity mesh
