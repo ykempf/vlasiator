@@ -7,7 +7,7 @@ bool accelerateVelocityMeshCuda(Realf **blockDatas, vmesh::GlobalID **blockIDs, 
    }
 
    /*convert Real -> Realf, GPU version is completely in Realf (float most likely)*/
-   const Realf blockSize_f[3] = {blockSize[0] / WID, blockSize[1] / WID, blockSize[2] / WID};
+   const Realf blockSize_f[3] = {(Realf) blockSize[0] / WID, (Realf) blockSize[1] / WID, (Realf) blockSize[2] / WID};
  
    for (int i = 0; i < nCells; i++) {
       vmesh::VelocityMeshCuda<vmesh::GlobalID, vmesh::LocalID> *d_vmesh =
