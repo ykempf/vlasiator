@@ -127,7 +127,10 @@ namespace vmesh {
       cudaEventRecord(evB, stream);
       cudaEventSynchronize(evB);
       cudaEventElapsedTime(&milliseconds, evA, evB);  
-      printf("cudaMemcpyAsync transferred %d blocks,  %d bytes in %g s to GPU: %g GB/s. \n", nBlocks, bytes, milliseconds * 1e-3, (bytes * 1e-9) / (milliseconds * 1e-3) );
+      cudaEventDestroy(evA);
+      cudaEventDestroy(evB);
+      
+      printf("upload %d blocks CPU -> GPU velocity mesh %g ms (%g GB/s)\n", nBlocks, milliseconds, (bytes * 1e-9) / (milliseconds * 1e-3) );
    }
 
    /*free on host side*/
@@ -212,16 +215,32 @@ namespace vmesh {
    template<typename GID, typename LID> __host__ void sortVelocityBlocks(VelocityMeshCuda<GID, LID> *d_vmesh, VelocityMeshCuda<GID,LID> *h_vmesh, uint dimension, cudaStream_t stream) {
       int cuBlockSize = 512; 
       int cuGridSize = 1 + h_vmesh->size() / cuBlockSize; // value determine by block size and total work
-      cudaStreamSynchronize(stream);
-      vmesh::prepareSort<<<cuGridSize, cuBlockSize, 0, stream>>>(d_vmesh, dimension);
-      cudaStreamSynchronize(stream);
+      cudaEvent_t evA, evB, evC;
+      cudaEventCreate(&evA);
+      cudaEventCreate(&evB);
+      cudaEventCreate(&evC);
 
+      
+      cudaStreamSynchronize(stream);
+      cudaEventRecord(evA, stream);      
+      vmesh::prepareSort<<<cuGridSize, cuBlockSize, 0, stream>>>(d_vmesh, dimension);      
+      cudaStreamSynchronize(stream);
+      cudaEventRecord(evB, stream);      
       thrust::sort_by_key(thrust::cuda::par.on(stream),
                           h_vmesh->blockIDsMapped, h_vmesh->blockIDsMapped + h_vmesh->size(),
                           h_vmesh->blockOffset);
-
       cudaStreamSynchronize(stream);
+      cudaEventRecord(evC, stream);      
 
+      cudaEventSynchronize(evC);
+      float prepareTime, sortTime;
+      cudaEventElapsedTime(&prepareTime, evA, evB);
+      cudaEventElapsedTime(&sortTime, evB, evC);
+      printf("PrepareSort time %g ms ( %g blocks/s), sort time %g ms (%g blocks/s)\n",prepareTime, h_vmesh->size() / (1e-3 * prepareTime), sortTime, h_vmesh->size() / (1e-3 * sortTime));
+      cudaEventDestroy(evA);
+      cudaEventDestroy(evB);
+      cudaEventDestroy(evC);
+      
       const bool debug=false;
       if(debug) {
          //print out result of sort
