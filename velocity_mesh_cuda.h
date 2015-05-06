@@ -62,8 +62,7 @@ namespace vmesh {
    template<typename GID, typename LID> __host__ void uploadMeshData(VelocityMeshCuda<GID,LID>* d_vmesh,  VelocityMeshCuda<GID, LID>* h_vmesh,
                                                                      const Realf *h_data, const GID *h_blockIDs,  cudaStream_t stream);
 
-   template<typename GID, typename LID> __host__ void destroyVelocityMeshCuda(VelocityMeshCuda<GID, LID> *d_vmesh, VelocityMeshCuda<GID, LID>* h_vmesh,
-                                                                              cudaStream_t stream);
+   template<typename GID, typename LID> __host__ void destroyVelocityMeshCuda(VelocityMeshCuda<GID, LID> *d_vmesh, VelocityMeshCuda<GID, LID>* h_vmesh);
    
    template<typename GID, typename LID> __host__ void sortVelocityBlocks(VelocityMeshCuda<GID, LID> *d_vmesh, VelocityMeshCuda<GID, LID>* h_vmesh,
                                                                          uint dimension,
@@ -150,30 +149,32 @@ namespace vmesh {
    __host__ void uploadMeshData(VelocityMeshCuda<GID,LID>* d_vmesh, VelocityMeshCuda<GID,LID>* h_vmesh, 
                                 const Realf *h_data, const  GID *h_blockIDs, cudaStream_t stream) {
 
-         cudaEvent_t evA, evB;
-         cudaEventCreate(&evA);
-         cudaEventCreate(&evB);
+         // cudaEvent_t evA, evB;
+         // cudaEventCreate(&evA);
+         // cudaEventCreate(&evB);
 
-         cudaEventRecord(evA, stream);      
+         // cudaEventRecord(evA, stream);      
          cudaMemcpyAsync(h_vmesh->data, h_data, h_vmesh->size() *  WID3 * sizeof(Realf), cudaMemcpyHostToDevice, stream);
          cudaMemcpyAsync(h_vmesh->blockIDs, h_blockIDs, h_vmesh->size() * sizeof(GID), cudaMemcpyHostToDevice, stream);
-         cudaEventRecord(evB, stream);
-#ifdef CUDA_PERF_DEBUG      
-         uint bytes = nBlocks *  WID3 * sizeof(Realf) +nBlocks * sizeof(GID);
-         float milliseconds=0;
-         cudaEventSynchronize(evB);
-         cudaEventElapsedTime(&milliseconds, evA, evB);  
-         printf("upload %d blocks   CPU -> GPU velocity mesh %g ms (%g GB/s)\n", nBlocks, milliseconds, (bytes * 1e-9) / (milliseconds * 1e-3) );
-#endif
-         cudaEventDestroy(evA);
-         cudaEventDestroy(evB);
-   }
+         //        cudaEventRecord(evB, stream);
+// #ifdef CUDA_PERF_DEBUG      
+//          uint bytes = nBlocks *  WID3 * sizeof(Realf) +nBlocks * sizeof(GID);
+//          float milliseconds=0;
+//          cudaEventSynchronize(evB);
+//          cudaEventElapsedTime(&milliseconds, evA, evB);  
+//          printf("upload %d blocks   CPU -> GPU velocity mesh %g ms (%g GB/s)\n", nBlocks, milliseconds, (bytes * 1e-9) / (milliseconds * 1e-3) );
+// #endif
+//          cudaEventDestroy(evA);
+//         cudaEventDestroy(evB);
+      }
    
 
 
 
    template<typename GID, typename LID> __global__ void prepareSort(VelocityMeshCuda<GID,LID> *d_vmesh, uint dimension){
       int id = blockIdx.x * blockDim.x + threadIdx.x;
+//      uint bull=100000;
+//      for(uint b = 0; b< bull;b++){
       if (id < d_vmesh->nBlocks ){
          LID blocki = id;
          GID block = d_vmesh->blockIDs[blocki];
@@ -208,6 +209,7 @@ namespace vmesh {
                 break;
          }
       }
+      //     }
    }
    
 
@@ -216,32 +218,34 @@ namespace vmesh {
    template<typename GID, typename LID> __host__ void sortVelocityBlocks(VelocityMeshCuda<GID, LID> *d_vmesh, VelocityMeshCuda<GID,LID> *h_vmesh, uint dimension, cudaStream_t stream) {
       int cuBlockSize = 512; 
       int cuGridSize = 1 + h_vmesh->size() / cuBlockSize; // value determine by block size and total work
-      cudaEvent_t evA, evB, evC;
-      cudaEventCreate(&evA);
-      cudaEventCreate(&evB);
-      cudaEventCreate(&evC);
+//      cudaEvent_t evA, evB, evC;
+//      cudaEventCreate(&evA);
+//      cudaEventCreate(&evB);
+//      cudaEventCreate(&evC);
 
 
-      cudaEventRecord(evA, stream);      
+//      cudaEventRecord(evA, stream);      
       vmesh::prepareSort<<<cuGridSize, cuBlockSize, 0, stream>>>(d_vmesh, dimension);      
-      cudaEventRecord(evB, stream);      
+      //     cudaEventRecord(evB, stream);
+      
       thrust::sort_by_key(thrust::cuda::par.on(stream),
                           h_vmesh->blockIDsMapped, h_vmesh->blockIDsMapped + h_vmesh->size(),
                           h_vmesh->blockOffset);
-      cudaEventRecord(evC, stream);
 
-#ifdef CUDA_PERF_DEBUG
-      cudaEventSynchronize(evC);
-      float prepareTime, sortTime;
-      cudaEventElapsedTime(&prepareTime, evA, evB);
-      cudaEventElapsedTime(&sortTime, evB, evC);
-      printf("PrepareSort time %g ms ( %g blocks/s), sort time %g ms (%g blocks/s)\n",prepareTime, h_vmesh->size() / (1e-3 * prepareTime), sortTime, h_vmesh->size() / (1e-3 * sortTime));
-      cudaEventDestroy(evA);
-      cudaEventDestroy(evB);
-      cudaEventDestroy(evC);
-#endif
+//       cudaEventRecord(evC, stream);
       
-      const bool debugSort=true;
+// #ifdef CUDA_PERF_DEBUG
+//       cudaEventSynchronize(evC);
+//       float prepareTime, sortTime;
+//       cudaEventElapsedTime(&prepareTime, evA, evB);
+//       cudaEventElapsedTime(&sortTime, evB, evC);
+//       printf("PrepareSort time %g ms ( %g blocks/s), sort time %g ms (%g blocks/s)\n",prepareTime, h_vmesh->size() / (1e-3 * prepareTime), sortTime, h_vmesh->size() / (1e-3 * sortTime));
+// #endif
+      // cudaEventDestroy(evA);
+      // cudaEventDestroy(evB);
+      // cudaEventDestroy(evC);
+      
+      const bool debugSort=false;
       if(debugSort) {
          //print out result of sort
          GID *blockIDs = (GID *)malloc(sizeof(GID) *  h_vmesh->size());
@@ -273,10 +277,9 @@ namespace vmesh {
       
    }
    
-   template<typename GID, typename LID> __host__ void destroyVelocityMeshCuda(VelocityMeshCuda<GID,LID> *d_vmesh,VelocityMeshCuda<GID,LID> *h_vmesh, cudaStream_t stream) {
+   template<typename GID, typename LID> __host__ void destroyVelocityMeshCuda(VelocityMeshCuda<GID,LID> *d_vmesh,VelocityMeshCuda<GID,LID> *h_vmesh) {
       //copy all  members to host (not deep, so has pointers to device arrays)
-      cudaMemcpyAsync(h_vmesh, d_vmesh, sizeof(VelocityMeshCuda<GID,LID>), cudaMemcpyDeviceToHost, stream);
-      cudaStreamSynchronize(stream);
+      cudaMemcpy(h_vmesh, d_vmesh, sizeof(VelocityMeshCuda<GID,LID>), cudaMemcpyDeviceToHost);
       //De-allocate cuda arrays in velocity mesh
       h_vmesh->clear();
       //free also the mesh itself

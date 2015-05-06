@@ -10,12 +10,10 @@ bool accelerateVelocityMeshCuda(Realf **blockDatas, vmesh::GlobalID **blockIDs, 
 
    /*allocate memory for all cells, these operations are blocking*/
    //TODO: add checks/throttling to make sure there is enough memory on device...
-   for (int i = 0; i < nCells; i++) {
-      vmesh::createVelocityMeshCuda(&(d_vmesh[i]), &(h_vmesh[i]), nBlocks[i], gridLength, blockSize_f);
-   }
 
    for (int i = 0; i < nCells; i++) {
       cudaStreamCreate(&streams[i]);
+      vmesh::createVelocityMeshCuda(&(d_vmesh[i]), &(h_vmesh[i]), nBlocks[i], gridLength, blockSize_f);
    }
    
    for (int i = 0; i < nCells; i++) {
@@ -23,10 +21,9 @@ bool accelerateVelocityMeshCuda(Realf **blockDatas, vmesh::GlobalID **blockIDs, 
       vmesh::sortVelocityBlocks(d_vmesh[i], h_vmesh[i], 0, streams[i]);
       vmesh::sortVelocityBlocks(d_vmesh[i], h_vmesh[i], 1, streams[i]);
       vmesh::sortVelocityBlocks(d_vmesh[i], h_vmesh[i], 2, streams[i]);
-
-      vmesh::destroyVelocityMeshCuda(d_vmesh[i], h_vmesh[i], streams[i]);
    }
    for (int i = 0; i < nCells; i++) {
+      vmesh::destroyVelocityMeshCuda(d_vmesh[i], h_vmesh[i]);
       cudaStreamDestroy(streams[i]);
    }
 
