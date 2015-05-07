@@ -41,7 +41,7 @@ namespace vmesh {
       __host__ void init(uint nBlocks, const LID gridLength[3], const Realf blockSize[3]);
       __host__ void clear();
       __device__ __host__ void getIndices(const GID& globalID, LID& i,LID& j,LID& k);
-      __device__ __host__ GID  getGlobalID(LID indices[3]);
+      __device__ __host__ GID getGlobalID(LID indices[3]);
       __device__ __host__ LID size();
       __device__ __host__ LID numColumns();
       __device__ LID columnSize(LID column);
@@ -61,15 +61,23 @@ namespace vmesh {
    
 
    
-   template<typename GID, typename LID> __host__ void createVelocityMeshCuda(VelocityMeshCuda<GID,LID>** d_vmesh,  VelocityMeshCuda<GID, LID>** h_vmesh,
-                                                                             LID nBlocks, const LID gridLength[3], const Realf blockSize[3]);
+   template<typename GID, typename LID> __host__ void createVelocityMeshCuda(VelocityMeshCuda<GID,LID>** d_vmesh,
+                                                                             VelocityMeshCuda<GID, LID>** h_vmesh,
+                                                                             LID nBlocks,
+                                                                             const LID gridLength[3],
+                                                                             const Realf blockSize[3]);
 
-   template<typename GID, typename LID> __host__ void uploadMeshData(VelocityMeshCuda<GID,LID>* d_vmesh,  VelocityMeshCuda<GID, LID>* h_vmesh,
-                                                                     const Realf *h_data, const GID *h_blockIDs,  cudaStream_t stream);
+   template<typename GID, typename LID> __host__ void uploadMeshData(VelocityMeshCuda<GID,LID>* d_vmesh,
+                                                                     VelocityMeshCuda<GID, LID>* h_vmesh,
+                                                                     const Realf *h_data,
+                                                                     const GID *h_blockIDs,
+                                                                     cudaStream_t stream);
 
-   template<typename GID, typename LID> __host__ void destroyVelocityMeshCuda(VelocityMeshCuda<GID, LID> *d_vmesh, VelocityMeshCuda<GID, LID>* h_vmesh);
+   template<typename GID, typename LID> __host__ void destroyVelocityMeshCuda(VelocityMeshCuda<GID, LID> *d_vmesh,
+                                                                              VelocityMeshCuda<GID, LID>* h_vmesh);
    
-   template<typename GID, typename LID> __host__ void sortVelocityBlocks(VelocityMeshCuda<GID, LID> *d_vmesh, VelocityMeshCuda<GID, LID>* h_vmesh,
+   template<typename GID, typename LID> __host__ void sortVelocityBlocks(VelocityMeshCuda<GID, LID> *d_vmesh,
+                                                                         VelocityMeshCuda<GID, LID>* h_vmesh,
                                                                          uint dimension,
                                                                          cudaStream_t stream);
    
@@ -156,22 +164,16 @@ namespace vmesh {
 
    }
 
-
-      template<typename GID,typename LID>
-   __host__ void uploadMeshData(VelocityMeshCuda<GID,LID>* d_vmesh, VelocityMeshCuda<GID,LID>* h_vmesh, 
-                                const Realf *h_data, const  GID *h_blockIDs, cudaStream_t stream) {
-
-         cudaMemcpyAsync(h_vmesh->data, h_data, h_vmesh->size() *  WID3 * sizeof(Realf), cudaMemcpyHostToDevice, stream);
-         cudaMemcpyAsync(h_vmesh->blockIDs, h_blockIDs, h_vmesh->size() * sizeof(GID), cudaMemcpyHostToDevice, stream);
-      }
    
-
-
+   template<typename GID,typename LID> __host__ void uploadMeshData(VelocityMeshCuda<GID,LID>* d_vmesh, VelocityMeshCuda<GID,LID>* h_vmesh, 
+                                                                    const Realf *h_data, const  GID *h_blockIDs, cudaStream_t stream) {
+      
+      cudaMemcpyAsync(h_vmesh->data, h_data, h_vmesh->size() *  WID3 * sizeof(Realf), cudaMemcpyHostToDevice, stream);
+      cudaMemcpyAsync(h_vmesh->blockIDs, h_blockIDs, h_vmesh->size() * sizeof(GID), cudaMemcpyHostToDevice, stream);
+   }
 
    template<typename GID, typename LID> __global__ void prepareSort(VelocityMeshCuda<GID,LID> *d_vmesh, uint dimension){
       int id = blockIdx.x * blockDim.x + threadIdx.x;
-//      uint bull=100000;
-//      for(uint b = 0; b< bull;b++){
       if (id < d_vmesh->nBlocks ){
          LID blocki = id;
          GID block = d_vmesh->blockIDs[blocki];
@@ -206,7 +208,6 @@ namespace vmesh {
                 break;
          }
       }
-      //     }
    }
    
    template<typename GID, typename LID> __global__ void prepareColumnCompute(VelocityMeshCuda<GID,LID> *d_vmesh){
@@ -222,40 +223,31 @@ namespace vmesh {
    }
 
 
-      struct isZero
-      {
-         __host__ __device__
-         bool operator()(const uint x)
-            {
-               return x == 0;
-            }
-      };
-      
+   struct isZero{
+      __host__ __device__ bool operator()(const uint x) {
+         return x == 0;
+      }
+   };
+   
       
    //assume h_vmesh and d_vmesh are synchronized
    template<typename GID, typename LID> __host__ void sortVelocityBlocks(VelocityMeshCuda<GID, LID> *d_vmesh, VelocityMeshCuda<GID,LID> *h_vmesh, uint dimension, cudaStream_t stream) {
       int cuBlockSize = 512; 
       int cuGridSize = 1 + h_vmesh->size() / cuBlockSize; // value determine by block size and total work
-
-      
       vmesh::prepareSort<<<cuGridSize, cuBlockSize, 0, stream>>>(d_vmesh, dimension);      
-      
       thrust::sort_by_key(thrust::cuda::par.on(stream),
                           h_vmesh->blockIDsMapped, h_vmesh->blockIDsMapped + h_vmesh->size(),
                           h_vmesh->sortedBlockLID);
-
       vmesh::prepareColumnCompute<<<cuGridSize, cuBlockSize, 0, stream>>>(d_vmesh);
-
-
       LID *newEnd = thrust::remove_if(thrust::cuda::par.on(stream),
                                       h_vmesh->columnStartLID + 1,
                                       h_vmesh->columnStartLID + h_vmesh->size(),
                                       isZero()
                                       );
-      h_vmesh->nColumns = newEnd - h_vmesh->columnStartLID;
-       
+      h_vmesh->nColumns = newEnd - h_vmesh->columnStartLID;       
       //copy nColumns to device version
       cudaMemcpy(d_vmesh, h_vmesh, sizeof(VelocityMeshCuda<GID, LID>), cudaMemcpyHostToDevice);      
+
 
       
       const bool debugSort=true;
@@ -276,27 +268,23 @@ namespace vmesh {
          printf("--------------------------------------------\n");
          printf("Sort results - dimension = %d\n", dimension);
          printf("Host gridLength =  %d %d %d\n", h_vmesh->gridLength[0], h_vmesh->gridLength[1], h_vmesh->gridLength[2]);
-         printf("mappedblock[i] block[offset[i]] offset[i]\n");
+         printf("mappedblock[i] block[offset[i]] blockx,y,z\n");
          LID c = 0;
          for(LID i = 0; i < h_vmesh->size(); i++){      
             if(columnStartLID[c] == i) {
                printf("--- Column %d / %d  start %d --- \n", c, h_vmesh->nColumns, columnStartLID[c]);
                c++;
             }
-            printf("%d %d %d\n",blockIDsMapped[i], blockIDs[sortedBlockLID[i]], sortedBlockLID[i]);
+            LID x,y,z;
+            h_vmesh->getIndices(blockIDs[sortedBlockLID[i]], x, y, z);
+            printf("%d %d %d,%d,%d\n", blockIDsMapped[i], blockIDs[sortedBlockLID[i]], x, y, z);
          }            
-
-         
          printf("--------------------------------------------\n");
 
          free(blockIDs);
          free(blockIDsMapped);
          free(sortedBlockLID);
       }
-
-
-      
-      
    }
    
    template<typename GID, typename LID> __host__ void destroyVelocityMeshCuda(VelocityMeshCuda<GID,LID> *d_vmesh,VelocityMeshCuda<GID,LID> *h_vmesh) {
