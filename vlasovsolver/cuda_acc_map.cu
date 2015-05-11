@@ -18,9 +18,9 @@ bool accelerateVelocityMeshCuda(Realf **blockDatas, vmesh::GlobalID **blockIDs, 
    
    for (int i = 0; i < nCells; i++) {
       vmesh::uploadMeshData(d_vmesh[i], h_vmesh[i], blockDatas[i], blockIDs[i], streams[i]);
-      vmesh::sortVelocityBlocks(d_vmesh[i], h_vmesh[i], 0, streams[i]);
-      vmesh::sortVelocityBlocks(d_vmesh[i], h_vmesh[i], 1, streams[i]);
-      vmesh::sortVelocityBlocks(d_vmesh[i], h_vmesh[i], 2, streams[i]);
+      vmesh::sortVelocityBlocksInColumns(d_vmesh[i], h_vmesh[i], 0, streams[i]);
+      vmesh::sortVelocityBlocksInColumns(d_vmesh[i], h_vmesh[i], 1, streams[i]);
+      vmesh::sortVelocityBlocksInColumns(d_vmesh[i], h_vmesh[i], 2, streams[i]);
    }
    for (int i = 0; i < nCells; i++) {
       vmesh::destroyVelocityMeshCuda(d_vmesh[i], h_vmesh[i]);
