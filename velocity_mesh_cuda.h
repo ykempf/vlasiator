@@ -38,8 +38,8 @@ namespace vmesh {
    template<typename GID,typename LID>
    class VelocityMeshCuda {
    public:
-      __host__   void h_init(uint nBlocks, const LID gridLength[3], const Realf blockSize[3]);
-      __device__ void d_init(uint nBlocks, const LID gridLength[3], const Realf blockSize[3]);
+      __host__   void h_init(uint nBlocks, const LID gridLength[3], const Realf blockSize[3], const Realf gridMinLimits[3]);
+      __device__ void d_init(uint nBlocks, const LID gridLength[3], const Realf blockSize[3], const Realf gridMinLimits[3]);
       __host__   void h_clear();
       __device__ void d_clear();
       __device__ __host__ void getIndices(const GID& globalID, LID& i,LID& j,LID& k);
@@ -50,6 +50,7 @@ namespace vmesh {
       
       Realf cellSize[3]; /**< Size (in m) of a cell in a block*/
       Realf blockSize[3]; /**< Size (in m) of a block*/
+      Realf gridMinLimits[3]; /**< Minimum coordinate (m) of the grid */
       LID gridLength[3];  /**< Max number of blocks per dim in block  grid*/
       uint nBlocks;
       uint nColumns;
@@ -67,7 +68,9 @@ namespace vmesh {
                                                                              VelocityMeshCuda<GID, LID>** h_vmesh,
                                                                              LID nBlocks,
                                                                              const LID gridLength[3],
-                                                                             const Realf blockSize[3]);
+                                                                             const Realf blockSize[3],
+                                                                             const Realf gridMinLimits[3]
+                                                                             );
 
    template<typename GID, typename LID> __host__ void uploadMeshData(VelocityMeshCuda<GID,LID>* d_vmesh,
                                                                      VelocityMeshCuda<GID, LID>* h_vmesh,
@@ -84,10 +87,10 @@ namespace vmesh {
                                                                                   cudaStream_t stream);
 
    template<typename GID, typename LID> __host__ void createTargetMesh(VelocityMeshCuda<GID,LID>** d_targetVmesh, VelocityMeshCuda<GID,LID>** h_targetVmesh,
-                                                                       VelocityMeshCuda<GID,LID>* d_sourceVmesh, VelocityMeshCuda<GID,LID>* h_sourceVmesh);
-                                                                       
+                                                                       VelocityMeshCuda<GID,LID>* d_sourceVmesh, VelocityMeshCuda<GID,LID>* h_sourceVmesh,
+                                                                       Realf intersection, Realf intersection_di, Realf intersection_dj, Realf intersection_dk,
+                                                                       uint dimension, cudaStream_t stream);
 
-   
    template<typename GID, typename LID> __global__ void prepareSort(VelocityMeshCuda<GID,LID> *d_vmesh, uint dimension);
    template<typename GID, typename LID> __global__ void prepareColumnCompute(VelocityMeshCuda<GID,LID> *d_vmesh);
 
@@ -119,7 +122,7 @@ namespace vmesh {
    
 
    /*init on host side*/
-   template<typename GID, typename LID> __host__ void VelocityMeshCuda<GID,LID>::h_init(uint nBlocks, const LID gridLength[3], const Realf blockSize[3]){
+   template<typename GID, typename LID> __host__ void VelocityMeshCuda<GID,LID>::h_init(uint nBlocks, const LID gridLength[3], const Realf blockSize[3], const Realf gridMinLimits[3]){
       this->nBlocks=nBlocks;
       nColumns = 0; //not yet computed
       //cudaMalloc blocks...
@@ -133,13 +136,14 @@ namespace vmesh {
          this->gridLength[i] = gridLength[i];
          this->blockSize[i] = blockSize[i];
          this->cellSize[i] = blockSize[i] / WID;
+         this->gridMinLimits[i] = gridMinLimits[i];
       }
    }
 
 
    
    /*init on device side*/
-   template<typename GID, typename LID> __device__ void VelocityMeshCuda<GID,LID>::d_init(uint nBlocks, const LID gridLength[3], const Realf blockSize[3]){
+   template<typename GID, typename LID> __device__ void VelocityMeshCuda<GID,LID>::d_init(uint nBlocks, const LID gridLength[3], const Realf blockSize[3], const Realf gridMinLimits[3]){
       this->nBlocks=nBlocks;
       nColumns = 0; //not yet computed
       data = (Realf*) malloc(nBlocks * WID3 * sizeof(Realf));
@@ -152,6 +156,7 @@ namespace vmesh {
          this->gridLength[i] = gridLength[i];
          this->blockSize[i] = blockSize[i];
          this->cellSize[i] = blockSize[i] / WID;
+         this->gridMinLimits[i] = gridMinLimits[i];
       }
    }
 
@@ -169,7 +174,7 @@ namespace vmesh {
 
    
    /*free on host side*/
-   template<typename GID, typename LID> __host__ void VelocityMeshCuda<GID,LID>::d_clear(){
+   template<typename GID, typename LID> __device__ void VelocityMeshCuda<GID,LID>::d_clear(){
       nBlocks = 0;
       nColumns = 0;
       free(data);
@@ -196,18 +201,18 @@ namespace vmesh {
    
    template<typename GID,typename LID>
    __host__ void createVelocityMeshCuda(VelocityMeshCuda<GID,LID>** d_vmesh, VelocityMeshCuda<GID,LID>** h_vmesh, 
-                                        LID nBlocks, const LID gridLength[3], const Realf blockSize[3]){
+                                        LID nBlocks, const LID gridLength[3], const Realf blockSize[3], const Realf gridMinLimits[3]){
       //allocate space on device for device resident class
       cudaMalloc(d_vmesh, sizeof(VelocityMeshCuda<GID, LID>));      
       cudaMallocHost(h_vmesh, sizeof(VelocityMeshCuda<GID, LID>));
       
       //init members on host
-      (*h_vmesh)->h_init(nBlocks, gridLength, blockSize);
+      (*h_vmesh)->h_init(nBlocks, gridLength, blockSize, gridMinLimits);
       //copy all  members to device
       cudaMemcpy((*d_vmesh), (*h_vmesh), sizeof(VelocityMeshCuda<GID, LID>), cudaMemcpyHostToDevice);
 
    }
-/*
+
    template<typename GID, typename LID> __global__ void computeTargetGridColumns(VelocityMeshCuda<GID,LID> *d_vmesh, LID *targetColumns){
       int id = blockIdx.x * blockDim.x + threadIdx.x;
       if (id < d_vmesh->nBlocks ){
@@ -217,14 +222,16 @@ namespace vmesh {
    template<typename GID,typename LID>
    __host__ void createTargetMesh(VelocityMeshCuda<GID,LID>** d_targetVmesh, VelocityMeshCuda<GID,LID>** h_targetVmesh,
                                   VelocityMeshCuda<GID,LID>* d_sourceVmesh,  VelocityMeshCuda<GID,LID>*  h_sourceVmesh,
-                                  cudaStream_t stream) {
+                                  Realf intersection, Realf intersection_di, Realf intersection_dj, Realf intersection_dk,
+                                  uint dimension, cudaStream_t stream) {
+      
       //compute target  grid
       
       
 
    }
 
-*/ 
+
 
    
    

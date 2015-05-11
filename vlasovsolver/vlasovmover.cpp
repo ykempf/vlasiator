@@ -319,16 +319,16 @@ void calculateAcceleration(
       Realf **blockDatas=new Realf*[cells.size()];
       vmesh::GlobalID **blockIDs=new  vmesh::GlobalID*[cells.size()];
       vmesh::LocalID *nBlocks=new uint[cells.size()];
-      Real blockSize[3];
+      Realf blockSize[3];
+      Realf gridMinLimits[3];
+      vmesh::LocalID *gridLength;
 
+      for(uint i = 0; i < 3; i++){
+         blockSize[i] = SpatialCell::get_velocity_grid_block_size()[i]; 
+         gridMinLimits[i]  = SpatialCell::get_velocity_grid_min_limits()[i];
+         gridLength[i] =  SpatialCell::get_velocity_grid_length()[i];
+      }
 
-      
-   
-      /*here we take the values from the first cell (exists since this
-       * is inside if check for that), grid dimensions are the same for all
-       * cells*/
-      const vmesh::LocalID *gridLength = mpiGrid[cells[0]]->get_velocity_mesh(pop).getGridLength(0);      
-      mpiGrid[cells[0]]->get_velocity_mesh(pop).getBlockSize(0, blockSize);
       
       for (size_t c=0; c<cells.size(); ++c) {
          SpatialCell* SC = mpiGrid[cells[c]];
@@ -337,7 +337,7 @@ void calculateAcceleration(
          nBlocks[c] = SC->size();
       }
       //accelerate all cells on this CPU
-      accelerateVelocityMeshCuda(blockDatas, blockIDs, nBlocks, gridLength, blockSize, cells.size());
+      accelerateVelocityMeshCuda(blockDatas, blockIDs, nBlocks, gridLength, blockSize, gridMinLimits, cells.size());
       // TODO - glue for putting the accelerated data back to the spatial cells     
       delete[] nBlocks;
       delete[] blockIDs;
