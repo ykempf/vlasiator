@@ -48,22 +48,24 @@ namespace vmesh {
       __device__ __host__ LID numColumns();
       __device__ LID columnSize(LID column);
       
-      Realf cellSize[3]; /**< Size (in m) of a cell in a block*/
-      Realf blockSize[3]; /**< Size (in m) of a block*/
+      Realf cellSize[3];      /**< Size (in m) of a cell in a block*/
+      Realf blockSize[3];     /**< Size (in m) of a block*/
       Realf gridMinLimits[3]; /**< Minimum coordinate (m) of the grid */
-      LID gridLength[3];  /**< Max number of blocks per dim in block  grid*/
+      LID gridLength[3];      /**< Max number of blocks per dim in block  grid*/
       uint nBlocks;
       uint nColumns;
+      uint sortDimension;    /**< dimension (0,1,2) along which blocks are sorted*/
       Realf *data;  
       GID *blockIDs;
-      GID *blockIDsMapped; //temporary array for storing "rotated" blockIDs where the dimenionality is taken into account
-      LID *sortedBlockLID;   //After sorting into columns, this tells the position (local ID) of a block in the unsorted data array
-      LID *columnStartLID;   //The start LID of each column in sorted data.
+      GID *sortedBlockMappedGID;   /**< Array for storing rotated/mapped blockIDs where the dimenionality is taken into account */
+      LID *sortedBlockLID;         /**< After sorting into columns, this tells the position ( local ID) of a block in the unsorted data array */
+      LID *columnStartLID;         /**< The start LID of each column in sorted data.*/
+      
    };
    
    
 
-   
+   /*external interface */
    template<typename GID, typename LID> __host__ void createVelocityMeshCuda(VelocityMeshCuda<GID,LID>** d_vmesh,
                                                                              VelocityMeshCuda<GID, LID>** h_vmesh,
                                                                              LID nBlocks,
@@ -71,25 +73,28 @@ namespace vmesh {
                                                                              const Realf blockSize[3],
                                                                              const Realf gridMinLimits[3]
                                                                              );
+   template<typename GID, typename LID> __host__ void destroyVelocityMeshCuda(VelocityMeshCuda<GID, LID> *d_vmesh,
+                                                                              VelocityMeshCuda<GID, LID>* h_vmesh);
 
+   
    template<typename GID, typename LID> __host__ void uploadMeshData(VelocityMeshCuda<GID,LID>* d_vmesh,
                                                                      VelocityMeshCuda<GID, LID>* h_vmesh,
                                                                      const Realf *h_data,
                                                                      const GID *h_blockIDs,
                                                                      cudaStream_t stream);
 
-   template<typename GID, typename LID> __host__ void destroyVelocityMeshCuda(VelocityMeshCuda<GID, LID> *d_vmesh,
-                                                                              VelocityMeshCuda<GID, LID>* h_vmesh);
-   
    template<typename GID, typename LID> __host__ void sortVelocityBlocksInColumns(VelocityMeshCuda<GID, LID> *d_vmesh,
                                                                                   VelocityMeshCuda<GID, LID>* h_vmesh,
                                                                                   uint dimension,
                                                                                   cudaStream_t stream);
-
+   
    template<typename GID, typename LID> __host__ void createTargetMesh(VelocityMeshCuda<GID,LID>** d_targetVmesh, VelocityMeshCuda<GID,LID>** h_targetVmesh,
                                                                        VelocityMeshCuda<GID,LID>* d_sourceVmesh, VelocityMeshCuda<GID,LID>* h_sourceVmesh,
                                                                        Realf intersection, Realf intersection_di, Realf intersection_dj, Realf intersection_dk,
                                                                        uint dimension, cudaStream_t stream);
+
+   /*internal functions and kernels*/
+
 
    template<typename GID, typename LID> __global__ void prepareSort(VelocityMeshCuda<GID,LID> *d_vmesh, uint dimension);
    template<typename GID, typename LID> __global__ void prepareColumnCompute(VelocityMeshCuda<GID,LID> *d_vmesh);
@@ -128,7 +133,7 @@ namespace vmesh {
       //cudaMalloc blocks...
       cudaMalloc(&data, nBlocks * WID3 * sizeof(Realf));
       cudaMalloc(&blockIDs, nBlocks * sizeof(GID));
-      cudaMalloc(&blockIDsMapped, nBlocks * sizeof(GID));
+      cudaMalloc(&sortedBlockMappedGID, nBlocks * sizeof(GID));
       cudaMalloc(&sortedBlockLID, nBlocks * sizeof(LID));
       cudaMalloc(&columnStartLID, nBlocks * sizeof(LID));
       
@@ -148,7 +153,7 @@ namespace vmesh {
       nColumns = 0; //not yet computed
       data = (Realf*) malloc(nBlocks * WID3 * sizeof(Realf));
       blockIDs = (GID*) malloc(nBlocks * sizeof(GID));
-      blockIDsMapped = (GID*) malloc(nBlocks * sizeof(GID));
+      sortedBlockMappedGID = (GID*) malloc(nBlocks * sizeof(GID));
       sortedBlockLID = (LID*) malloc(nBlocks * sizeof(LID));
       columnStartLID = (LID*) malloc(nBlocks * sizeof(LID));
       
@@ -167,7 +172,7 @@ namespace vmesh {
       nColumns = 0;
       cudaFree(data);
       cudaFree(blockIDs);
-      cudaFree(blockIDsMapped);
+      cudaFree(sortedBlockMappedGID);
       cudaFree(sortedBlockLID);
       cudaFree(columnStartLID);
    }
@@ -179,7 +184,7 @@ namespace vmesh {
       nColumns = 0;
       free(data);
       free(blockIDs);
-      free(blockIDsMapped);
+      free(sortedBlockMappedGID);
       free(sortedBlockLID);
       free(columnStartLID);
    }
@@ -213,9 +218,16 @@ namespace vmesh {
 
    }
 
-   template<typename GID, typename LID> __global__ void computeTargetGridColumns(VelocityMeshCuda<GID,LID> *d_vmesh, LID *targetColumns){
+   template<typename GID, typename LID> __global__ void computeTargetGridColumns(VelocityMeshCuda<GID,LID> *d_vmesh,
+                                                                                 LID *targetColumns,
+                                                                                 Realf intersection,
+                                                                                 Realf intersection_di,
+                                                                                 Realf intersection_dj,
+                                                                                 Realf intersection_dk){
       int id = blockIdx.x * blockDim.x + threadIdx.x;
-      if (id < d_vmesh->nBlocks ){
+      if (id < d_vmesh->nColumns){
+         
+         
       }
    }
          
@@ -225,10 +237,9 @@ namespace vmesh {
                                   Realf intersection, Realf intersection_di, Realf intersection_dj, Realf intersection_dk,
                                   uint dimension, cudaStream_t stream) {
       
-      //compute target  grid
       
       
-
+      
    }
 
 
@@ -249,7 +260,7 @@ namespace vmesh {
          d_vmesh->sortedBlockLID[blocki] = blocki; //reset offsets
          switch( dimension ) {
              case 0: {
-                d_vmesh->blockIDsMapped[blocki] = block; // Mapping the block id to different coordinate system if dimension is not zero:
+                d_vmesh->sortedBlockMappedGID[blocki] = block; // Mapping the block id to different coordinate system if dimension is not zero:
              }
                 break;
              case 1: {
@@ -260,7 +271,7 @@ namespace vmesh {
                 const LID x_indice = block % d_vmesh->gridLength[0];
                 const LID y_indice = (block / d_vmesh->gridLength[0]) % d_vmesh->gridLength[1];
                 // Mapping the block id to different coordinate system if dimension is not zero:
-                d_vmesh->blockIDsMapped[blocki] = block - (x_indice + y_indice*d_vmesh->gridLength[0]) + y_indice + x_indice * d_vmesh->gridLength[1];
+                d_vmesh->sortedBlockMappedGID[blocki] = block - (x_indice + y_indice*d_vmesh->gridLength[0]) + y_indice + x_indice * d_vmesh->gridLength[1];
                 
              }
                 break;
@@ -272,18 +283,18 @@ namespace vmesh {
                 const LID y_indice = (block / d_vmesh->gridLength[0]) % d_vmesh->gridLength[1];
                 const LID z_indice =  (block / (d_vmesh->gridLength[0] * d_vmesh->gridLength[1]));
                 // Mapping the block id to different coordinate system if dimension is not zero:
-                d_vmesh->blockIDsMapped[blocki] =  z_indice + y_indice * d_vmesh->gridLength[2] + x_indice * d_vmesh->gridLength[1] * d_vmesh->gridLength[2];
+                d_vmesh->sortedBlockMappedGID[blocki] =  z_indice + y_indice * d_vmesh->gridLength[2] + x_indice * d_vmesh->gridLength[1] * d_vmesh->gridLength[2];
              }
                 break;
          }
       }
    }
-   
+
    template<typename GID, typename LID> __global__ void prepareColumnCompute(VelocityMeshCuda<GID,LID> *d_vmesh){
       int id = blockIdx.x * blockDim.x + threadIdx.x;
       if (id < d_vmesh->nBlocks ){
          //check if the mapped (so blockids in the dimension we are computing) is contiguous or not.
-         if(id > 0 && d_vmesh->blockIDsMapped[id-1] != d_vmesh->blockIDsMapped[id] - 1 )
+         if(id > 0 && d_vmesh->sortedBlockMappedGID[id-1] != d_vmesh->sortedBlockMappedGID[id] - 1 )
             d_vmesh->columnStartLID[id] = id;
          else
             d_vmesh->columnStartLID[id] = 0;
@@ -305,7 +316,7 @@ namespace vmesh {
       int cuGridSize = 1 + h_vmesh->size() / cuBlockSize; // value determine by block size and total work
       vmesh::prepareSort<<<cuGridSize, cuBlockSize, 0, stream>>>(d_vmesh, dimension);      
       thrust::sort_by_key(thrust::cuda::par.on(stream),
-                          h_vmesh->blockIDsMapped, h_vmesh->blockIDsMapped + h_vmesh->size(),
+                          h_vmesh->sortedBlockMappedGID, h_vmesh->sortedBlockMappedGID + h_vmesh->size(),
                           h_vmesh->sortedBlockLID);
       vmesh::prepareColumnCompute<<<cuGridSize, cuBlockSize, 0, stream>>>(d_vmesh);
       LID *newEnd = thrust::remove_if(thrust::cuda::par.on(stream),
@@ -314,21 +325,23 @@ namespace vmesh {
                                       isZero()
                                       );
       h_vmesh->nColumns = newEnd - h_vmesh->columnStartLID;       
-      //copy nColumns to device version
+      h_vmesh->sortDimension = dimension;
+      //copy nColumns & sortDimension to device version
       cudaMemcpy(d_vmesh, h_vmesh, sizeof(VelocityMeshCuda<GID, LID>), cudaMemcpyHostToDevice);      
 
 
+      
       
       const bool debugSort=true;
       if(debugSort) {
          //print out result of sort
          GID *blockIDs = (GID *) malloc(sizeof(GID) *  h_vmesh->size());
-         GID *blockIDsMapped = (GID *) malloc(sizeof(GID) *  h_vmesh->size());
+         GID *sortedBlockMappedGID = (GID *) malloc(sizeof(GID) *  h_vmesh->size());
          LID *sortedBlockLID = (LID *) malloc(sizeof(LID) * h_vmesh->size());
          LID *columnStartLID = (LID *) malloc(sizeof(LID) * h_vmesh->size());
          
          cudaMemcpyAsync(blockIDs, h_vmesh->blockIDs , sizeof(GID) * h_vmesh->size() , cudaMemcpyDeviceToHost, stream);
-         cudaMemcpyAsync(blockIDsMapped, h_vmesh->blockIDsMapped , sizeof(GID) * h_vmesh->size() , cudaMemcpyDeviceToHost, stream);
+         cudaMemcpyAsync(sortedBlockMappedGID, h_vmesh->sortedBlockMappedGID , sizeof(GID) * h_vmesh->size() , cudaMemcpyDeviceToHost, stream);
          cudaMemcpyAsync(sortedBlockLID, h_vmesh->sortedBlockLID , sizeof(LID) * h_vmesh->size() , cudaMemcpyDeviceToHost, stream);
          cudaMemcpyAsync(columnStartLID, h_vmesh->columnStartLID , sizeof(LID) * h_vmesh->size() , cudaMemcpyDeviceToHost, stream);
       
@@ -346,12 +359,12 @@ namespace vmesh {
             }
             LID x,y,z;
             h_vmesh->getIndices(blockIDs[sortedBlockLID[i]], x, y, z);
-            printf("%d %d %d,%d,%d\n", blockIDsMapped[i], blockIDs[sortedBlockLID[i]], x, y, z);
+            printf("%d %d %d,%d,%d\n", sortedBlockMappedGID[i], blockIDs[sortedBlockLID[i]], x, y, z);
          }            
          printf("--------------------------------------------\n");
 
          free(blockIDs);
-         free(blockIDsMapped);
+         free(sortedBlockMappedGID);
          free(sortedBlockLID);
       }
    }

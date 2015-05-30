@@ -301,6 +301,10 @@ int getAccerelationSubcycles(SpatialCell* sc, Real dt){
    return max(convert<int>(ceil(dt / sc->parameters[CellParams::MAXVDT])),1);
 }
 
+
+
+
+
 void calculateAcceleration(
    dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
    Real dt
@@ -313,36 +317,6 @@ void calculateAcceleration(
 
    phiprof::start("semilag-acc");
    
-   if(cells.size() > 0) {
-   
-      //collect pointers to relevant spatial cell datas. nvcc is not compatitable with the cpu sptaisl cell / velocity mesh code
-      Realf **blockDatas=new Realf*[cells.size()];
-      vmesh::GlobalID **blockIDs=new  vmesh::GlobalID*[cells.size()];
-      vmesh::LocalID *nBlocks=new uint[cells.size()];
-      Realf blockSize[3];
-      Realf gridMinLimits[3];
-      vmesh::LocalID *gridLength;
-
-      for(uint i = 0; i < 3; i++){
-         blockSize[i] = SpatialCell::get_velocity_grid_block_size()[i]; 
-         gridMinLimits[i]  = SpatialCell::get_velocity_grid_min_limits()[i];
-         gridLength[i] =  SpatialCell::get_velocity_grid_length()[i];
-      }
-
-      
-      for (size_t c=0; c<cells.size(); ++c) {
-         SpatialCell* SC = mpiGrid[cells[c]];
-         blockIDs[c] = SC->get_velocity_mesh(pop).getGrid().data();
-         blockDatas[c] = SC->get_velocity_blocks(pop).getData();
-         nBlocks[c] = SC->size();
-      }
-      //accelerate all cells on this CPU
-      accelerateVelocityMeshCuda(blockDatas, blockIDs, nBlocks, gridLength, blockSize, gridMinLimits, cells.size());
-      // TODO - glue for putting the accelerated data back to the spatial cells     
-      delete[] nBlocks;
-      delete[] blockIDs;
-      delete[] blockDatas;
-   }
 
    
    // Iterate through all local cells and collect cells to propagate.
@@ -381,48 +355,87 @@ void calculateAcceleration(
          }
       }
       propagatedCells.swap(temp);
-
+      const bool useGPU=true;
       //Semilagrangian acceleration for those cells which are subcycled
-#pragma omp parallel for schedule(dynamic,1)
-      for (size_t c=0; c<propagatedCells.size(); ++c) {
-         no_subnormals();
-         const CellID cellID = propagatedCells[c];
-         const Real maxVdt = mpiGrid[cellID]->parameters[CellParams::MAXVDT]; 
 
-         //compute subcycle dt. The length is maVdt on all steps
-         //except the last one. This is to keep the neighboring
-         //spatial cells in sync, so that two neighboring cells with
-         //different number of subcycles have similar timesteps,
-         //except that one takes an additional short step. This keeps
-         //spatial block neighbors as much in sync as possible for
-         //adjust blocks.
-         Real subcycleDt;
-         if( (step + 1) * maxVdt > dt) {
-            subcycleDt = dt - step * maxVdt;
-         }
-         else{
-            subcycleDt = maxVdt;
-         }
-         //generate pseudo-random order which is always the same irrespectiive of parallelization, restarts, etc
-         char rngStateBuffer[256];
-         random_data rngDataBuffer;
-         // set seed, initialise generator and get value
-         memset(&(rngDataBuffer), 0, sizeof(rngDataBuffer));
+      if (!useGPU) {
+#pragma omp parallel for schedule(dynamic,1)
+         for (size_t c=0; c<propagatedCells.size(); ++c) {
+            no_subnormals();
+            const CellID cellID = propagatedCells[c];
+            const Real maxVdt = mpiGrid[cellID]->parameters[CellParams::MAXVDT]; 
+
+            //compute subcycle dt. The length is maVdt on all steps
+            //except the last one. This is to keep the neighboring
+            //spatial cells in sync, so that two neighboring cells with
+            //different number of subcycles have similar timesteps,
+            //except that one takes an additional short step. This keeps
+            //spatial block neighbors as much in sync as possible for
+            //adjust blocks.
+            Real subcycleDt;
+            if( (step + 1) * maxVdt > dt) {
+               subcycleDt = dt - step * maxVdt;
+            }
+            else{
+               subcycleDt = maxVdt;
+            }
+            //generate pseudo-random order which is always the same irrespectiive of parallelization, restarts, etc
+            char rngStateBuffer[256];
+            random_data rngDataBuffer;
+            // set seed, initialise generator and get value
+            memset(&(rngDataBuffer), 0, sizeof(rngDataBuffer));
 #ifdef _AIX
-         initstate_r(P::tstep + cellID, &(rngStateBuffer[0]), 256, NULL, &(rngDataBuffer));
-         int64_t rndInt;
-         random_r(&rndInt, &rngDataBuffer);
+            initstate_r(P::tstep + cellID, &(rngStateBuffer[0]), 256, NULL, &(rngDataBuffer));
+            int64_t rndInt;
+            random_r(&rndInt, &rngDataBuffer);
 #else
-         initstate_r(P::tstep + cellID, &(rngStateBuffer[0]), 256, &(rngDataBuffer));
-         int32_t rndInt;
-         random_r(&rngDataBuffer, &rndInt);
+            initstate_r(P::tstep + cellID, &(rngStateBuffer[0]), 256, &(rngDataBuffer));
+            int32_t rndInt;
+            random_r(&rngDataBuffer, &rndInt);
 #endif
          
-         uint map_order=rndInt%3;
-         phiprof::start("cell-semilag-acc");
-         cpu_accelerate_cell(mpiGrid[cellID],map_order,subcycleDt);
-         phiprof::stop("cell-semilag-acc");
+            uint map_order=rndInt%3;
+            phiprof::start("cell-semilag-acc");
+            cpu_accelerate_cell(mpiGrid[cellID],map_order,subcycleDt);
+            phiprof::stop("cell-semilag-acc");
+         }
       }
+      else {
+            
+         //collect pointers to relevant spatial cell datas. nvcc is not compatitable with the cpu sptaisl cell / velocity mesh code
+         Realf **blockDatas=new Realf*[propagatedCells.size()];
+         vmesh::GlobalID **blockIDs=new  vmesh::GlobalID*[propagatedCells.size()];
+         vmesh::LocalID *nBlocks=new uint[propagatedCells.size()];
+         Realf blockSize[3];
+         Realf gridMinLimits[3];
+         vmesh::LocalID *gridLength;
+   
+         for(uint i = 0; i < 3; i++){
+            blockSize[i] = SpatialCell::get_velocity_grid_block_size()[i]; 
+            gridMinLimits[i]  = SpatialCell::get_velocity_grid_min_limits()[i];
+            gridLength[i] =  SpatialCell::get_velocity_grid_length()[i];
+         }
+
+            
+         for (size_t c=0; c<propagatedCells.size(); ++c) {
+            SpatialCell* SC = mpiGrid[propagatedCells[c]];
+            blockIDs[c] = SC->get_velocity_mesh(pop).getGrid().data();
+            blockDatas[c] = SC->get_velocity_blocks(pop).getData();
+            nBlocks[c] = SC->size();
+         }
+
+         //accelerate all cells on this CPU
+         accelerateVelocityMeshCuda(blockDatas, blockIDs, nBlocks, gridLength, blockSize, gridMinLimits, cells.size(),
+                                    0,0,0,0,
+                                    0
+                                    );
+         // TODO - glue for putting the accelerated data back to the spatial cells     
+         delete[] nBlocks;
+         delete[] blockIDs;
+         delete[] blockDatas;
+      }
+      
+      
       
       //global adjust after each subcycle to keep number of blocks managable. Even the ones not
       //accelerating anyore participate. It is important to keep
@@ -434,7 +447,12 @@ void calculateAcceleration(
       //- Not done here on last step (done after loop)
       if(step < (globalMaxSubcycles - 1))
          adjustVelocityBlocks(mpiGrid, propagatedCells, false);
+
+
    }
+
+            
+   
    //final adjust for all cells, also fixing remote cells.
    adjustVelocityBlocks(mpiGrid, cells, true);
    phiprof::stop("semilag-acc");   
