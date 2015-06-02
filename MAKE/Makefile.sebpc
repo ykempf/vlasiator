@@ -8,7 +8,7 @@ FLAGS =
 
 
 CXXFLAGS = -I$(LIBRARY_PREFIX)/include  -O3  -funroll-loops -std=c++0x -fopenmp  -fabi-version=0 -mavx
-NVCCFLAGS = -O2 -arch=sm_20 -std=c++11
+NVCCFLAGS = -O2 -arch=sm_20 -std=c++11 -g
 MATHFLAGS = -ffast-math
 LDFLAGS = -L$(LIBRARY_PREFIX)/lib
 LIB_MPI = -lgomp 

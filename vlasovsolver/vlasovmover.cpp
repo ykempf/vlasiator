@@ -423,15 +423,13 @@ void calculateAcceleration(
             blockDatas[c] = SC->get_velocity_blocks(pop).getData();
             nBlocks[c] = SC->size();
          }
-         
+
+         phiprof::start("compute-transform-intersections");
          for (size_t c=0; c<propagatedCells.size(); ++c) {
             const CellID cellID = propagatedCells[c];
-            /*compute transform, forward in time and backward in time*/
-             phiprof::start("compute-transform");
-            //compute the transform performed in this acceleration
+            //Compute transform, forward in time and backward in time
             Transform<Real,3,Affine> fwd_transform =  compute_acceleration_transformation(mpiGrid[cellID], dt);
             Transform<Real,3,Affine> bwd_transform= fwd_transform.inverse();
-            phiprof::stop("compute-transform");    
             //Map order Z X Y  (support rest later...)   
             compute_intersections_1st(mpiGrid[cellID], bwd_transform, fwd_transform, 2,
                                       intersections[AccelerationIntersections::Z],
@@ -449,13 +447,14 @@ void calculateAcceleration(
                                       intersections[AccelerationIntersections::Y_DJ],
                                       intersections[AccelerationIntersections::Y_DK]);
          } 
-
+         phiprof::stop("compute-transform-intersections");
          //accelerate all cells on the GPU
          //Now map in all three dimensions, sweeped as Z X Y
+         phiprof::start("compute-cuda-map3D");
          map3DCuda(blockDatas, blockIDs, nBlocks, intersections,
                    propagatedCells.size(),
                    blockSize, gridLength, gridMinLimits);
-
+         phiprof::stop("compute-cuda-map3D");
         // TODO - glue for putting the accelerated data back to the spatial cells     
         delete[] nBlocks;
         delete[] blockIDs;
