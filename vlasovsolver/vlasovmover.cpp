@@ -303,8 +303,6 @@ int getAccerelationSubcycles(SpatialCell* sc, Real dt){
 
 
 
-
-
 void calculateAcceleration(
    dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
    Real dt
@@ -401,21 +399,23 @@ void calculateAcceleration(
          }
       }
       else {
-            
-         //collect pointers to relevant spatial cell datas. nvcc is not compatitable with the cpu sptaisl cell / velocity mesh code
+         // //collect pointers to relevant spatial cell datas. nvcc is not compatitable with the cpu sptaisl cell / velocity mesh code
          Realf **blockDatas=new Realf*[propagatedCells.size()];
          vmesh::GlobalID **blockIDs=new  vmesh::GlobalID*[propagatedCells.size()];
          vmesh::LocalID *nBlocks=new uint[propagatedCells.size()];
-         Realf blockSize[3];
+         Real *intersections = new Real[propagatedCells.size() * AccelerationIntersections::N_INTERSECTIONS ];
+         
+
+         Realf blockSize[3]; 
          Realf gridMinLimits[3];
-         vmesh::LocalID *gridLength;
-   
+         vmesh::LocalID gridLength[3];
+         
          for(uint i = 0; i < 3; i++){
             blockSize[i] = SpatialCell::get_velocity_grid_block_size()[i]; 
             gridMinLimits[i]  = SpatialCell::get_velocity_grid_min_limits()[i];
             gridLength[i] =  SpatialCell::get_velocity_grid_length()[i];
          }
-
+         
             
          for (size_t c=0; c<propagatedCells.size(); ++c) {
             SpatialCell* SC = mpiGrid[propagatedCells[c]];
@@ -423,16 +423,43 @@ void calculateAcceleration(
             blockDatas[c] = SC->get_velocity_blocks(pop).getData();
             nBlocks[c] = SC->size();
          }
+         
+         for (size_t c=0; c<propagatedCells.size(); ++c) {
+            const CellID cellID = propagatedCells[c];
+            /*compute transform, forward in time and backward in time*/
+             phiprof::start("compute-transform");
+            //compute the transform performed in this acceleration
+            Transform<Real,3,Affine> fwd_transform =  compute_acceleration_transformation(mpiGrid[cellID], dt);
+            Transform<Real,3,Affine> bwd_transform= fwd_transform.inverse();
+            phiprof::stop("compute-transform");    
+            //Map order Z X Y  (support rest later...)   
+            compute_intersections_1st(mpiGrid[cellID], bwd_transform, fwd_transform, 2,
+                                      intersections[AccelerationIntersections::Z],
+                                      intersections[AccelerationIntersections::Z_DI],
+                                      intersections[AccelerationIntersections::Z_DJ],
+                                      intersections[AccelerationIntersections::Z_DK]);
+            compute_intersections_2nd(mpiGrid[cellID], bwd_transform, fwd_transform, 0,
+                                      intersections[AccelerationIntersections::X],
+                                      intersections[AccelerationIntersections::X_DI],
+                                      intersections[AccelerationIntersections::X_DJ],
+                                      intersections[AccelerationIntersections::X_DK]);
+            compute_intersections_3rd(mpiGrid[cellID], bwd_transform, fwd_transform, 1,
+                                      intersections[AccelerationIntersections::Y],
+                                      intersections[AccelerationIntersections::Y_DI],
+                                      intersections[AccelerationIntersections::Y_DJ],
+                                      intersections[AccelerationIntersections::Y_DK]);
+         } 
 
-         //accelerate all cells on this CPU
-         accelerateVelocityMeshCuda(blockDatas, blockIDs, nBlocks, gridLength, blockSize, gridMinLimits, cells.size(),
-                                    0,0,0,0,
-                                    0
-                                    );
-         // TODO - glue for putting the accelerated data back to the spatial cells     
-         delete[] nBlocks;
-         delete[] blockIDs;
-         delete[] blockDatas;
+         //accelerate all cells on the GPU
+         //Now map in all three dimensions, sweeped as Z X Y
+         map3DCuda(blockDatas, blockIDs, nBlocks, intersections,
+                   propagatedCells.size(),
+                   blockSize, gridLength, gridMinLimits);
+
+        // TODO - glue for putting the accelerated data back to the spatial cells     
+        delete[] nBlocks;
+        delete[] blockIDs;
+        delete[] blockDatas;
       }
       
       
