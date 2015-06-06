@@ -6,7 +6,7 @@ bool map3DCuda(Realf **blockDatas,
                Real *intersections,
                const uint nCells,
                const Realf blockSize[3],
-               const  vmesh::LocalID gridLength[3],
+               const vmesh::LocalID gridLength[3],
                const Realf gridMinLimits[3]){
    cudaStream_t streams[nCells];
    vmesh::VelocityMeshCuda<vmesh::GlobalID, vmesh::LocalID>* d_sourceVmesh[nCells];
@@ -21,17 +21,19 @@ bool map3DCuda(Realf **blockDatas,
 
    for (int i = 0; i < nCells; i++) {
       cudaStreamCreate(&streams[i]);
-      vmesh::createVelocityMeshCuda(&(d_sourceVmesh[i]), &(h_sourceVmesh[i]), nBlocks[i], gridLength, blockSize, gridMinLimits);
+      vmesh::createVelocityMeshCuda(&(d_sourceVmesh[i]), &(h_sourceVmesh[i]), 
+            nBlocks[i], gridLength, blockSize, gridMinLimits);
    }
    
    for (int i = 0; i < nCells; i++) {
       vmesh::uploadMeshData(d_sourceVmesh[i], h_sourceVmesh[i], blockDatas[i], blockIDs[i], streams[i]);
-      vmesh::sortVelocityBlocksInColumns(d_sourceVmesh[i], h_sourceVmesh[i], 1, streams[i]);
-      /*
+     //Order Z X Y
+      //DO Z
+      vmesh::sortVelocityBlocksInColumns(d_sourceVmesh[i], h_sourceVmesh[i], 2, streams[i]);
       vmesh::createTargetMesh(d_targetVmesh[i], h_targetVmesh[i],
                               d_sourceVmesh[i], h_sourceVmesh[i],
-                              intersection, intersection_di, intersection_dj, intersection_dk,
-                              dimension, streams[i]);
+                              intersections + i * AccelerationIntersections::N_INTERSECTIONS,
+                              2, streams[i]);
       */
 //      vmesh::sortVelocityBlocksInColumns(d_sourceVmesh[i], h_sourceVmesh[i], 1, streams[i]);
 //      vmesh::sortVelocityBlocksInColumns(d_sourceVmesh[i], h_sourceVmesh[i], 2, streams[i]);
