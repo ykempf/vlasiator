@@ -30,11 +30,11 @@ bool map3DCuda(Realf **blockDatas,
      //Order Z X Y
       //DO Z
       vmesh::sortVelocityBlocksInColumns(d_sourceVmesh[i], h_sourceVmesh[i], 2, streams[i]);
-      vmesh::createTargetMesh(d_targetVmesh[i], h_targetVmesh[i],
+      vmesh::createTargetMesh(&(d_targetVmesh[i]), &(h_targetVmesh[i]),
                               d_sourceVmesh[i], h_sourceVmesh[i],
-                              intersections + i * AccelerationIntersections::N_INTERSECTIONS,
+                              intersections + i * 12,
                               2, streams[i]);
-      */
+      
 //      vmesh::sortVelocityBlocksInColumns(d_sourceVmesh[i], h_sourceVmesh[i], 1, streams[i]);
 //      vmesh::sortVelocityBlocksInColumns(d_sourceVmesh[i], h_sourceVmesh[i], 2, streams[i]);
    }
