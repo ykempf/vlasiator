@@ -254,8 +254,11 @@ namespace vmesh {
 
    template<typename GID, typename LID> __global__ void computeTargetGridColumns(VelocityMeshCuda<GID,LID> *d_vmesh,
                                                                                  LID *targetColumnLengths,
-                                                                                 GID * targetFirstBlock,
-                                                                                 Real *intersections,
+                                                                                 GID *targetFirstBlock,
+                                                                                 Real intersection,
+                                                                                 Real intersection_di,
+                                                                                 Real intersection_dj,
+                                                                                 Real intersection_dk,
                                                                                  uint dimension){
       int id = blockIdx.x * blockDim.x + threadIdx.x;
       if (id < d_vmesh->nColumns){
@@ -268,17 +271,17 @@ namespace vmesh {
          Realf zMin, zMax;
          
 //compute minimum z value of any cell in the block (factor of two already included in the intersections)
-         zMin = intersections[dimension * 4] +
-                min( (indicesStart[0] * WID + 0) * intersections[dimension * 4 + 0], (indicesStart[0] * WID + WID-1) * intersections[dimension * 4 + 0]) +
-                min( (indicesStart[1] * WID + 0) * intersections[dimension * 4 + 1], (indicesStart[1] * WID + WID-1) * intersections[dimension * 4 + 1]) + 
-                (indicesStart[2] * WID + 0) * intersections[dimension * 4 + 2];
+         zMin = intersection +
+                min( (indicesStart[0] * WID + 0) * intersection_di, (indicesStart[0] * WID + WID-1) * intersection_di) +
+                min( (indicesStart[1] * WID + 0) * intersection_dj, (indicesStart[1] * WID + WID-1) * intersection_dj) + 
+                (indicesStart[2] * WID + 0) * intersection_dk;
 
-         zMax = intersections[dimension * 4] +
-                max( (indicesEnd[0] * WID + 0) * intersections[dimension * 4 + 0], (indicesEnd[0] * WID + WID-1) * intersections[dimension * 4 + 0]) + 
-                max( (indicesEnd[1] * WID + 0) * intersections[dimension * 4 + 1], (indicesEnd[1] * WID + WID-1) * intersections[dimension * 4 + 1]) +
-                (indicesEnd[2] * WID + WID) * intersections[dimension * 4 + 2];  
+         zMax = intersection +
+                max( (indicesEnd[0] * WID + 0) * intersection_di, (indicesEnd[0] * WID + WID-1) * intersection_di) + 
+                max( (indicesEnd[1] * WID + 0) * intersection_dj, (indicesEnd[1] * WID + WID-1) * intersection_dj) +
+                (indicesEnd[2] * WID + WID) * intersection_dk;  
 
-         printf("Column %d nblocks %d zmin %g zmax %g\n", id, d_vmesh->nColumns, zMin, zMax);
+         printf("Column %d nblocks %d zmin %g zmax %g intersections %g %g %g %g\n", id, d_vmesh->nColumns, zMin, zMax, intersection, intersection_di, intersection_dj, intersection_dk );
 
 
          //                    Veci lagrangian_gk_r=truncate_to_int((v_r-intersection_min)/intersection_dk);
@@ -293,7 +296,10 @@ namespace vmesh {
    template<typename GID,typename LID>
    __host__ void createTargetMesh(VelocityMeshCuda<GID,LID>** d_targetVmesh, VelocityMeshCuda<GID,LID>** h_targetVmesh,
                                   VelocityMeshCuda<GID,LID>* d_sourceVmesh,  VelocityMeshCuda<GID,LID>*  h_sourceVmesh,
-                                  Real *intersections, 
+                                  Real intersection,
+                                  Real intersection_di,
+                                  Real intersection_dj,
+                                  Real intersection_dk, 
                                   uint dimension, cudaStream_t stream) {
       int cuBlockSize = 512; 
       int cuGridSize = 1 + h_sourceVmesh->nColumns / cuBlockSize; // value determine by block size and total work   
@@ -305,11 +311,14 @@ namespace vmesh {
       cudaMalloc(&targetColumnFirstBlock, sizeof(GID) * h_sourceVmesh->nColumns); 
    
       vmesh::computeTargetGridColumns<<<cuGridSize, cuBlockSize, 0, stream>>>(d_sourceVmesh, 
-                                                                             targetColumnLengths,
-                                                                             targetColumnFirstBlock,
-                                                                             intersections,
-                                                                             dimension); 
-           
+                                                                              targetColumnLengths,
+                                                                              targetColumnFirstBlock,
+                                                                              intersection,
+                                                                              intersection_di,
+                                                                              intersection_dj,
+                                                                              intersection_dk,
+                                                                              dimension); 
+      
  
 
 //      createVelocityMeshCuda(d_targetVmesh, h_targetVmesh, targetnBlocks, 

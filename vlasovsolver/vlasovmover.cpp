@@ -446,12 +446,16 @@ void calculateAcceleration(
                                       intersections[AccelerationIntersections::Y_DI],
                                       intersections[AccelerationIntersections::Y_DJ],
                                       intersections[AccelerationIntersections::Y_DK]);
-         } 
+         }  
+
+
          phiprof::stop("compute-transform-intersections");
          //accelerate all cells on the GPU
          //Now map in all three dimensions, sweeped as Z X Y
          phiprof::start("compute-cuda-map3D");
-         map3DCuda(blockDatas, blockIDs, nBlocks, intersections,
+         map3DCuda(blockDatas, blockIDs, 
+                  nBlocks, 
+                  intersections,
                    propagatedCells.size(),
                    blockSize, gridLength, gridMinLimits);
          phiprof::stop("compute-cuda-map3D");

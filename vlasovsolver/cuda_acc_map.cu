@@ -1,4 +1,5 @@
 #include "../velocity_mesh_cuda.h"
+#include "cuda_acc_map.h"
  
 bool map3DCuda(Realf **blockDatas,
                vmesh::GlobalID **blockIDs,
@@ -32,7 +33,10 @@ bool map3DCuda(Realf **blockDatas,
       vmesh::sortVelocityBlocksInColumns(d_sourceVmesh[i], h_sourceVmesh[i], 2, streams[i]);
       vmesh::createTargetMesh(&(d_targetVmesh[i]), &(h_targetVmesh[i]),
                               d_sourceVmesh[i], h_sourceVmesh[i],
-                              intersections + i * 12,
+                              intersections[i * AccelerationIntersections::N_INTERSECTIONS + AccelerationIntersections::Z],
+                              intersections[i * AccelerationIntersections::N_INTERSECTIONS + AccelerationIntersections::Z_DI],
+                              intersections[i * AccelerationIntersections::N_INTERSECTIONS + AccelerationIntersections::Z_DJ],
+                              intersections[i * AccelerationIntersections::N_INTERSECTIONS + AccelerationIntersections::Z_DK],
                               2, streams[i]);
       
 //      vmesh::sortVelocityBlocksInColumns(d_sourceVmesh[i], h_sourceVmesh[i], 1, streams[i]);
