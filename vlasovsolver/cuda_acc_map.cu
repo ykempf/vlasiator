@@ -29,7 +29,7 @@ bool map3DCuda(Realf **blockDatas,
    for (int i = 0; i < nCells; i++) {
       vmesh::uploadMeshData(d_sourceVmesh[i], h_sourceVmesh[i], blockDatas[i], blockIDs[i], streams[i]);
      //Order Z X Y
-      //DO Z
+      //DO Z (REMEMBER TO REAORDER INTERSECTIONS FOR OTHER DIMENSIONS)
       vmesh::sortVelocityBlocksInColumns(d_sourceVmesh[i], h_sourceVmesh[i], 2, streams[i]);
       vmesh::createTargetMesh(&(d_targetVmesh[i]), &(h_targetVmesh[i]),
                               d_sourceVmesh[i], h_sourceVmesh[i],

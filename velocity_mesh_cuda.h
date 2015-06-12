@@ -43,9 +43,8 @@ namespace vmesh {
       __host__   void h_clear();
       __device__ void d_clear();
       __device__ __host__ void getIndices(const GID& globalID, LID blockIndices[3]);
-      __device__ __host__ void getTransposedIndices(const GID& globalID, LID blockIndices[3], uint dimension);
-
-      __device__ __host__ GID getGlobalID(LID indices[3]);
+      __device__ __host__ void transposeIndices(LID blockIndices[3], uint dimension);
+      __device__ __host__ GID getGlobalID(LID blockIndices[3]);
       __device__ __host__ LID size();
       __device__ __host__ LID numColumns();
       __device__ LID columnSize(LID column);
@@ -118,27 +117,26 @@ namespace vmesh {
    
 
    template<typename GID,typename LID> inline
-   void VelocityMeshCuda<GID,LID>::getTransposedIndices(const GID& globalID, LID blockIndices[3], uint dimension) {
-      getIndices(globalID, blockIndices);
+   void VelocityMeshCuda<GID,LID>::transposeIndices(LID blockIndices[3], uint dimension) {
       //Switch block indices according to dimensions, the slice3d algorithm has
       //  been written for integrating along z.
       LID temp;
       switch (dimension){
-         case 0:
-                /*i and k coordinates have been swapped*/
-                temp=blockIndices[2];
-                blockIndices[2]=blockIndices[0];
-                blockIndices[0]=temp;
-                break;
-             case 1:
-                /*in values j and k coordinates have been swapped*/
-                temp=blockIndices[2];
-                blockIndices[2]=blockIndices[1];
-                blockIndices[1]=temp;
-                break;
-             case 2:
-                break;
-         }
+          case 0:
+             /*i and k coordinates have been swapped*/
+             temp=blockIndices[2];
+             blockIndices[2]=blockIndices[0];
+             blockIndices[0]=temp;
+             break;
+          case 1:
+             /*in values j and k coordinates have been swapped*/
+             temp=blockIndices[2];
+             blockIndices[2]=blockIndices[1];
+             blockIndices[1]=temp;
+             break;
+          case 2:
+             break;
+      }
    }
    
       
@@ -149,7 +147,6 @@ namespace vmesh {
       if (indices[2] >= gridLength[2]) return INVALID_GLOBALID;
       return indices[2]*gridLength[1]*gridLength[0] + indices[1]*gridLength[0] + indices[0];
    }
- 
    
 
    /*init on host side*/
@@ -253,8 +250,8 @@ namespace vmesh {
    }
 
    template<typename GID, typename LID> __global__ void computeTargetGridColumns(VelocityMeshCuda<GID,LID> *d_vmesh,
-                                                                                 LID *targetColumnLengths,
-                                                                                 GID *targetFirstBlock,
+                                                                                 LID *targetColumnLength,
+                                                                                 GID *targetColumnFirstBlock,
                                                                                  Real intersection,
                                                                                  Real intersection_di,
                                                                                  Real intersection_dj,
@@ -266,8 +263,16 @@ namespace vmesh {
          GID sourceEndBlock = d_vmesh->sortedBlockMappedGID[d_vmesh->columnStartLID[id] + d_vmesh->columnSize(id)];
          LID indicesStart[3];
          LID indicesEnd[3];
-         d_vmesh->getTransposedIndices(sourceStartBlock, indicesStart, dimension );
-         d_vmesh->getTransposedIndices(sourceEndBlock, indicesEnd, dimension );
+
+         //get indices for first and last block in column
+         d_vmesh->getIndices(sourceStartBlock, indicesStart);
+         d_vmesh->getIndices(sourceEndBlock, indicesEnd );
+         //Transpose indices, now everything is int terms of
+         //transposed coordinate system where z is now along dimension
+         //(also intersections should now be in this system)
+         d_vmesh->transposeIndices(indicesStart, dimension );
+         d_vmesh->transposeIndices(indicesEnd, dimension );
+         
          Realf zMin, zMax;
          
 //compute minimum z value of any cell in the block (factor of two already included in the intersections)
@@ -280,11 +285,22 @@ namespace vmesh {
                 max( (indicesEnd[0] * WID + 0) * intersection_di, (indicesEnd[0] * WID + WID-1) * intersection_di) + 
                 max( (indicesEnd[1] * WID + 0) * intersection_dj, (indicesEnd[1] * WID + WID-1) * intersection_dj) +
                 (indicesEnd[2] * WID + WID) * intersection_dk;  
-
+         
          printf("Column %d nblocks %d zmin %g zmax %g intersections %g %g %g %g\n", id, d_vmesh->nColumns, zMin, zMax, intersection, intersection_di, intersection_dj, intersection_dk );
 
+         
+         indicesStart[2]  = (int)((zMin-intersection)/intersection_dk);
+         indicesEnd[2] = ((zMax-intersection)/intersection_dk);
+         
+         targetColumnLength[id] = indicesEnd[2] - indicesStart[2] + 1;
 
-         //                    Veci lagrangian_gk_r=truncate_to_int((v_r-intersection_min)/intersection_dk);
+         //Transpose indices back to original coordinate system
+         d_vmesh->transposeIndices(indicesStart, dimension );
+         d_vmesh->transposeIndices(indicesEnd, dimension );
+         
+         targetColumnFirstBlock[id] = d_vmesh->getGlobalID(indicesStart);
+         
+         
 
       }   
          

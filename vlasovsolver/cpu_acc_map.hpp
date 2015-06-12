@@ -117,6 +117,7 @@ bool map_1d(SpatialCell* spatial_cell,
       v_min = SpatialCell::get_velocity_grid_min_limits()[0];
       max_v_length = SpatialCell::get_velocity_grid_length()[0];
 
+      //TODO, this swap could have been done already when computig the intersections, see GPU branch
       /*swap intersection i and k coordinates*/
       is_temp=intersection_di;
       intersection_di=intersection_dk;
