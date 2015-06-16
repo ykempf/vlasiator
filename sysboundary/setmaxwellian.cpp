@@ -112,7 +112,7 @@ namespace SBC {
             maxwellianDistribution(
                rho,
                T,
-               VX0 + counter*SpatialCell::get_velocity_base_grid_block_size()[0],
+               VX0 + counter*SpatialCell::get_velocity_grid_block_size(0)[0],
                VY0,
                VZ0
             )
