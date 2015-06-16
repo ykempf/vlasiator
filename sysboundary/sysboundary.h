@@ -67,7 +67,7 @@ class SysBoundary {
          dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
          Project& project
       );
-      void applySysBoundaryVlasovConditions(dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid, creal& t);
+      void applySysBoundaryVlasovConditions(dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid);
       unsigned int size() const;
       SBC::SysBoundaryCondition* getSysBoundary(cuint sysBoundaryType) const;
       bool isBoundaryPeriodic(uint direction) const;

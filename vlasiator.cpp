@@ -612,7 +612,7 @@ int main(int argn,char* args[]) {
       phiprof::stop("Update templates");
       if (P::propagateVlasovTranslation || P::propagateVlasovAcceleration ) {
          phiprof::start("Update system boundaries (Vlasov)");
-         sysBoundaries.applySysBoundaryVlasovConditions(mpiGrid, P::t+0.5*P::dt); 
+         sysBoundaries.applySysBoundaryVlasovConditions(mpiGrid); 
          phiprof::stop("Update system boundaries (Vlasov)");
          addTimedBarrier("barrier-boundary-conditions");
       }
@@ -644,7 +644,7 @@ int main(int argn,char* args[]) {
       
       if (P::propagateVlasovTranslation || P::propagateVlasovAcceleration ) {
          phiprof::start("Update system boundaries (Vlasov)");
-         sysBoundaries.applySysBoundaryVlasovConditions(mpiGrid, P::t+0.5*P::dt); 
+         sysBoundaries.applySysBoundaryVlasovConditions(mpiGrid); 
          phiprof::stop("Update system boundaries (Vlasov)");
          addTimedBarrier("barrier-boundary-conditions");
       }

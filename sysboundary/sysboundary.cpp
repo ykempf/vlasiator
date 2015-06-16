@@ -331,13 +331,13 @@ bool SysBoundary::applyInitialState(
    return success;
 }
 
-/*!\brief Apply the Vlasov system boundary conditions to all system boundary cells at time t.
+/*!\brief Apply the Vlasov system boundary conditions to all system boundary cells at current time.
  *
  * Loops through all SysBoundaryConditions and calls the corresponding vlasovBoundaryCondition() function.
  * 
  * WARNING (see end of the function) Blocks are changed but lists not updated now, if you need to use/communicate them before the next update is done, add an update at the end of this function.
  */
-void SysBoundary::applySysBoundaryVlasovConditions(dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid, creal& t) {
+void SysBoundary::applySysBoundaryVlasovConditions(dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid) {
    if(sysBoundaries.size()==0) {
       return; //no system boundaries
    }
