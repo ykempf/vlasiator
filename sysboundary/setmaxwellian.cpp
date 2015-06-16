@@ -29,6 +29,8 @@ namespace SBC {
       Readparameters::add("maxwellian.file_z+", "Input files for the set Maxwellian inflow parameters on face z+. Data format per line: time (s) density (p/m^3) Temperature (K) Vx Vy Vz (m/s) Bx By Bz (T).", "");
       Readparameters::add("maxwellian.file_z-", "Input files for the set Maxwellian inflow parameters on face z-. Data format per line: time (s) density (p/m^3) Temperature (K) Vx Vy Vz (m/s) Bx By Bz (T).", "");
       Readparameters::add("maxwellian.dynamic", "Boolean value, is the set Maxwellian inflow dynamic in time or not.", 0);
+      Readparameters::add("maxwellian.densityPertRelAmp", "Relative amplitude of the density perturbations. If 0.0 (default), no perturbations are applied.", 0.0);
+      Readparameters::add("maxwellian.seed", "Seed of the random number generator for the density perturbations.", 1990);
       Readparameters::add("maxwellian.precedence", "Precedence value of the set Maxwellian system boundary condition (integer), the higher the stronger.", 3);
       Readparameters::add("maxwellian.nSpaceSamples", "Number of sampling points per spatial dimension (template cells)", 2);
       Readparameters::add("maxwellian.nVelocitySamples", "Number of sampling points per velocity dimension (template cells)", 5);
@@ -42,6 +44,14 @@ namespace SBC {
          exit(1);
       }
       if(!Readparameters::get("maxwellian.dynamic", isThisDynamic)) {
+         if(myRank == MASTER_RANK) cerr << __FILE__ << ":" << __LINE__ << " ERROR: This option has not been added!" << endl;
+         exit(1);
+      }
+      if(!Readparameters::get("maxwellian.densityPertRelAmp", densityPertRelAmp)) {
+         if(myRank == MASTER_RANK) cerr << __FILE__ << ":" << __LINE__ << " ERROR: This option has not been added!" << endl;
+         exit(1);
+      }
+      if(!Readparameters::get("maxwellian.seed", seed)) {
          if(myRank == MASTER_RANK) cerr << __FILE__ << ":" << __LINE__ << " ERROR: This option has not been added!" << endl;
          exit(1);
       }

@@ -115,6 +115,11 @@ namespace SBC {
          creal& t
       );
       
+      /*! Relative amplitude of the density perturbations. WARNING needs to be set by the derived class, not this base class.*/
+      Real densityPertRelAmp;
+      /*! Seed for the random number generator for the density perturbations.*/
+      uint64_t seed;
+      
       /*! Array of bool telling which faces are going to be processed by the system boundary condition.*/
       bool facesToProcess[6];
       /*! Vector containing a vector for each face which has the current boundary condition. Each of these vectors has one line per input data line (time point). The length of the lines is nParams.*/

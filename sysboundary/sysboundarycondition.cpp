@@ -327,6 +327,7 @@ namespace SBC {
    }
    
    /*! Function used to copy the distribution and moments from one cell to another. In layer 2, copy only the moments.
+    * If called without a scale argument then the value is 1.0.
     * \param from Pointer to parent cell to copy from.
     * \param to Pointer to destination cell.
     * \param allowBlockAdjustment If true, blocks can be created or destroyed. If false, only blocks existing in the destination cell are copied.
@@ -334,7 +335,22 @@ namespace SBC {
    void SysBoundaryCondition::copyCellData(
       SpatialCell *from,
       SpatialCell *to,
-      bool allowBlockAdjustment
+      const bool allowBlockAdjustment
+   ) {
+      copyCellData(from, to, 1.0, allowBlockAdjustment);
+   }
+   
+   /*! Function used to copy the distribution and moments from one cell to another. In layer 2, copy only the moments.
+    * \param from Pointer to parent cell to copy from.
+    * \param to Pointer to destination cell.
+    * \param scaleRho Scaling factor by which to multiply the density. NB we do not recompute the blocks so strong factors > 1 will lead to losses.
+    * \param allowBlockAdjustment If true, blocks can be created or destroyed. If false, only blocks existing in the destination cell are copied.
+    */
+   void SysBoundaryCondition::copyCellData(
+      SpatialCell *from,
+      SpatialCell *to,
+      creal scaleRho,
+      const bool allowBlockAdjustment
    ) {
       if(to->sysBoundaryLayer == 1) { // Do this only for the first layer, the other layers do not need this.
 
@@ -363,7 +379,7 @@ namespace SBC {
                Realf* toBlock_data = to->get_data( to->get_velocity_block_local_id(blockGID) );
                const Realf* fromBlock_data = from->get_data(block_i);
                for (unsigned int i = 0; i < VELOCITY_BLOCK_LENGTH; i++) {
-                  toBlock_data[i] = fromBlock_data[i];
+                  toBlock_data[i] = scaleRho * fromBlock_data[i];
                }
             }
          } else {
@@ -378,26 +394,26 @@ namespace SBC {
                   }
                } else {
                   for (unsigned int i = 0; i < VELOCITY_BLOCK_LENGTH; i++) {
-                     toBlock_data[i] = fromBlock_data[i];
+                     toBlock_data[i] = scaleRho * fromBlock_data[i];
                   }
                }
             }
          }
       }
-      to->parameters[CellParams::RHO_DT2] = from->parameters[CellParams::RHO_DT2];
-      to->parameters[CellParams::RHOVX_DT2] = from->parameters[CellParams::RHOVX_DT2];
-      to->parameters[CellParams::RHOVY_DT2] = from->parameters[CellParams::RHOVY_DT2];
-      to->parameters[CellParams::RHOVZ_DT2] = from->parameters[CellParams::RHOVZ_DT2];
-      to->parameters[CellParams::P_11_DT2] = from->parameters[CellParams::P_11_DT2];
-      to->parameters[CellParams::P_22_DT2] = from->parameters[CellParams::P_22_DT2];
-      to->parameters[CellParams::P_33_DT2] = from->parameters[CellParams::P_33_DT2];
-      to->parameters[CellParams::RHO] = from->parameters[CellParams::RHO];
-      to->parameters[CellParams::RHOVX] = from->parameters[CellParams::RHOVX];
-      to->parameters[CellParams::RHOVY] = from->parameters[CellParams::RHOVY];
-      to->parameters[CellParams::RHOVZ] = from->parameters[CellParams::RHOVZ];
-      to->parameters[CellParams::P_11] = from->parameters[CellParams::P_11];
-      to->parameters[CellParams::P_22] = from->parameters[CellParams::P_22];
-      to->parameters[CellParams::P_33] = from->parameters[CellParams::P_33];
+      to->parameters[CellParams::RHO_DT2] = scaleRho * from->parameters[CellParams::RHO_DT2];
+      to->parameters[CellParams::RHOVX_DT2] = scaleRho * from->parameters[CellParams::RHOVX_DT2];
+      to->parameters[CellParams::RHOVY_DT2] = scaleRho * from->parameters[CellParams::RHOVY_DT2];
+      to->parameters[CellParams::RHOVZ_DT2] = scaleRho * from->parameters[CellParams::RHOVZ_DT2];
+      to->parameters[CellParams::P_11_DT2] = scaleRho * from->parameters[CellParams::P_11_DT2];
+      to->parameters[CellParams::P_22_DT2] = scaleRho * from->parameters[CellParams::P_22_DT2];
+      to->parameters[CellParams::P_33_DT2] = scaleRho * from->parameters[CellParams::P_33_DT2];
+      to->parameters[CellParams::RHO] = scaleRho * from->parameters[CellParams::RHO];
+      to->parameters[CellParams::RHOVX] = scaleRho * from->parameters[CellParams::RHOVX];
+      to->parameters[CellParams::RHOVY] = scaleRho * from->parameters[CellParams::RHOVY];
+      to->parameters[CellParams::RHOVZ] = scaleRho * from->parameters[CellParams::RHOVZ];
+      to->parameters[CellParams::P_11] = scaleRho * from->parameters[CellParams::P_11];
+      to->parameters[CellParams::P_22] = scaleRho * from->parameters[CellParams::P_22];
+      to->parameters[CellParams::P_33] = scaleRho * from->parameters[CellParams::P_33];
    }
    
    /*! Take a list of cells and set the destination cell distribution function to the average of the list's cells'.

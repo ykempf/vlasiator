@@ -256,7 +256,31 @@ namespace SBC {
                cell->parameters[CellParams::RHOLOSSADJUST] = 0.0;
                cell->parameters[CellParams::RHOLOSSVELBOUNDARY] = 0.0;
                
-               copyCellData(&templateCells[i], cell,true);
+               Real scaleDensity = 1.0;
+               if(this->densityPertRelAmp != 0.0) {
+                  //generate pseudo-random order which is always the same irrespective of parallelization, restarts, etc
+                  char rngStateBuffer[256];
+                  random_data rngDataBuffer;
+                  // set seed, initialise generator and get value
+                  memset(&(rngDataBuffer), 0, sizeof(rngDataBuffer));
+                  
+                  const CellID cellID = (int) ((x - Parameters::xmin) / dx) +
+                  (int) ((y - Parameters::ymin) / dy) * Parameters::xcells_ini +
+                  (int) ((z - Parameters::zmin) / dz) * Parameters::xcells_ini * Parameters::ycells_ini;
+   #ifdef _AIX
+                  initstate_r(Parameters::tstep + cellID + this->seed, &(rngStateBuffer[0]), 256, NULL, &(rngDataBuffer));
+                  int64_t rndInt;
+                  random_r(&rndInt, &rngDataBuffer);
+   #else
+                  initstate_r(Parameters::tstep + cellID + this->seed, &(rngStateBuffer[0]), 256, &(rngDataBuffer));
+                  int32_t rndInt;
+                  random_r(&rngDataBuffer, &rndInt);
+   #endif
+                  creal rnd = (Real) rndInt / RAND_MAX;
+                  scaleDensity = 1.0 + this->densityPertRelAmp * (0.5 - rnd);
+               }
+               
+               copyCellData(&templateCells[i], cell, scaleDensity, true);
             }
             break; // This effectively sets the precedence of faces through the order of faces.
          }

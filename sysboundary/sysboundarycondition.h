@@ -120,11 +120,13 @@ namespace SBC {
          creal x, creal y, creal z,
          creal dx, creal dy, creal dz
       );
-      void copyCellData(SpatialCell *from, SpatialCell *to,bool allowBlockAdjustment);
+      void copyCellData(SpatialCell *from, SpatialCell *to, const bool allowBlockAdjustment);
+      void copyCellData(SpatialCell *from, SpatialCell *to, creal scaleRho, const bool allowBlockAdjustment);
       CellID getClosestNonsysboundaryCell(
          const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
          const CellID& cellID
       );
+      
       
       void averageCellData(
          const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
