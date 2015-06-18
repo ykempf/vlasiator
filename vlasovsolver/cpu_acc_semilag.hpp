@@ -41,15 +41,10 @@ using namespace Eigen;
 
 */
 
-void cpu_accelerate_cell(SpatialCell* spatial_cell, uint map_order, const Real dt) {
-   double t1=MPI_Wtime();
-
-   /*compute transform, forward in time and backward in time*/
-   phiprof::start("compute-transform");
-   //compute the transform performed in this acceleration
-   Transform<Real,3,Affine> fwd_transform= compute_acceleration_transformation(spatial_cell,dt);
+void cpu_transformVelocitySpace(SpatialCell* spatial_cell, uint map_order, Transform<Real,3,Affine> &fwd_transform) {
+   phiprof::start("transform-velocity-space");
+   /*compute transform backward in time*/
    Transform<Real,3,Affine> bwd_transform= fwd_transform.inverse();
-   phiprof::stop("compute-transform");
 
    Real intersection_z,intersection_z_di,intersection_z_dj,intersection_z_dk;
    Real intersection_x,intersection_x_di,intersection_x_dj,intersection_x_dk;
@@ -107,6 +102,21 @@ void cpu_accelerate_cell(SpatialCell* spatial_cell, uint map_order, const Real d
           phiprof::stop("compute-mapping");
           break;
    }
+   phiprof::stop("transform-velocity-space");
+}
+
+
+
+void cpu_accelerate_cell(SpatialCell* spatial_cell, uint map_order, const Real dt) {
+   double t1=MPI_Wtime();
+
+   /*compute transform, forward in time and backward in time*/
+   phiprof::start("compute-transform");
+   //compute the transform performed in this acceleration
+   Transform<Real,3,Affine> fwd_transform= compute_acceleration_transformation(spatial_cell,dt);
+   phiprof::stop("compute-transform");
+
+   cpu_transformVelocitySpace(spatial_cell, map_order, fwd_transform);
    
    double t2=MPI_Wtime();
    spatial_cell->parameters[CellParams::LBWEIGHTCOUNTER] += t2 - t1;
