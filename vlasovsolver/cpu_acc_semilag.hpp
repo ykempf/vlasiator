@@ -30,22 +30,29 @@ using namespace Eigen;
 
 
 /*!
+  \brief Transform velocity space in spatial cell
 
-  Propagates the distribution function in velocity space of given real
-  space cell.
+  Moves the distribution function in velocity space of given real
+  space cell. The transform can represent and arbitrary rotation +
+  translation transformation. Scaling is not yet supported.
 
   Based on SLICE-3D algorithm: Zerroukat, M., and T. Allen. "A
   three‐dimensional monotone and conservative semi‐Lagrangian scheme
   (SLICE‐3D) for transport problems." Quarterly Journal of the Royal
   Meteorological Society 138.667 (2012): 1640-1651.
 
+  \param spatial_cell Spatial cell
+  \param fwd_transform Transform forward in time for the distribution function
+  \param population Which spatial cell population. Not yet supported.
+  \param map_order In what order are the 1D mappings done. 0=XYZ, 1=YZX, 2=ZXY
+
 */
 
-void cpu_transformVelocitySpace(SpatialCell* spatial_cell, uint map_order, Transform<Real,3,Affine> &fwd_transform) {
+void cpu_transformVelocitySpace(SpatialCell* spatial_cell, Transform<Real,3,Affine> &fwd_transform, uint population, uint map_order = 0) {
    phiprof::start("transform-velocity-space");
    /*compute transform backward in time*/
    Transform<Real,3,Affine> bwd_transform= fwd_transform.inverse();
-
+   
    Real intersection_z,intersection_z_di,intersection_z_dj,intersection_z_dk;
    Real intersection_x,intersection_x_di,intersection_x_dj,intersection_x_dk;
    Real intersection_y,intersection_y_di,intersection_y_dj,intersection_y_dk;
@@ -105,18 +112,30 @@ void cpu_transformVelocitySpace(SpatialCell* spatial_cell, uint map_order, Trans
    phiprof::stop("transform-velocity-space");
 }
 
+/*!
+  \brief Accelerate velocity space
+
+    Accelerates the velocity space using a= q/m(v x B + E), where E is
+    obtained from Ohm's law. It uses the slice-3D algorithm for the mappings.
+
+  \sa  cpu_transformVelocitySpace
+  
+  \param spatial_cell Spatial cell
+  \param map_order In what order are the 1D mappings done. 0=XYZ, 1=YZX, 2=ZXY
+  \param dt Timestep in seconds
+*/
+
 
 
 void cpu_accelerate_cell(SpatialCell* spatial_cell, uint map_order, const Real dt) {
    double t1=MPI_Wtime();
-
    /*compute transform, forward in time and backward in time*/
    phiprof::start("compute-transform");
    //compute the transform performed in this acceleration
    Transform<Real,3,Affine> fwd_transform= compute_acceleration_transformation(spatial_cell,dt);
    phiprof::stop("compute-transform");
 
-   cpu_transformVelocitySpace(spatial_cell, map_order, fwd_transform);
+   cpu_transformVelocitySpace(spatial_cell, fwd_transform, 0,  map_order);
    
    double t2=MPI_Wtime();
    spatial_cell->parameters[CellParams::LBWEIGHTCOUNTER] += t2 - t1;
