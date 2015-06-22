@@ -27,8 +27,8 @@ testpackage: DISTRIBUTION_FP_PRECISION = DPF
 testpackage: VECTORCLASS = VEC4D_AGNER
 
 #also use papi to report memory consumption?
-PAPI_FLAG ?= -DPAPI_MEM
-COMPFLAGS +=${PAPI_FLAG}
+#PAPI_FLAG ?= -DPAPI_MEM
+#COMPFLAGS +=${PAPI_FLAG}
 
 #Use jemalloc instead of system malloc to reduce memory fragmentation? https://github.com/jemalloc/jemalloc
 #Configure jemalloc with  --with-jemalloc-prefix=je_ when installing it
