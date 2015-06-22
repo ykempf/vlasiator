@@ -48,7 +48,7 @@ using namespace Eigen;
 
 */
 
-void cpu_transformVelocitySpace(SpatialCell* spatial_cell, Transform<Real,3,Affine> &fwd_transform, uint population, uint map_order = 0) {
+void cpu_transformVelocitySpace(SpatialCell* spatial_cell, Transform<Real,3,Affine> &fwd_transform, uint population, uint map_order) {
    phiprof::start("transform-velocity-space");
    /*compute transform backward in time*/
    Transform<Real,3,Affine> bwd_transform= fwd_transform.inverse();

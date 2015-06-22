@@ -16,15 +16,38 @@ using namespace spatial_cell;
 #include <stdint.h>
 #include <dccrg.hpp>
 #include <dccrg_cartesian_geometry.hpp>
+#include <Eigen/Core>
+#include <Eigen/Geometry>
+void calculateAcceleration(dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
+                           Real dt);
 
-void calculateAcceleration(
-                           dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
-                           Real dt
-);
-
-void calculateSpatialTranslation(
-                                 dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
+void calculateSpatialTranslation(dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
                                  Real dt);
+
+
+/*!
+  \brief Transform velocity space in spatial cell
+
+  Moves the distribution function in velocity space of given real
+  space cell. The transform can represent and arbitrary rotation +
+  translation transformation. Scaling is not yet supported.
+
+  Based on SLICE-3D algorithm: Zerroukat, M., and T. Allen. "A
+  three‐dimensional monotone and conservative semi‐Lagrangian scheme
+  (SLICE‐3D) for transport problems." Quarterly Journal of the Royal
+  Meteorological Society 138.667 (2012): 1640-1651.
+
+  \param spatial_cell Spatial cell
+  \param fwd_transform Transform forward in time for the distribution function
+  \param population Which spatial cell population. Not yet supported.
+  \param map_order In what order are the 1D mappings done. 0=XYZ, 1=YZX, 2=ZXY
+
+*/
+
+void cpu_transformVelocitySpace(SpatialCell* spatial_cell, Eigen::Transform<Real,3,Eigen::Affine> &fwd_transform, uint population, uint map_order = 0);
+
+
+
 
 /*!
   \brief Compute real-time 1st order accurate moments from the moments after propagation in velocity and spatial space
@@ -46,10 +69,7 @@ void calculateInterpolatedVelocityMoments(
    \param SC pointer to the spatial cell
    \param doNotSkip Used to override the checks about system boundaries which in some cases cause the moments not to be calculated as they have been e.g. copied. Default value: false, in order to preserve all the calls using the checks.
 */
-void calculateCellVelocityMoments(
-   SpatialCell* SC,
-   bool doNotSkip=false
-);
+void calculateCellVelocityMoments(SpatialCell* SC, bool doNotSkip=false);
 
 
 /*!
