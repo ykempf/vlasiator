@@ -682,8 +682,8 @@ void getB(Real* B,vlsvinterface::Reader& vlsvReader,const string& meshName,const
       xmlAttributes.push_back(make_pair("name","B_vol"));
       if (vlsvReader.read("VARIABLE",xmlAttributes,cellIndex,1,B1_ptr,false) == false) B_read = false;
       if (B_read == true) {
-	 if (runDebug == true) cerr << "Using B_vol" << endl;
-	 break;
+         if (runDebug == true) cerr << "Using B_vol" << endl;
+         break;
       }
 
       // Attempt to read 'BGB_vol' + 'PERB_vol'
@@ -697,18 +697,19 @@ void getB(Real* B,vlsvinterface::Reader& vlsvReader,const string& meshName,const
       xmlAttributes.push_back(make_pair("name","PERB_vol"));
       if (vlsvReader.read("VARIABLE",xmlAttributes,cellIndex,1,B2_ptr,false) == false) B_read = false;
       if (B_read == true) {
-	 if (runDebug == true) cerr << "Using BGB_vol + PERB_vol" << endl;
-	 break;
+         if (runDebug == true) cerr << "Using BGB_vol + PERB_vol" << endl;
+         break;
       }
       
       // Attempt to read variable 'B'
+      B_read = true;
       xmlAttributes.clear();
       xmlAttributes.push_back(make_pair("mesh",meshName));
       xmlAttributes.push_back(make_pair("name","B"));
       if (vlsvReader.read("VARIABLE",xmlAttributes,cellIndex,1,B1_ptr,false) == false) B_read = false;
       if (B_read == true) {
-	 if (runDebug == true) cerr << "Using B" << endl;
-	 break;
+         if (runDebug == true) cerr << "Using B" << endl;
+         break;
       }
       
       // Attempt to read 'background_B' + 'perturbed_B'
@@ -722,8 +723,8 @@ void getB(Real* B,vlsvinterface::Reader& vlsvReader,const string& meshName,const
       xmlAttributes.push_back(make_pair("name","perturbed_B"));
       if (vlsvReader.read("VARIABLE",xmlAttributes,cellIndex,1,B2_ptr,false) == false) B_read = false;
       if (B_read == true) {
-	 if (runDebug == true) cerr << "Using background_B + perturbed_B" << endl;
-	 break;
+         if (runDebug == true) cerr << "Using background_B + perturbed_B" << endl;
+         break;
       }
       
       break;
