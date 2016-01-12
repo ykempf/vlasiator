@@ -206,7 +206,7 @@ function transferFileListDdSsh {
             
             #Test if file is complete
             # Check checksums
-            targetChecksum=`dd iflag=fullblock bs=${chunkSize} skip=$i count=1 if=${file} | md5sum`
+            targetChecksum=`dd iflag=fullblock bs=${chunkSize} skip=$i count=1 if=${file} 2> /dev/null | md5sum`
             if [[ $sourceChecksum == $targetChecksum ]]; then
                echo "Chunk $i transferred successfully"
                i=$(( i+1 ))
