@@ -31,15 +31,15 @@ LIB_MPI = -lgomp
 
 MPT_VERSION = 1.10.2
 JEMALLOC_VERSION = 4.0.4
-LIBRARY_PREFIX = /proj/vlasiato/libraries
+LIBRARY_PREFIX = /wrk/trng114/libraries
 
 
 #compiled libraries
-INC_BOOST = -I$(CRAY_TRILINOS_PREFIX_DIR)/include/boost
-LIB_BOOST = -L$(CRAY_TRILINOS_PREFIX_DIR)/lib -lboost_program_options
+INC_BOOST = -I$(LIBRARY_PREFIX)/boost
+LIB_BOOST = -L$(LIBRARY_PREFIX)/boost/stage/lib -lboost_program_options
 
-INC_ZOLTAN = -I$(CRAY_TRILINOS_PREFIX_DIR)/include
-LIB_ZOLTAN = -I$(CRAY_TRILINOS_PREFIX_DIR)/lib -lzoltan
+INC_ZOLTAN = -I$(LIBRARY_PREFIX)/zoltan/include
+LIB_ZOLTAN = -L$(LIBRARY_PREFIX)/zoltan/lib -lzoltan
 
 INC_JEMALLOC = -I$(LIBRARY_PREFIX)/taito/$(MPT_VERSION)/$(CC_BRAND)/$(CC_BRAND_VERSION)/jemalloc/$(JEMALLOC_VERSION)/include
 LIB_JEMALLOC = -L$(LIBRARY_PREFIX)/taito/$(MPT_VERSION)/$(CC_BRAND)/$(CC_BRAND_VERSION)/jemalloc/$(JEMALLOC_VERSION)/lib -ljemalloc
@@ -47,9 +47,11 @@ LIB_JEMALLOC = -L$(LIBRARY_PREFIX)/taito/$(MPT_VERSION)/$(CC_BRAND)/$(CC_BRAND_V
 INC_VLSV = -I$(LIBRARY_PREFIX)/taito/$(MPT_VERSION)/$(CC_BRAND)/$(CC_BRAND_VERSION)/vlsv
 LIB_VLSV = -L$(LIBRARY_PREFIX)/taito/$(MPT_VERSION)/$(CC_BRAND)/$(CC_BRAND_VERSION)/vlsv -lvlsv
 
+LIB_PAPI = -L$(LIBRARY_PREFIX)/taito/$(MPT_VERSION)/$(CC_BRAND)/$(CC_BRAND_VERSION)/papi/lib -lpapi
+INC_PAPI = -I$(LIBRARY_PREFIX)/taito/$(MPT_VERSION)/$(CC_BRAND)/$(CC_BRAND_VERSION)/papi/include
 
-LIB_PROFILE = -L$(LIBRARY_PREFIX)/taito/$(MPT_VERSION)/$(CC_BRAND)/$(CC_BRAND_VERSION)/phiprof/2.0/lib -lphiprof
-INC_PROFILE = -I$(LIBRARY_PREFIX)/taito/$(MPT_VERSION)/$(CC_BRAND)/$(CC_BRAND_VERSION)/phiprof/2.0/include
+LIB_PROFILE = -L$(LIBRARY_PREFIX)/taito/$(MPT_VERSION)/$(CC_BRAND)/$(CC_BRAND_VERSION)/phiprof/lib -lphiprof -lrt
+INC_PROFILE = -I$(LIBRARY_PREFIX)/taito/$(MPT_VERSION)/$(CC_BRAND)/$(CC_BRAND_VERSION)/phiprof/include
 
 #header libraries
 
