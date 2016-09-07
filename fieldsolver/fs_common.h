@@ -1,7 +1,7 @@
 /*
 This file is part of Vlasiator.
 
-Copyright 2010, 2011, 2012, 2013, 2014 Finnish Meteorological Institute
+Copyright 2010-2015 Finnish Meteorological Institute
 
 */
 
@@ -17,11 +17,11 @@ Copyright 2010, 2011, 2012, 2013, 2014 Finnish Meteorological Institute
 #include <set>
 #include <stdint.h>
 
+#include <phiprof.hpp>
+
 #include "../common.h"
-#include "../grid.h"
 #include "../parameters.h"
 #include "../projects/project.h"
-#include "phiprof.hpp"
 #include "../sysboundary/sysboundary.h"
 #include "../sysboundary/sysboundarycondition.h"
 
@@ -46,7 +46,10 @@ static creal EPS = 1.0e-30;
 using namespace std;
 using namespace fieldsolver;
 
-static map<CellID,uint> sysBoundaryFlags;
+namespace fs_cache {
+   struct CellCache;
+}
+
 /*!< Boundary status flags for all cells on this process. Here "boundary cell" 
  * means that the cell is at the physical boundary of the simulation volume, 
  * in some cases this condition means that this cell is a "ghost cell". However, 
@@ -117,11 +120,6 @@ CellID getNeighbourID(
    const uchar& k
 );
 
-/*! \brief Low-level helper function.
- * 
- * Avoid crashes on zero density by returning V = rhoV = 0.0 if rho = 0.0.
- * 
- */
 Real divideIfNonZero(creal rhoV, creal rho);
 
 /*! Namespace encompassing the enum defining the list of reconstruction coefficients used in field component reconstructions.*/
@@ -135,24 +133,11 @@ namespace Rec {
    };
 }
 
-/*! \brief Low-level helper function.
- * 
- * Computes the reconstruction coefficients used for field component reconstruction.
- * Only implemented for 2nd and 3rd order.
- * 
- * \param reconstructionOrder Reconstruction order of the fields after Balsara 2009, 2 used for BVOL, 3 used for 2nd-order Hall term calculations.
- */
 void reconstructionCoefficients(
-   const CellID& cellID,
-   const CellID& nbr_i2j1k1,
-   const CellID& nbr_i1j2k1,
-   const CellID& nbr_i1j1k2,
-   dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
+   fs_cache::CellCache& cell,
    Real* perturbedResult,
    creal& reconstructionOrder,
    cint& RKCase
 );
-
-
 
 #endif

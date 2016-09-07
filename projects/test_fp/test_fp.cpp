@@ -1,18 +1,7 @@
 /*
 This file is part of Vlasiator.
 
-Copyright 2011, 2012 Finnish Meteorological Institute
-
-
-
-
-
-
-
-
-
-
-
+Copyright 2011, 2012, 2015 Finnish Meteorological Institute
 
 */
 
@@ -26,7 +15,7 @@ Copyright 2011, 2012 Finnish Meteorological Institute
 
 #include "test_fp.h"
 
-enum cases {BXCASE,BYCASE,BZCASE};
+enum cases {BXCASE,BYCASE,BZCASE,BALLCASE};
 
 using namespace std;
 
@@ -45,6 +34,7 @@ namespace projects {
    */
 
    bool test_fp::initialize(void) {
+      Project::initialize();
       this->ALPHA *= M_PI / 4.0;
       return true;
    }
@@ -56,11 +46,12 @@ namespace projects {
       RP::add("test_fp.rho", "Number density (m^-3)", 1.0e7);
       RP::add("test_fp.Temperature", "Temperature (K)", 1.0e-6);
       RP::add("test_fp.angle", "Orientation of the propagation expressed in pi/4", 0.0);
-      RP::add("test_fp.Bdirection", "Direction of the magnetic field (0:x, 1:y, 2:z)", 0);
+      RP::add("test_fp.Bdirection", "Direction of the magnetic field (0:x, 1:y, 2:z, 3:all)", 0);
       RP::add("test_fp.shear", "Add a shear (if false, V=0.5 everywhere).", true);
    }
 
    void test_fp::getParameters(void){
+      Project::getParameters();
       typedef Readparameters RP;
       RP::get("test_fp.B0", this->B0);
       RP::get("test_fp.V0", this->V0);
@@ -71,16 +62,15 @@ namespace projects {
       RP::get("test_fp.shear", this->shear);
    }
 
-   Real test_fp::sign(creal value)
-   {
-      if(abs(value) < 1e-5) return 0.0;
+   Real test_fp::sign(creal value) const {
+      if (abs(value) < 1e-5) return 0.0;
       else return value / abs(value);
    }
 
-
-   Real test_fp::calcPhaseSpaceDensity(creal& x,creal& y,creal& z,creal& dx,creal& dy,creal& dz,creal& vx,creal& vy,creal& vz,creal& dvx,creal& dvy,creal& dvz) {
-      
-      vector<std::array<Real, 3>> V = this->getV0(x,y,z,dx,dy,dz);
+   Real test_fp::calcPhaseSpaceDensity(creal& x,creal& y,creal& z,creal& dx,creal& dy,creal& dz,
+                                       creal& vx,creal& vy,creal& vz,creal& dvx,creal& dvy,creal& dvz,
+                                       const int& popID) const {      
+      vector<std::array<Real, 3> > V = this->getV0(x,y,z,dx,dy,dz);
       
       creal VX2 = (vx+0.5*dvx-V[0][0])*(vx+0.5*dvx-V[0][0]);
       creal VY2 = (vy+0.5*dvy-V[0][1])*(vy+0.5*dvy-V[0][1]);
@@ -94,7 +84,8 @@ namespace projects {
       return result;
    }
 
-   void test_fp::calcCellParameters(Real* cellParams,creal& t) {
+   void test_fp::calcCellParameters(spatial_cell::SpatialCell* cell,creal& t) {
+      Real* cellParams = cell->get_cell_parameters();
       cellParams[CellParams::EX   ] = 0.0;
       cellParams[CellParams::EY   ] = 0.0;
       cellParams[CellParams::EZ   ] = 0.0;
@@ -110,18 +101,29 @@ namespace projects {
       switch (this->CASE) {
       case BXCASE:
          if (y >= -0.2 && y <= 0.2)
-      if (z >= -0.2 && z <= 0.2)
-         cellParams[CellParams::PERBX] = this->B0;
+           if (z >= -0.2 && z <= 0.2)
+             cellParams[CellParams::PERBX] = this->B0;
          break;
       case BYCASE:
          if (x >= -0.2 && x <= 0.2)
-      if (z >= -0.2 && z <= 0.2)
-         cellParams[CellParams::PERBY] = this->B0;
+           if (z >= -0.2 && z <= 0.2)
+             cellParams[CellParams::PERBY] = this->B0;
          break;
       case BZCASE:
          if (x >= -0.2 && x <= 0.2)
-      if (y >= -0.2 && y <= 0.2)
-         cellParams[CellParams::PERBZ] = this->B0;
+           if (y >= -0.2 && y <= 0.2)
+             cellParams[CellParams::PERBZ] = this->B0;
+         break;
+       case BALLCASE:
+         if (y >= -0.2 && y <= 0.2)
+           if (z >= -0.2 && z <= 0.2)
+             cellParams[CellParams::PERBX] = this->B0;
+         if (x >= -0.2 && x <= 0.2)
+           if (z >= -0.2 && z <= 0.2)
+             cellParams[CellParams::PERBY] = this->B0;
+         if (x >= -0.2 && x <= 0.2)
+           if (y >= -0.2 && y <= 0.2)
+             cellParams[CellParams::PERBZ] = this->B0;
          break;
       }
    }
@@ -133,7 +135,7 @@ namespace projects {
       creal dx,
       creal dy,
       creal dz
-   ) {
+   ) const {
       vector<std::array<Real, 3>> centerPoints;
       
       Real VX,VY,VZ;
@@ -161,25 +163,34 @@ namespace projects {
                VX = sign(cos(this->ALPHA)) * 0.5 + 0.1*cos(this->ALPHA) * sin(2.0 * M_PI * eta);
                VY = sign(sin(this->ALPHA)) * 0.5 + 0.1*sin(this->ALPHA) * sin(2.0 * M_PI * eta);
                VZ = 0.0;
-               break;
+            break;
+          case BALLCASE:
+            std::cerr << "not implemented in " << __FILE__ << ":" << __LINE__ << std::endl;
+            exit(1);
+            break;
          }
       } else {
          switch (this->CASE) {
-            case BXCASE:
-               VX = 0.0;
-               VY = cos(this->ALPHA) * 0.5;
-               VZ = sin(this->ALPHA) * 0.5; 
-               break;
-            case BYCASE:
-               VX = sin(this->ALPHA) * 0.5;
-               VY = 0.0;
-               VZ = cos(this->ALPHA) * 0.5;
-               break;
-            case BZCASE:
-               VX = cos(this->ALPHA) * 0.5;
-               VY = sin(this->ALPHA) * 0.5;
-               VZ = 0.0;
-               break;
+          case BXCASE:
+            VX = 0.0;
+            VY = cos(this->ALPHA) * 0.5;
+            VZ = sin(this->ALPHA) * 0.5; 
+            break;
+          case BYCASE:
+            VX = sin(this->ALPHA) * 0.5;
+            VY = 0.0;
+            VZ = cos(this->ALPHA) * 0.5;
+            break;
+          case BZCASE:
+            VX = cos(this->ALPHA) * 0.5;
+            VY = sin(this->ALPHA) * 0.5;
+            VZ = 0.0;
+            break;
+          case BALLCASE:
+            VX = 0.5 / sqrt(3.0);
+            VY = 0.5 / sqrt(3.0);
+            VZ = 0.5 / sqrt(3.0);
+            break;
          }
       }
       
@@ -196,7 +207,7 @@ namespace projects {
       creal x,
       creal y,
       creal z
-   ) {
+   ) const {
       vector<std::array<Real, 3>> centerPoints;
       
       creal dx = 0.0;

@@ -5,7 +5,8 @@
 
 ## add absolute paths to folder names, filenames
 reference_dir=$( readlink -f $reference_dir )
-run_dir=$( readlink -f $run_dir )
+run_dir=$( readlink -f $run_dir )_$( date +%Y.%m.%d_%H.%M.%S)
+
 bin=$( readlink -f $bin )
 test_dir=$( readlink -f $test_dir)
 
@@ -29,13 +30,11 @@ then
 fi
 
 
-#create main run folder if it doesn not exist
-
 if [ -d $run_dir ]
 then
-    mv $run_dir ${run_dir}_old_$(date  "+%s")
+    echo $run_dir exists?
+    exit
 fi
-
 mkdir -p $run_dir 
 
 # loop over different test cases
@@ -60,7 +59,9 @@ do
     export OMP_NUM_THREADS=$t
     export MPICH_MAX_THREAD_SAFETY=funneled
 
+    $run_command $bin --version  > VERSION.txt
     $run_command $bin --run_config=${test_name[$run]}.cfg
+
 
   ###copy new reference data to correct folder
     if [ $create_verification_files == 1 ]
@@ -93,21 +94,32 @@ do
 
 
         echo "------------------------------------------------------------"
-        echo " ref-perf     |   new-perf       |  speedup                |"
+        echo " ref-time     |   new-time       |  speedup                |"
         echo "------------------------------------------------------------"
-        refPerf=$(grep "Propagate   " ${result_dir}/${comparison_phiprof[$run]}  |gawk '{print $12}')
-        newPerf=$(grep "Propagate   " ${vlsv_dir}/${comparison_phiprof[$run]}  |gawk '{print $12}')
-        speedup=$( echo $refPerf $newPerf |gawk '{print $2/$1}')
+	if [ -e  ${result_dir}/${comparison_phiprof[$run]} ] 
+	then
+            refPerf=$(grep "Propagate   " ${result_dir}/${comparison_phiprof[$run]} |gawk  '(NR==1){print $11}')
+	else
+	    refPerf="NA"
+	fi
+	if [ -e ${vlsv_dir}/${comparison_phiprof[$run]} ] 
+	then
+            newPerf=$(grep "Propagate   " ${vlsv_dir}/${comparison_phiprof[$run]}  |gawk  '(NR==1){print $11}')
+	else
+	    newPerf="NA"
+	fi
+	#print speedup if both refPerf and newPerf are numerical values
+        speedup=$( echo $refPerf $newPerf |gawk '{if($2 == $2 + 0 && $1 == $1 + 0 ) print $1/$2; else print "NA"}')
         echo  "$refPerf        $newPerf         $speedup"
         echo "------------------------------------------------------------"
         echo "  variable     |     absolute diff     |     relative diff | "
         echo "------------------------------------------------------------"
         for i in ${!variables_name[*]}
         do
-            if [ ! "${variables_name[$i]}" == "avgs" ]
+            if [ ! "${variables_name[$i]}" == "proton" ]
             then
-                relativeValue=$( vlsvdiff_DP ${result_dir}/${comparison_vlsv[$run]} ${vlsv_dir}/${comparison_vlsv[$run]} ${variables_name[$i]} ${variables_components[$i]} |grep "The relative 0-distance between both datasets" |gawk '{print $8}'  )
-                absoluteValue=$( vlsvdiff_DP ${result_dir}/${comparison_vlsv[$run]} ${vlsv_dir}/${comparison_vlsv[$run]} ${variables_name[$i]} ${variables_components[$i]} |grep "The absolute 0-distance between both datasets" |gawk '{print $8}'  )
+                relativeValue=$($run_command_tools vlsvdiff_DP ${result_dir}/${comparison_vlsv[$run]} ${vlsv_dir}/${comparison_vlsv[$run]} ${variables_name[$i]} ${variables_components[$i]} |grep "The relative 0-distance between both datasets" |gawk '{print $8}'  )
+                absoluteValue=$($run_command_tools vlsvdiff_DP ${result_dir}/${comparison_vlsv[$run]} ${vlsv_dir}/${comparison_vlsv[$run]} ${variables_name[$i]} ${variables_components[$i]} |grep "The absolute 0-distance between both datasets" |gawk '{print $8}'  )
 #print the results      
                 echo "${variables_name[$i]}_${variables_components[$i]}                $absoluteValue                 $relativeValue    "
             fi
@@ -117,12 +129,12 @@ do
 
         for i in ${!variables_name[*]}
         do
-            if [ "${variables_name[$i]}" == "avgs" ]
+            if [ "${variables_name[$i]}" == "proton" ]
             then
                 echo "--------------------------------------------------------------------------------------------" 
                 echo "   Distribution function diff                                                               "
                 echo "--------------------------------------------------------------------------------------------" 
-                vlsvdiff_DP ${result_dir}/${comparison_vlsv[$run]} ${vlsv_dir}/${comparison_vlsv[$run]} avgs 0
+                $run_command_tools vlsvdiff_DP ${result_dir}/${comparison_vlsv[$run]} ${vlsv_dir}/${comparison_vlsv[$run]} proton 0
             fi 
         done # loop over variables
 

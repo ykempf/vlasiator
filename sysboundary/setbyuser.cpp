@@ -1,23 +1,13 @@
 /*
  * This file is part of Vlasiator.
  * 
- * Copyright 2010, 2011, 2012, 2013 Finnish Meteorological Institute
- * 
- * 
- * 
- * 
- * 
- * 
- * 
- * 
- * 
- * 
- * 
+ * Copyright 2010-2013,2015 Finnish Meteorological Institute
  * 
  */
 
 /*!\file setbyuser.cpp
- * \brief Implementation of the class SysBoundaryCondition::SetByUser. This serves as the base class for further classes like SysBoundaryCondition::SetMaxwellian.
+ * \brief Implementation of the class SysBoundaryCondition::SetByUser. 
+ * This serves as the base class for further classes like SysBoundaryCondition::SetMaxwellian.
  */
 
 #include <cstdlib>
@@ -26,6 +16,14 @@
 #include "setbyuser.h"
 #include "../vlasovmover.h"
 #include "../fieldsolver/fs_common.h"
+#include "../object_wrapper.h"
+
+#ifndef NDEBUG
+   #define DEBUG_SETBYUSER
+#endif
+#ifdef DEBUG_SYSBOUNDARY
+   #define DEBUG_SETBYUSER
+#endif
 
 using namespace std;
 
@@ -55,9 +53,7 @@ namespace SBC {
       this->getParameters();
       
       vector<string>::const_iterator it;
-      for (it = faceList.begin();
-           it != faceList.end();
-      it++) {
+      for (it = faceList.begin(); it != faceList.end(); ++it) {
          if(*it == "x+") facesToProcess[0] = true;
          if(*it == "x-") facesToProcess[1] = true;
          if(*it == "y+") facesToProcess[2] = true;
@@ -100,44 +96,44 @@ namespace SBC {
       const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
       Project &project
    ) {
-      bool success;
+      bool success = true;
+      for (unsigned int popID=0; popID<getObjectWrapper().particleSpecies.size(); ++popID) {
+         if (setCellsFromTemplate(mpiGrid, popID) == false) success = false;
+      }
       
-      success = setCellsFromTemplate(mpiGrid);
-      
-      return true;
+      return success;
    }
    
    Real SetByUser::fieldSolverBoundaryCondMagneticField(
       const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
-      const CellID& cellID,
+      const std::vector<fs_cache::CellCache>& cellCache,
+      const uint16_t& localID,
       creal& dt,
+      cuint& RKCase,
+      cint& offset,
       cuint& component
    ) {
       Real result = 0.0;
-      const SpatialCell* cell = mpiGrid[cellID];
-      creal dx = cell->parameters[CellParams::DX];
-      creal dy = cell->parameters[CellParams::DY];
-      creal dz = cell->parameters[CellParams::DZ];
-      creal x = cell->parameters[CellParams::XCRD] + 0.5*dx;
-      creal y = cell->parameters[CellParams::YCRD] + 0.5*dy;
-      creal z = cell->parameters[CellParams::ZCRD] + 0.5*dz;
+      creal* cp0 = cellCache[localID].cells[fs_cache::calculateNbrID(1  ,1  ,1  )]->parameters;
+      creal dx = cp0[CellParams::DX];
+      creal dy = cp0[CellParams::DY];
+      creal dz = cp0[CellParams::DZ];
+      creal x = cp0[CellParams::XCRD] + 0.5*dx;
+      creal y = cp0[CellParams::YCRD] + 0.5*dy;
+      creal z = cp0[CellParams::ZCRD] + 0.5*dz;
       
       bool isThisCellOnAFace[6];
       determineFace(&isThisCellOnAFace[0], x, y, z, dx, dy, dz);
-      
-      for(uint i=0; i<6; i++) {
-         if(isThisCellOnAFace[i]) {
-            if(dt == 0.0) {
-               result = templateCells[i].parameters[CellParams::PERBX + component];
-            } else {
-               result = templateCells[i].parameters[CellParams::PERBX_DT2 + component];
-            }
+
+      for (uint i=0; i<6; i++) {
+         if (isThisCellOnAFace[i]) {
+            result = templateCells[i].parameters[CellParams::PERBX + offset + component];
             break; // This effectively sets the precedence of faces through the order of faces.
          }
       }
       return result;
    }
-   
+
    void SetByUser::fieldSolverBoundaryCondElectricField(
       dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
       const CellID& cellID,
@@ -150,31 +146,68 @@ namespace SBC {
          mpiGrid[cellID]->parameters[CellParams::EX_DT2+component] = 0.0;
       }
    }
-   
+
    void SetByUser::fieldSolverBoundaryCondHallElectricField(
-      dccrg::Dccrg<SpatialCell, dccrg::Cartesian_Geometry>& mpiGrid,
-      const CellID& cellID,
+      fs_cache::CellCache& cache,
       cuint RKCase,
       cuint component
    ) {
-      switch(component) {
+
+      Real* cp = cache.cells[fs_cache::calculateNbrID(1,1,1)]->parameters;
+      
+      switch (component) {
          case 0:
-            mpiGrid[cellID]->parameters[CellParams::EXHALL_000_100] = 0.0;
-            mpiGrid[cellID]->parameters[CellParams::EXHALL_010_110] = 0.0;
-            mpiGrid[cellID]->parameters[CellParams::EXHALL_001_101] = 0.0;
-            mpiGrid[cellID]->parameters[CellParams::EXHALL_011_111] = 0.0;
+            cp[CellParams::EXHALL_000_100] = 0.0;
+            cp[CellParams::EXHALL_010_110] = 0.0;
+            cp[CellParams::EXHALL_001_101] = 0.0;
+            cp[CellParams::EXHALL_011_111] = 0.0;
             break;
          case 1:
-            mpiGrid[cellID]->parameters[CellParams::EYHALL_000_010] = 0.0;
-            mpiGrid[cellID]->parameters[CellParams::EYHALL_100_110] = 0.0;
-            mpiGrid[cellID]->parameters[CellParams::EYHALL_001_011] = 0.0;
-            mpiGrid[cellID]->parameters[CellParams::EYHALL_101_111] = 0.0;
+            cp[CellParams::EYHALL_000_010] = 0.0;
+            cp[CellParams::EYHALL_100_110] = 0.0;
+            cp[CellParams::EYHALL_001_011] = 0.0;
+            cp[CellParams::EYHALL_101_111] = 0.0;
             break;
          case 2:
-            mpiGrid[cellID]->parameters[CellParams::EZHALL_000_001] = 0.0;
-            mpiGrid[cellID]->parameters[CellParams::EZHALL_100_101] = 0.0;
-            mpiGrid[cellID]->parameters[CellParams::EZHALL_010_011] = 0.0;
-            mpiGrid[cellID]->parameters[CellParams::EZHALL_110_111] = 0.0;
+            cp[CellParams::EZHALL_000_001] = 0.0;
+            cp[CellParams::EZHALL_100_101] = 0.0;
+            cp[CellParams::EZHALL_010_011] = 0.0;
+            cp[CellParams::EZHALL_110_111] = 0.0;
+            break;
+         default:
+            cerr << __FILE__ << ":" << __LINE__ << ":" << " Invalid component" << endl;
+      }
+   }
+   
+   void SetByUser::fieldSolverBoundaryCondGradPeElectricField(
+      fs_cache::CellCache& cache,
+      cuint RKCase,
+      cuint component
+   ) {
+      
+      Real* cp = cache.cells[fs_cache::calculateNbrID(1,1,1)]->parameters;
+      
+      switch (component) {
+         case 0:
+            //             cp[CellParams::EXGRADPE_000_100] = 0.0;
+            //             cp[CellParams::EXGRADPE_010_110] = 0.0;
+            //             cp[CellParams::EXGRADPE_001_101] = 0.0;
+            //             cp[CellParams::EXGRADPE_011_111] = 0.0;
+            cp[CellParams::EXGRADPE] = 0.0;
+            break;
+         case 1:
+            //             cp[CellParams::EYGRADPE_000_010] = 0.0;
+            //             cp[CellParams::EYGRADPE_100_110] = 0.0;
+            //             cp[CellParams::EYGRADPE_001_011] = 0.0;
+            //             cp[CellParams::EYGRADPE_101_111] = 0.0;
+            cp[CellParams::EYGRADPE] = 0.0;
+            break;
+         case 2:
+            //             cp[CellParams::EZGRADPE_000_001] = 0.0;
+            //             cp[CellParams::EZGRADPE_100_101] = 0.0;
+            //             cp[CellParams::EZGRADPE_010_011] = 0.0;
+            //             cp[CellParams::EZGRADPE_110_111] = 0.0;
+            cp[CellParams::EZGRADPE] = 0.0;
             break;
          default:
             cerr << __FILE__ << ":" << __LINE__ << ":" << " Invalid component" << endl;
@@ -189,7 +222,7 @@ namespace SBC {
    ) {
       this->setCellDerivativesToZero(mpiGrid, cellID, component);
    }
-   
+
    void SetByUser::fieldSolverBoundaryCondBVOLDerivatives(
       const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
       const CellID& cellID,
@@ -197,18 +230,19 @@ namespace SBC {
    ) {
       this->setCellBVOLDerivativesToZero(mpiGrid, cellID, component);
    }
-   
+
    void SetByUser::vlasovBoundaryCondition(
       const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
-      const CellID& cellID
+      const CellID& cellID,
+      const int& popID
    ) {
       // No need to do anything in this function, as the propagators do not touch the distribution function   
    }
    
-   bool SetByUser::setCellsFromTemplate(const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid) {
-      vector<uint64_t> cells = mpiGrid.get_cells();
-#pragma omp parallel for
-      for (uint i=0; i<cells.size(); i++) {
+   bool SetByUser::setCellsFromTemplate(const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,const int& popID) {
+      vector<CellID> cells = mpiGrid.get_cells();
+      #pragma omp parallel for
+      for (size_t i=0; i<cells.size(); i++) {
          SpatialCell* cell = mpiGrid[cells[i]];
          if(cell->sysBoundaryFlag != this->getIndex()) continue;
          
@@ -224,14 +258,16 @@ namespace SBC {
          
          for(uint i=0; i<6; i++) {
             if(facesToProcess[i] && isThisCellOnAFace[i]) {
-               cell->parameters[CellParams::PERBX] = templateCells[i].parameters[CellParams::PERBX];
-               cell->parameters[CellParams::PERBY] = templateCells[i].parameters[CellParams::PERBY];
-               cell->parameters[CellParams::PERBZ] = templateCells[i].parameters[CellParams::PERBZ];
+               if (popID == 0) {
+                  cell->parameters[CellParams::PERBX] = templateCells[i].parameters[CellParams::PERBX];
+                  cell->parameters[CellParams::PERBY] = templateCells[i].parameters[CellParams::PERBY];
+                  cell->parameters[CellParams::PERBZ] = templateCells[i].parameters[CellParams::PERBZ];
                
-               cell->parameters[CellParams::RHOLOSSADJUST] = 0.0;
-               cell->parameters[CellParams::RHOLOSSVELBOUNDARY] = 0.0;
-               
-               copyCellData(&templateCells[i], cell,true);
+                  cell->parameters[CellParams::RHOLOSSADJUST] = 0.0;
+                  cell->parameters[CellParams::RHOLOSSVELBOUNDARY] = 0.0;
+               }
+
+               copyCellData(&templateCells[i], cell,true,false,popID);
                break; // This effectively sets the precedence of faces through the order of faces.
             }
          }
@@ -268,8 +304,7 @@ namespace SBC {
     * Function adapted from GUMICS-5.
     * 
     * \param fn Name of the file to be opened.
-    * \retval dataset Vector of Real vectors. Each line of length nParams is put into
-    * a vector. Each of these is then put into the vector returned here.
+    * \retval dataset Vector of Real vectors. Each line of length nParams is put into a vector. Each of these is then put into the vector returned here.
     */
    vector<vector<Real> > SetByUser::loadFile(const char *fn) {
       vector<vector<Real> > dataset;
@@ -356,7 +391,7 @@ namespace SBC {
     * \sa generateTemplateCell
     */
    bool SetByUser::generateTemplateCells(creal& t) {
-# pragma omp parallel for
+      #pragma omp parallel for
       for(uint i=0; i<6; i++) {
          int index;
          if(facesToProcess[i]) {
@@ -372,7 +407,11 @@ namespace SBC {
     * \param t Current simulation time.
     * \param outputData Pointer to the location where to write the result. Make sure from the calling side that nParams Real values can be written there!
     */
-   void SetByUser::interpolate(const int inputDataIndex, creal t, Real* outputData) {
+   void SetByUser::interpolate(
+      const int inputDataIndex,
+      creal t,
+      Real* outputData
+   ) {
       // Find first data[0] value which is >= t
       int i1=0,i2=0;
       bool found = false;
@@ -414,7 +453,11 @@ namespace SBC {
       }
    }
 
-   void SetByUser::generateTemplateCell(spatial_cell::SpatialCell& templateCell, int inputDataIndex, creal& t) {
+   void SetByUser::generateTemplateCell(
+      spatial_cell::SpatialCell& templateCell,
+      int inputDataIndex,
+      creal& t
+   ) {
       cerr << "Base class SetByUser::generateTemplateCell() called instead of derived class function!" << endl;
    }
    
