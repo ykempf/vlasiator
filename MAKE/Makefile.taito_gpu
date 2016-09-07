@@ -26,6 +26,10 @@ MATHFLAGS = -ffast-math
 LDFLAGS =
 LIB_MPI = -lgomp
 
+# Cuda
+CUDACMP = nvcc
+NVCCFLAGS = -O3 --restrict -gencode arch=compute_35,code=sm_35 -gencode arch=compute_37,code=sm_37 
+
 # BOOST_VERSION = current trilinos version
 # ZOLTAN_VERSION = current trilinos verson
 
