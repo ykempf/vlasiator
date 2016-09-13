@@ -371,10 +371,10 @@ namespace vmesh {
                 //   block = x + y*x_max + z*y_max*x_max 
                 //=> block' = block - (x + y*x_max) + y + x*y_max = x + y*x_max + z*y_max*x_max - (x + y*x_max) + y + x*y_max
                 //          = y + x*y_max + z*y_max*x_max
-                const LID x_indice = block % d_vmesh->gridLength[0];
-                const LID y_indice = (block / d_vmesh->gridLength[0]) % d_vmesh->gridLength[1];
+                const LID x_index = block % d_vmesh->gridLength[0];
+                const LID y_index = (block / d_vmesh->gridLength[0]) % d_vmesh->gridLength[1];
                 // Mapping the block id to different coordinate system if dimension is not zero:
-                d_vmesh->sortedBlockMappedGID[blocki] = block - (x_indice + y_indice*d_vmesh->gridLength[0]) + y_indice + x_indice * d_vmesh->gridLength[1];
+                d_vmesh->sortedBlockMappedGID[blocki] = block - (x_index + y_index*d_vmesh->gridLength[0]) + y_index + x_index * d_vmesh->gridLength[1];
                 
              }
                 break;
@@ -382,11 +382,11 @@ namespace vmesh {
                 // Do operation: 
                 //   block = x + y*x_max + z*y_max*x_max 
                 //=> block' = z + y*z_max + x*z_max*y_max
-                const LID x_indice = block % d_vmesh->gridLength[0];
-                const LID y_indice = (block / d_vmesh->gridLength[0]) % d_vmesh->gridLength[1];
-                const LID z_indice =  (block / (d_vmesh->gridLength[0] * d_vmesh->gridLength[1]));
+                const LID x_index = block % d_vmesh->gridLength[0];
+                const LID y_index = (block / d_vmesh->gridLength[0]) % d_vmesh->gridLength[1];
+                const LID z_index =  (block / (d_vmesh->gridLength[0] * d_vmesh->gridLength[1]));
                 // Mapping the block id to different coordinate system if dimension is not zero:
-                d_vmesh->sortedBlockMappedGID[blocki] =  z_indice + y_indice * d_vmesh->gridLength[2] + x_indice * d_vmesh->gridLength[1] * d_vmesh->gridLength[2];
+                d_vmesh->sortedBlockMappedGID[blocki] =  z_index + y_index * d_vmesh->gridLength[2] + x_index * d_vmesh->gridLength[1] * d_vmesh->gridLength[2];
              }
                 break;
          }
