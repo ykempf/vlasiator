@@ -21,6 +21,7 @@ namespace projects {
    bool ReadGaussianPopulation::addParameters(const std::string& prefix) {
       // Add input variables to config file reader
       typedef Readparameters RP;
+      bool success = true;
       RP::add(prefix+".n", "Number of populations to use", 0);
       RP::addComposing(prefix+".rho", "Number density (m^-3)");
       RP::addComposing(prefix+".rhoPertAbsAmp", "Absolute amplitude of the density perturbation");
@@ -30,6 +31,7 @@ namespace projects {
       RP::addComposing(prefix+".Vx", "Bulk velocity x component (m/s)");
       RP::addComposing(prefix+".Vy", "Bulk velocity y component (m/s)");
       RP::addComposing(prefix+".Vz", "Bulk velocity z component (m/s)");
+      return success;
    }
 
    bool ReadGaussianPopulation::getParameters(const std::string& prefix,projects::GaussianPopulation& populations) {
