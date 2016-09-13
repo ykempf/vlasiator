@@ -319,13 +319,13 @@ namespace vmesh {
                                   uint dimension, cudaStream_t stream) {
       int cuBlockSize = 512; 
       int cuGridSize = 1 + h_sourceVmesh->nColumns / cuBlockSize; // value determine by block size and total work   
-      LID targetnBlocks;
-       //TODO compute targetnBlocks  
+  
+
       LID *targetColumnLengths;
       GID *targetColumnFirstBlock;
       cudaMalloc(&targetColumnLengths, sizeof(LID) * h_sourceVmesh->nColumns);
       cudaMalloc(&targetColumnFirstBlock, sizeof(GID) * h_sourceVmesh->nColumns); 
-   
+      
       vmesh::computeTargetGridColumns<<<cuGridSize, cuBlockSize, 0, stream>>>(d_sourceVmesh, 
                                                                               targetColumnLengths,
                                                                               targetColumnFirstBlock,
@@ -335,11 +335,12 @@ namespace vmesh {
                                                                               intersection_dk,
                                                                               dimension); 
       
- 
-
-//      createVelocityMeshCuda(d_targetVmesh, h_targetVmesh, targetnBlocks, 
-  //                             d_sourceVmesh->gridLength, d_sourceVmesh->blockSize, d_sourceVmesh->gridMinLimits);
-           
+      LID targetnBlocks = thrust::reduce(thrust::cuda::par.on(stream),
+                                         targetColumnLengths, targetColumnLengths + h_sourceVmesh->nColumns);
+      
+      createVelocityMeshCuda(d_targetVmesh, h_targetVmesh, targetnBlocks, 
+                             d_sourceVmesh->gridLength, d_sourceVmesh->blockSize, d_sourceVmesh->gridMinLimits);
+      
       cudaFree(targetColumnLengths);
       cudaFree(targetColumnFirstBlock);   
    }
