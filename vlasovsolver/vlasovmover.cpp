@@ -28,8 +28,11 @@
 
 #include "cpu_moments.h"
 #include "cpu_acc_semilag.hpp"
+#include "cpu_acc_intersections.hpp"
+#include "cpu_acc_transform.hpp"
 #include "cpu_trans_map.hpp"
 #include "cuda_acc_map.h"
+
 
 using namespace std;
 using namespace spatial_cell;
@@ -376,37 +379,39 @@ void calculateAcceleration(const int& popID,const int& globalMaxSubcycles,const 
 	   vmesh::LocalID gridLength[3];
 
 	   for(uint i = 0; i < 3; i++){
-		   blockSize[i] = SpatialCell::get_velocity_grid_block_size()[i]; 
-		   gridMinLimits[i]  = SpatialCell::get_velocity_grid_min_limits()[i];
-		   gridLength[i] =  SpatialCell::get_velocity_grid_length()[i];
+		   // TODO: This assumes that velocity space is the same size in all propagated cells
+		   SpatialCell* SC = mpiGrid[propagatedCells[0]];
+		   blockSize[i] = SC->get_velocity_grid_block_size(popID, 0)[i]; 
+		   gridMinLimits[i]  = SC->get_velocity_grid_min_limits(popID)[i];
+		   gridLength[i] =  SC->get_velocity_grid_length(popID, 0)[i];
 	   }
 
 
 	   for (size_t c=0; c<propagatedCells.size(); ++c) {
 		   SpatialCell* SC = mpiGrid[propagatedCells[c]];
-		   blockIDs[c] = SC->get_velocity_mesh(pop).getGrid().data();
-		   blockDatas[c] = SC->get_velocity_blocks(pop).getData();
-		   nBlocks[c] = SC->size();
+		   blockIDs[c] = SC->get_velocity_mesh(popID).getGrid().data();
+		   blockDatas[c] = SC->get_velocity_blocks(popID).getData();
+		   nBlocks[c] = SC->size(popID);
 	   }
 
 	   phiprof::start("compute-transform-intersections");
 	   for (size_t c=0; c<propagatedCells.size(); ++c) {
 		   const CellID cellID = propagatedCells[c];
 		   //Compute transform, forward in time and backward in time
-		   Transform<Real,3,Affine> fwd_transform =  compute_acceleration_transformation(mpiGrid[cellID], dt);
+		   Transform<Real,3,Affine> fwd_transform =  compute_acceleration_transformation(mpiGrid[cellID], popID, dt);
 		   Transform<Real,3,Affine> bwd_transform= fwd_transform.inverse();
 		   //Map order Z X Y  (support rest later...)   
-		   compute_intersections_1st(mpiGrid[cellID], bwd_transform, fwd_transform, 2,
+		   compute_intersections_1st(mpiGrid[cellID]->get_velocity_mesh(popID), bwd_transform, fwd_transform, 2, 0,
 				   intersections[AccelerationIntersections::Z],
 				   intersections[AccelerationIntersections::Z_DI],
 				   intersections[AccelerationIntersections::Z_DJ],
 				   intersections[AccelerationIntersections::Z_DK]);
-		   compute_intersections_2nd(mpiGrid[cellID], bwd_transform, fwd_transform, 0,
+		   compute_intersections_2nd(mpiGrid[cellID]->get_velocity_mesh(popID), bwd_transform, fwd_transform, 0, 0,
 				   intersections[AccelerationIntersections::X],
 				   intersections[AccelerationIntersections::X_DI],
 				   intersections[AccelerationIntersections::X_DJ],
 				   intersections[AccelerationIntersections::X_DK]);
-		   compute_intersections_3rd(mpiGrid[cellID], bwd_transform, fwd_transform, 1,
+		   compute_intersections_3rd(mpiGrid[cellID]->get_velocity_mesh(popID), bwd_transform, fwd_transform, 1, 0,
 				   intersections[AccelerationIntersections::Y],
 				   intersections[AccelerationIntersections::Y_DI],
 				   intersections[AccelerationIntersections::Y_DJ],
