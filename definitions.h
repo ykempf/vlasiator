@@ -10,6 +10,12 @@ Copyright 2010-2015 Finnish Meteorological Institute
 #include <stdint.h>
 #include <limits>
 
+// For some obscure reason, nvcc does not take this definition from stdint.h
+// TODO: Find out why this is, and either slap the nvidia people or fix this properly
+#ifndef UINT32_MAX
+# define UINT32_MAX             (4294967295U)
+#endif
+
 //set floating point precision for storing the distribution function here. Default is single precision, use -DDPF to set double precision
 #ifdef DPF
 typedef double Realf;
@@ -61,10 +67,10 @@ namespace vmesh {
    #endif
 
    /** Global ID of a non-existing or otherwise erroneous velocity block.*/
-   static const GlobalID INVALID_GLOBALID = std::numeric_limits<GlobalID>::max();
+   static const GlobalID INVALID_GLOBALID = UINT32_MAX;
 
    /** Local ID of a non-existing or otherwise erroneous velocity block.*/
-   static const LocalID INVALID_LOCALID  = std::numeric_limits<LocalID>::max();
+   static const LocalID INVALID_LOCALID  = UINT32_MAX;
 
    /** Block index of a non-existing or erroneous velocity block.*/
    static const LocalID INVALID_VEL_BLOCK_INDEX = INVALID_LOCALID;
