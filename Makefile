@@ -502,8 +502,8 @@ vlscommon.o:  $(DEPS_COMMON)  vlscommon.h vlscommon.cpp
 
 # Make executable
 
-vlasiator: $(OBJS) $(OBJS_POISSON) $(OBJS_CUDA)
-	$(LNK) ${LDFLAGS} -o ${EXE} $(OBJS)  $(LIBS) $(OBJS_POISSON) $(OBJS_CUDA) $(LIBS)
+vlasiator: $(OBJS) $(OBJS_POISSON) $(OBJS_CUDA) $(OBJS_FSOLVER)
+	$(LNK) ${LDFLAGS} -o ${EXE} $(OBJS)  $(LIBS) $(OBJS_POISSON) $(OBJS_CUDA) $(OBJS_FSOLVER) $(LIBS)
 
 
 #/// TOOLS section/////
