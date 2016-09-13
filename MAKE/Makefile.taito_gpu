@@ -25,6 +25,7 @@ testpackage: CXXFLAGS = -O2 -fopenmp -funroll-loops -std=c++0x -fabi-version=0  
 MATHFLAGS = -ffast-math
 LDFLAGS =
 LIB_MPI = -lgomp
+LIB_CUDA =  -L$(CUDALIB) -lcudart -lstdc++
 
 # Cuda
 CUDACMP = nvcc
