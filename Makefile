@@ -124,6 +124,7 @@ LIBS += ${LIB_PROFILE}
 LIBS += ${LIB_VLSV}
 LIBS += ${LIB_JEMALLOC} 
 LIBS += ${LIB_PAPI}
+LIBS += ${LIB_CUDA}
 
 # Define common dependencies
 DEPS_COMMON = common.h common.cpp definitions.h mpiconversion.h logger.h object_wrapper.h
@@ -178,7 +179,7 @@ DEPS_CPU_TRANS_MAP = ${DEPS_COMMON} ${DEPS_CELL} grid.h vlasovsolver/vec.h vlaso
 
 DEPS_VLSVMOVER = ${DEPS_CELL} vlasovsolver/vlasovmover.cpp vlasovsolver/cpu_acc_map.hpp vlasovsolver/cpu_acc_intersections.hpp \
 	vlasovsolver/cpu_acc_intersections.hpp vlasovsolver/cpu_acc_semilag.hpp vlasovsolver/cpu_acc_transform.hpp \
-	vlasovsolver/cpu_moments.h vlasovsolver/cpu_trans_map.hpp
+	vlasovsolver/cpu_moments.h vlasovsolver/cpu_trans_map.hpp vlasovsolver/cuda_acc_map.h 
 
 DEPS_VLSVMOVER_AMR = ${DEPS_CELL} vlasovsolver_amr/vlasovmover.cpp vlasovsolver_amr/cpu_acc_map.hpp vlasovsolver_amr/cpu_acc_intersections.hpp \
 	vlasovsolver_amr/cpu_acc_intersections.hpp vlasovsolver_amr/cpu_acc_semilag.hpp vlasovsolver_amr/cpu_acc_transform.hpp \
@@ -213,6 +214,8 @@ OBJS_FSOLVER = 	ldz_magnetic_field.o ldz_volume.o derivatives.o ldz_electric_fie
 
 # Add Poisson solver objects
 OBJS_POISSON = poisson_solver.o poisson_test.o poisson_solver_jacobi.o poisson_solver_sor.o poisson_solver_cg.o
+
+OBJS_CUDA = velocity_mesh_cuda.o cuda_acc_map.o
 
 help:
 	@echo ''
@@ -369,6 +372,12 @@ testHall.o: ${DEPS_COMMON} projects/testHall/testHall.h projects/testHall/testHa
 test_trans.o: ${DEPS_COMMON} projects/test_trans/test_trans.h projects/test_trans/test_trans.cpp
 	${CMP} ${CXXFLAGS} ${FLAGS} ${MATHFLAGS} -c projects/test_trans/test_trans.cpp ${INC_DCCRG} ${INC_ZOLTAN} ${INC_BOOST} ${INC_EIGEN}
 
+velocity_mesh_cuda.o: velocity_mesh_cuda.cu velocity_mesh_cuda.h
+	${CUDACMP} ${NVCCFLAGS} -c velocity_mesh_cuda.cu 
+
+cuda_acc_map.o: vlasovsolver/cuda_acc_map.cu vlasovsolver/cuda_acc_map.h velocity_mesh_cuda.h
+	${CUDACMP} ${NVCCFLAGS} -c vlasovsolver/cuda_acc_map.cu
+
 verificationLarmor.o: ${DEPS_COMMON} projects/verificationLarmor/verificationLarmor.h projects/verificationLarmor/verificationLarmor.cpp
 	${CMP} ${CXXFLAGS} ${FLAGS} ${MATHFLAGS} -c projects/verificationLarmor/verificationLarmor.cpp ${INC_DCCRG} ${INC_ZOLTAN} ${INC_BOOST} ${INC_EIGEN}
 
@@ -492,8 +501,8 @@ vlscommon.o:  $(DEPS_COMMON)  vlscommon.h vlscommon.cpp
 
 
 # Make executable
-vlasiator: $(OBJS) $(OBJS_POISSON) $(OBJS_FSOLVER)
-	$(LNK) ${LDFLAGS} -o ${EXE} $(OBJS) $(LIBS) $(OBJS_POISSON) $(OBJS_FSOLVER)
+vlasiator: $(OBJS) $(OBJS_POISSON) $(OBJS_FSOLVER) $(OBJS_CUDA)
+	$(LNK) ${LDFLAGS} -o ${EXE} $(OBJS) $(LIBS) $(OBJS_POISSON) $(OBJS_CUDA) $(OBJS_FSOLVER)
 
 
 #/// TOOLS section/////
