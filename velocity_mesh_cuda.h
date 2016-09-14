@@ -262,9 +262,13 @@ namespace vmesh {
       int id = blockIdx.x * blockDim.x + threadIdx.x;
       if (id < d_vmesh->nColumns){
          GID sourceStartBlock = d_vmesh->sortedBlockMappedGID[d_vmesh->columnStartLID[id]];
-         GID sourceEndBlock = d_vmesh->sortedBlockMappedGID[d_vmesh->columnStartLID[id] + d_vmesh->columnSize(id)];
+         GID sourceEndBlock = d_vmesh->sortedBlockMappedGID[d_vmesh->columnStartLID[id] + d_vmesh->columnSize(id) - 1];
          LID indicesStart[3];
          LID indicesEnd[3];
+
+//         if(id == d_vmesh->nColumns -1 )
+         //           printf("last column, start, end block: %d %d columnSize %d  startLID %d \n", sourceStartBlock, sourceEndBlock, d_vmesh->columnSize(id), d_vmesh->columnStartLID[id] );
+         
 
          //get indices for first and last block in column
          d_vmesh->getIndices(sourceStartBlock, indicesStart);
@@ -284,18 +288,18 @@ namespace vmesh {
                 (indicesStart[2] * WID + 0) * intersection_dk;
 
          zMax = intersection +
-                max( (indicesEnd[0] * WID + 0) * intersection_di, (indicesEnd[0] * WID + WID-1) * intersection_di) + 
-                max( (indicesEnd[1] * WID + 0) * intersection_dj, (indicesEnd[1] * WID + WID-1) * intersection_dj) +
-                (indicesEnd[2] * WID + WID) * intersection_dk;  
+            max( (indicesEnd[0] * WID + 0) * intersection_di, (indicesEnd[0] * WID + WID-1) * intersection_di) + 
+            max( (indicesEnd[1] * WID + 0) * intersection_dj, (indicesEnd[1] * WID + WID-1) * intersection_dj) +
+            (indicesEnd[2] * WID + WID) * intersection_dk;  
          
-         printf("Column %d nblocks %d zmin %g zmax %g intersections %g %g %g %g\n", id, d_vmesh->nColumns, zMin, zMax, intersection, intersection_di, intersection_dj, intersection_dk );
+
 
          
          indicesStart[2]  = (int)((zMin-intersection)/intersection_dk);
          indicesEnd[2] = ((zMax-intersection)/intersection_dk);
          
          targetColumnLength[id] = indicesEnd[2] - indicesStart[2] + 1;
-
+//         printf("Column %d nColumns %d length %d zmin %g zmax %g intersections %g %g %g %g\n", id, d_vmesh->nColumns, targetColumnLength[id], zMin, zMax, intersection, intersection_di, intersection_dj, intersection_dk );
          //Transpose indices back to original coordinate system
          d_vmesh->transposeIndices(indicesStart, dimension );
          d_vmesh->transposeIndices(indicesEnd, dimension );
@@ -336,10 +340,19 @@ namespace vmesh {
                                                                               intersection_dj,
                                                                               intersection_dk,
                                                                               dimension); 
-/*      
-      LID targetnBlocks = thrust::reduce(thrust::cuda::par.on(stream),
-                                         targetColumnLengths, targetColumnLengths + h_sourceVmesh->nColumns);
       
+      
+      thrust::device_ptr<LID> thrustTargetColumnLengths(targetColumnLengths);
+      
+      
+      LID targetnBlocks = thrust::reduce(thrust::cuda::par.on(stream),
+                                         thrustTargetColumnLengths, thrustTargetColumnLengths + h_sourceVmesh->nColumns, (LID)0);
+//      cudaDeviceSynchronize();
+      
+
+//      printf("Target n blocks %d n columns %d\n",targetnBlocks, h_sourceVmesh->nColumns );
+      
+/*      
       createVelocityMeshCuda(d_targetVmesh, h_targetVmesh, targetnBlocks, 
                              d_sourceVmesh->gridLength, d_sourceVmesh->blockSize, d_sourceVmesh->gridMinLimits);
 */    
