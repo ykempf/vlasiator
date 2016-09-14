@@ -239,7 +239,9 @@ namespace vmesh {
                                          const Realf blockSize[3], 
                                          const Realf gridMinLimits[3]){
       //allocate space on device for device resident class
+
       cudaMalloc(d_vmesh, sizeof(VelocityMeshCuda<GID, LID>));      
+
       cudaMallocHost(h_vmesh, sizeof(VelocityMeshCuda<GID, LID>));
       
       //init members on host
@@ -334,13 +336,13 @@ namespace vmesh {
                                                                               intersection_dj,
                                                                               intersection_dk,
                                                                               dimension); 
-      
+/*      
       LID targetnBlocks = thrust::reduce(thrust::cuda::par.on(stream),
                                          targetColumnLengths, targetColumnLengths + h_sourceVmesh->nColumns);
       
       createVelocityMeshCuda(d_targetVmesh, h_targetVmesh, targetnBlocks, 
                              d_sourceVmesh->gridLength, d_sourceVmesh->blockSize, d_sourceVmesh->gridMinLimits);
-      
+*/    
       cudaFree(targetColumnLengths);
       cudaFree(targetColumnFirstBlock);   
    }
