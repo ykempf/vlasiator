@@ -1,6 +1,18 @@
 #include "../velocity_mesh_cuda.h"
 #include "cuda_acc_map.h"
- 
+// #include "vec.h"
+
+#warning "Integrate this Realv with the vec.h machinery"
+#define Realv float
+
+__global__ void map_1d(vmesh::VelocityMeshCuda<vmesh::GlobalID, vmesh::LocalID>* d_sourceVmesh,
+                       vmesh::VelocityMeshCuda<vmesh::GlobalID, vmesh::LocalID>* d_targetVmesh,
+                       Realv intersection,
+                       Realv intersection_di,
+                       Realv intersection_dj,
+                       Realv intersection_dk,
+                       uint dimension);
+
 bool map3DCuda(Realf **blockDatas,
                vmesh::GlobalID **blockIDs,
                vmesh::LocalID *nBlocks,
@@ -40,8 +52,16 @@ bool map3DCuda(Realf **blockDatas,
                               intersections[i * AccelerationIntersections::N_INTERSECTIONS + AccelerationIntersections::Z_DK],
                               2, streams[i]);
       
+      map_1d<<<d_sourceVmesh[i]->nColumns, dim3 (4, 4, 1)>>>(d_sourceVmesh[i],
+                                                             d_targetVmesh[i],
+                                                             intersections[i * AccelerationIntersections::N_INTERSECTIONS + AccelerationIntersections::Z],
+                                                             intersections[i * AccelerationIntersections::N_INTERSECTIONS + AccelerationIntersections::Z_DI],
+                                                             intersections[i * AccelerationIntersections::N_INTERSECTIONS + AccelerationIntersections::Z_DJ],
+                                                             intersections[i * AccelerationIntersections::N_INTERSECTIONS + AccelerationIntersections::Z_DK],
+                                                             2);
+      
+//      vmesh::sortVelocityBlocksInColumns(d_sourceVmesh[i], h_sourceVmesh[i], 0, streams[i]);
 //      vmesh::sortVelocityBlocksInColumns(d_sourceVmesh[i], h_sourceVmesh[i], 1, streams[i]);
-//      vmesh::sortVelocityBlocksInColumns(d_sourceVmesh[i], h_sourceVmesh[i], 2, streams[i]);
    }
    for (int i = 0; i < nCells; i++) {
       vmesh::destroyVelocityMeshCuda(d_sourceVmesh[i], h_sourceVmesh[i]);
@@ -52,3 +72,22 @@ bool map3DCuda(Realf **blockDatas,
    return success;
 }
 
+__global__ void map_1d(vmesh::VelocityMeshCuda<vmesh::GlobalID, vmesh::LocalID>* d_sourceVmesh,
+                       vmesh::VelocityMeshCuda<vmesh::GlobalID, vmesh::LocalID>* d_targetVmesh,
+                       Realv intersection,
+                       Realv intersection_di,
+                       Realv intersection_dj,
+                       Realv intersection_dk,
+                       uint dimension) {
+   const vmesh::LocalID columnStart = d_sourceVmesh->columnStartLID[blockIdx.x];
+   
+   for (uint k=0; k<d_sourceVmesh->columnSize(blockIdx.x); k++) {
+      const vmesh::LocalID sortedBlockLID = d_sourceVmesh->sortedBlockLID[columnStart + k];
+      const uint threadIdxBXY = sortedBlockLID * WID3 + threadIdx.x + threadIdx.y * WID;
+      
+      for (uint kz=0; kz<4; kz++) {
+         d_targetVmesh->data[threadIdxBXY + kz * WID2] = 2.0 * d_sourceVmesh->data[threadIdxBXY + kz * WID2];
+      }
+   }
+   
+}
