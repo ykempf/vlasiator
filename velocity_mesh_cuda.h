@@ -549,27 +549,27 @@ namespace vmesh {
                // +y
                neighbourBlockMappedGID = blockMappedGID + d_vmesh->gridLength[0];
                neighbourLID = d_vmesh->findLIDforGID(neighbourBlockMappedGID);
-               if(d_vmesh->hasContent[d_vmesh->sortedBlockLID[neighbourLID]]) {
+               if(neighbourLID != INVALID_LOCALID && d_vmesh->hasContent[d_vmesh->sortedBlockLID[neighbourLID]]) {
                   d_vmesh->hasFilledNeighbour[d_vmesh->sortedBlockLID[id]] = true;
                }
                
                // -y
                neighbourBlockMappedGID = blockMappedGID - d_vmesh->gridLength[0];
                neighbourLID = d_vmesh->findLIDforGID(neighbourBlockMappedGID);
-               if(d_vmesh->hasContent[d_vmesh->sortedBlockLID[neighbourLID]]) {
+               if(neighbourLID != INVALID_LOCALID && d_vmesh->hasContent[d_vmesh->sortedBlockLID[neighbourLID]]) {
                   d_vmesh->hasFilledNeighbour[d_vmesh->sortedBlockLID[id]] = true;
                }
 
                // +z
                neighbourBlockMappedGID = blockMappedGID + d_vmesh->gridLength[0]*d_vmesh->gridLength[1];
                neighbourLID = d_vmesh->findLIDforGID(neighbourBlockMappedGID);
-               if(d_vmesh->hasContent[d_vmesh->sortedBlockLID[neighbourLID]]) {
+               if(neighbourLID != INVALID_LOCALID && d_vmesh->hasContent[d_vmesh->sortedBlockLID[neighbourLID]]) {
                   d_vmesh->hasFilledNeighbour[d_vmesh->sortedBlockLID[id]] = true;
                }
                // -z
                neighbourBlockMappedGID = blockMappedGID - d_vmesh->gridLength[0]*d_vmesh->gridLength[1];
                neighbourLID = d_vmesh->findLIDforGID(neighbourBlockMappedGID);
-               if(d_vmesh->hasContent[d_vmesh->sortedBlockLID[neighbourLID]]) {
+               if(neighbourLID != INVALID_LOCALID && d_vmesh->hasContent[d_vmesh->sortedBlockLID[neighbourLID]]) {
                   d_vmesh->hasFilledNeighbour[d_vmesh->sortedBlockLID[id]] = true;
                }
                break;
@@ -578,28 +578,28 @@ namespace vmesh {
                // +x
                neighbourBlockMappedGID = blockMappedGID + d_vmesh->gridLength[1];
                neighbourLID = d_vmesh->findLIDforGID(neighbourBlockMappedGID);
-               if(d_vmesh->hasContent[d_vmesh->sortedBlockLID[neighbourLID]]) {
+               if(neighbourLID != INVALID_LOCALID && d_vmesh->hasContent[d_vmesh->sortedBlockLID[neighbourLID]]) {
                   d_vmesh->hasFilledNeighbour[d_vmesh->sortedBlockLID[id]] = true;
                }
 
                // -x
                neighbourBlockMappedGID = blockMappedGID - d_vmesh->gridLength[1];
                neighbourLID = d_vmesh->findLIDforGID(neighbourBlockMappedGID);
-               if(d_vmesh->hasContent[d_vmesh->sortedBlockLID[neighbourLID]]) {
+               if(neighbourLID != INVALID_LOCALID && d_vmesh->hasContent[d_vmesh->sortedBlockLID[neighbourLID]]) {
                   d_vmesh->hasFilledNeighbour[d_vmesh->sortedBlockLID[id]] = true;
                }
 
                // +z
                neighbourBlockMappedGID = blockMappedGID + d_vmesh->gridLength[1]*d_vmesh->gridLength[0];
                neighbourLID = d_vmesh->findLIDforGID(neighbourBlockMappedGID);
-               if(d_vmesh->hasContent[d_vmesh->sortedBlockLID[neighbourLID]]) {
+               if(neighbourLID != INVALID_LOCALID && d_vmesh->hasContent[d_vmesh->sortedBlockLID[neighbourLID]]) {
                   d_vmesh->hasFilledNeighbour[d_vmesh->sortedBlockLID[id]] = true;
                }
 
                // -z
                neighbourBlockMappedGID = blockMappedGID - d_vmesh->gridLength[1]*d_vmesh->gridLength[0];
                neighbourLID = d_vmesh->findLIDforGID(neighbourBlockMappedGID);
-               if(d_vmesh->hasContent[d_vmesh->sortedBlockLID[neighbourLID]]) {
+               if(neighbourLID != INVALID_LOCALID && d_vmesh->hasContent[d_vmesh->sortedBlockLID[neighbourLID]]) {
                   d_vmesh->hasFilledNeighbour[d_vmesh->sortedBlockLID[id]] = true;
                }
                break;
@@ -608,28 +608,28 @@ namespace vmesh {
                // +y
                neighbourBlockMappedGID = blockMappedGID + d_vmesh->gridLength[2];
                neighbourLID = d_vmesh->findLIDforGID(neighbourBlockMappedGID);
-               if(d_vmesh->hasContent[d_vmesh->sortedBlockLID[neighbourLID]]) {
-                  d_vmesh->hasFilledNeighbour[d_vmesh->sortedBlockLID[id]] = true;
+               if(neighbourLID != INVALID_LOCALID && d_vmesh->hasContent[d_vmesh->sortedBlockLID[neighbourLID]]) {
+                 d_vmesh->hasFilledNeighbour[d_vmesh->sortedBlockLID[id]] = true;
                }
 
                // -y
                neighbourBlockMappedGID = blockMappedGID - d_vmesh->gridLength[2];
                neighbourLID = d_vmesh->findLIDforGID(neighbourBlockMappedGID);
-               if(d_vmesh->hasContent[d_vmesh->sortedBlockLID[neighbourLID]]) {
+               if(neighbourLID != INVALID_LOCALID && d_vmesh->hasContent[d_vmesh->sortedBlockLID[neighbourLID]]) {
                   d_vmesh->hasFilledNeighbour[d_vmesh->sortedBlockLID[id]] = true;
                }
 
                // +x
                neighbourBlockMappedGID = blockMappedGID + d_vmesh->gridLength[2]*d_vmesh->gridLength[1];
                neighbourLID = d_vmesh->findLIDforGID(neighbourBlockMappedGID);
-               if(d_vmesh->hasContent[d_vmesh->sortedBlockLID[neighbourLID]]) {
+               if(neighbourLID != INVALID_LOCALID && d_vmesh->hasContent[d_vmesh->sortedBlockLID[neighbourLID]]) {
                   d_vmesh->hasFilledNeighbour[d_vmesh->sortedBlockLID[id]] = true;
                }
 
                // -x
                neighbourBlockMappedGID = blockMappedGID - d_vmesh->gridLength[2]*d_vmesh->gridLength[1];
                neighbourLID = d_vmesh->findLIDforGID(neighbourBlockMappedGID);
-               if(d_vmesh->hasContent[d_vmesh->sortedBlockLID[neighbourLID]]) {
+               if(neighbourLID != INVALID_LOCALID && d_vmesh->hasContent[d_vmesh->sortedBlockLID[neighbourLID]]) {
                   d_vmesh->hasFilledNeighbour[d_vmesh->sortedBlockLID[id]] = true;
                }
                break;
