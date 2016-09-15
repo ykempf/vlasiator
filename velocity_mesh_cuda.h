@@ -82,11 +82,17 @@ namespace vmesh {
                                                                               VelocityMeshCuda<GID, LID>* h_vmesh);
 
    
-   template<typename GID, typename LID> __host__ void uploadMeshData(VelocityMeshCuda<GID,LID>* d_vmesh,
+   template<typename GID, typename LID> __host__ void transferDataHostToDevice(VelocityMeshCuda<GID, LID>* d_vmesh,
                                                                      VelocityMeshCuda<GID, LID>* h_vmesh,
                                                                      const Realf *h_data,
                                                                      const GID *h_blockIDs,
                                                                      cudaStream_t stream);
+   
+   template<typename GID, typename LID> __host__ void transferDataDeviceToHost(const VelocityMeshCuda<GID, LID>* d_vmesh,
+                                                                       VelocityMeshCuda<GID, LID>* h_vmesh,
+                                                                       Realf *h_data,
+                                                                       GID *h_blockIDs,
+                                                                       cudaStream_t stream);
 
    template<typename GID, typename LID> __host__ void sortVelocityBlocksInColumns(VelocityMeshCuda<GID, LID> *d_vmesh,
                                                                                   VelocityMeshCuda<GID, LID>* h_vmesh,
@@ -453,17 +459,29 @@ namespace vmesh {
       cudaFree(targetColumnLengths);
       cudaFree(targetColumnFirstBlock);   
    }
-
-
-
    
    
-   template<typename GID,typename LID> __host__ void uploadMeshData(VelocityMeshCuda<GID,LID>* d_vmesh, VelocityMeshCuda<GID,LID>* h_vmesh, 
-                                                                    const Realf *h_data, const  GID *h_blockIDs, cudaStream_t stream) {
+   
+   
+   
+   template<typename GID,typename LID> __host__ void transferDataHostToDevice(VelocityMeshCuda<GID,LID>* d_vmesh,
+                                                                    VelocityMeshCuda<GID,LID>* h_vmesh,
+                                                                    const Realf *h_data,
+                                                                    const  GID *h_blockIDs,
+                                                                    cudaStream_t stream) {
       cudaMemcpyAsync(h_vmesh->data, h_data, h_vmesh->size() *  WID3 * sizeof(Realf), cudaMemcpyHostToDevice, stream);
       cudaMemcpyAsync(h_vmesh->blockIDs, h_blockIDs, h_vmesh->size() * sizeof(GID), cudaMemcpyHostToDevice, stream);
    }
-
+   
+   template<typename GID,typename LID> __host__ void transferDataDeviceToHost(const VelocityMeshCuda<GID,LID>* d_vmesh,
+                                                                      VelocityMeshCuda<GID,LID>* h_vmesh,
+                                                                      Realf *h_data,
+                                                                      GID *h_blockIDs,
+                                                                      cudaStream_t stream) {
+      cudaMemcpyAsync(h_data, h_vmesh->data, h_vmesh->size() *  WID3 * sizeof(Realf), cudaMemcpyDeviceToHost, stream);
+      cudaMemcpyAsync(h_blockIDs, h_vmesh->blockIDs, h_vmesh->size() * sizeof(GID), cudaMemcpyDeviceToHost, stream);
+   }
+   
    template<typename GID, typename LID> __global__ void prepareSort(VelocityMeshCuda<GID,LID> *d_vmesh, uint dimension){
       int id = blockIdx.x * blockDim.x + threadIdx.x;
       if (id < d_vmesh->nBlocks ){
