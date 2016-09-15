@@ -31,6 +31,7 @@ bool map3DCuda(Realf **blockDatas,
                const Realf blockSize[3],
                const vmesh::LocalID gridLength[3],
                const Realf gridMinLimits[3]){
+   fprintf(stderr," - - - Starting map3DCuda - - -\n");
    bool success = true;
    cudaStream_t streams[nCells];
    vmesh::VelocityMeshCuda<vmesh::GlobalID, vmesh::LocalID>* d_sourceVmesh[nCells];
@@ -38,7 +39,9 @@ bool map3DCuda(Realf **blockDatas,
    
    vmesh::VelocityMeshCuda<vmesh::GlobalID, vmesh::LocalID>* d_targetVmesh[nCells];
    vmesh::VelocityMeshCuda<vmesh::GlobalID, vmesh::LocalID>* h_targetVmesh[nCells];
-   
+
+   fprintf(stderr," - - - Allocating memory - - -\n");
+
    /*allocate memory for all cells, these operations are blocking*/
    //TODO: add checks/throttling to make sure there is enough memory on device...
 
@@ -48,11 +51,20 @@ bool map3DCuda(Realf **blockDatas,
             nBlocks[i], gridLength, blockSize, gridMinLimits);
    }
    
+   fprintf(stderr," - - - Meshes created. Now, the loop: - - -\n");
    for (int i = 0; i < nCells; i++) {
+      fprintf(stderr," `-> uploadMeshData\n");
       vmesh::uploadMeshData(d_sourceVmesh[i], h_sourceVmesh[i], blockDatas[i], blockIDs[i], streams[i]);
      //Order Z X Y
       //DO Z (REMEMBER TO REAORDER INTERSECTIONS FOR OTHER DIMENSIONS)
+      fprintf(stderr," `-> velocityBlocksInColumns\n");
       vmesh::sortVelocityBlocksInColumns(d_sourceVmesh[i], h_sourceVmesh[i], 2, streams[i]);
+      
+      cudaDeviceSynchronize();
+      fprintf(stderr," `-> adjustVelocityBlocks\n");
+      vmesh::adjustVelocityBlocks(d_sourceVmesh[i], h_sourceVmesh[i], streams[i]);
+
+      fprintf(stderr," `-> createTargetMesh\n");
       vmesh::createTargetMesh(&(d_targetVmesh[i]), &(h_targetVmesh[i]),
                               d_sourceVmesh[i], h_sourceVmesh[i],
                               intersections[i * AccelerationIntersections::N_INTERSECTIONS + AccelerationIntersections::Z],
