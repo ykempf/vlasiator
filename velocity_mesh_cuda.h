@@ -345,14 +345,16 @@ namespace vmesh {
                                                                                  Real intersection_dk,
                                                                                  uint dimension){
       int id = blockIdx.x * blockDim.x + threadIdx.x;
+
       if (id < d_vmesh->nColumns){
-         GID sourceStartBlock = d_vmesh->sortedBlockMappedGID[d_vmesh->columnStartLID[id]];
-         GID sourceEndBlock = d_vmesh->sortedBlockMappedGID[d_vmesh->columnStartLID[id] + d_vmesh->columnSize(id) - 1];
+
+         GID sourceStartBlock = d_vmesh->blockIDs[d_vmesh->sortedBlockLID[ d_vmesh->columnStartLID[id] ]];
+         GID sourceEndBlock   = d_vmesh->blockIDs[d_vmesh->sortedBlockLID[ d_vmesh->columnStartLID[id] + d_vmesh->columnSize(id) - 1 ]];
          LID indicesStart[3];
          LID indicesEnd[3];
 
-//         if(id == d_vmesh->nColumns -1 )
-         //           printf("last column, start, end block: %d %d columnSize %d  startLID %d \n", sourceStartBlock, sourceEndBlock, d_vmesh->columnSize(id), d_vmesh->columnStartLID[id] );
+//         if(id == d_vmesh->nColumns -1 
+//           printf("last column, start, end block: %d %d columnSize %d  startLID %d \n", sourceStartBlock, sourceEndBlock, d_vmesh->columnSize(id), d_vmesh->columnStartLID[id] );
          
 
          //get indices for first and last block in column
@@ -365,13 +367,18 @@ namespace vmesh {
          d_vmesh->transposeIndices(indicesEnd, dimension );
          
          Realf zMin, zMax;
+//         printf("start block %d = %d %d %d  end block %d = %d %d %d\n",sourceStartBlock, 
+//                indicesStart[0], indicesStart[1], indicesStart[2], sourceEndBlock, 
+//                indicesEnd[0], indicesEnd[1], indicesEnd[2]);
          
+         
+  
 //compute minimum z value of any cell in the block (factor of two already included in the intersections)
          zMin = intersection +
-                min( (indicesStart[0] * WID + 0) * intersection_di, (indicesStart[0] * WID + WID-1) * intersection_di) +
-                min( (indicesStart[1] * WID + 0) * intersection_dj, (indicesStart[1] * WID + WID-1) * intersection_dj) + 
-                (indicesStart[2] * WID + 0) * intersection_dk;
-
+            min( (indicesStart[0] * WID + 0) * intersection_di, (indicesStart[0] * WID + WID-1) * intersection_di) +
+            min( (indicesStart[1] * WID + 0) * intersection_dj, (indicesStart[1] * WID + WID-1) * intersection_dj) + 
+            (indicesStart[2] * WID + 0) * intersection_dk;
+         
          zMax = intersection +
             max( (indicesEnd[0] * WID + 0) * intersection_di, (indicesEnd[0] * WID + WID-1) * intersection_di) + 
             max( (indicesEnd[1] * WID + 0) * intersection_dj, (indicesEnd[1] * WID + WID-1) * intersection_dj) +
@@ -380,11 +387,13 @@ namespace vmesh {
 
 
          
-         indicesStart[2]  = (int)((zMin-intersection)/intersection_dk);
-         indicesEnd[2] = ((zMax-intersection)/intersection_dk);
+         indicesStart[2]  = (int)((zMin - intersection)/(WID * intersection_dk));
+         indicesEnd[2] = ceil((zMax-intersection)/(WID * intersection_dk));
+         
          
          targetColumnLength[id] = indicesEnd[2] - indicesStart[2] + 1;
-//         printf("Column %d nColumns %d length %d zmin %g zmax %g intersections %g %g %g %g\n", id, d_vmesh->nColumns, targetColumnLength[id], zMin, zMax, intersection, intersection_di, intersection_dj, intersection_dk );
+//         printf("Column %d nColumns %d  target-length %d source-length %d startblock %d endblock %d zmin %g zmax %g intersections %g %g %g %g\n", 
+//                id, d_vmesh->nColumns, targetColumnLength[id], d_vmesh->columnSize(id), sourceStartBlock, sourceEndBlock,  zMin, zMax, intersection, intersection_di, intersection_dj, intersection_dk );
          //Transpose indices back to original coordinate system
          d_vmesh->transposeIndices(indicesStart, dimension );
          d_vmesh->transposeIndices(indicesEnd, dimension );
@@ -435,7 +444,7 @@ namespace vmesh {
 //      cudaDeviceSynchronize();
       
 
-//      printf("Target n blocks %d n columns %d\n",targetnBlocks, h_sourceVmesh->nColumns );
+      printf("Target n blocks %d n columns %d\n",targetnBlocks, h_sourceVmesh->nColumns );
       
 /*      
       createVelocityMeshCuda(d_targetVmesh, h_targetVmesh, targetnBlocks, 
@@ -667,7 +676,7 @@ namespace vmesh {
 
       
       
-      const bool debugSort=true;
+      const bool debugSort=false;
       if(debugSort) {
          //print out result of sort
          GID *blockIDs = (GID *) malloc(sizeof(GID) *  h_vmesh->size());
