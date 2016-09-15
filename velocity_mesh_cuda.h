@@ -252,7 +252,7 @@ namespace vmesh {
    template<typename GID, typename LID> __device__ __host__ GID VelocityMeshCuda<GID,LID>::blockMapGID(GID block, uint dimension) {
       GID blockMappedGID;
 
-      switch(sortDimension) {
+      switch(dimension) {
          case 0:
             blockMappedGID = block;
             break;
@@ -528,7 +528,6 @@ namespace vmesh {
          // TODO: Ugh, lots of code replication here.
          GID neighbourBlockMappedGID;
          LID neighbourLID;
-         if(id == 0) { printf("    + sortDimension = %d\n", d_vmesh->sortDimension); }
          switch(d_vmesh->sortDimension) {
             case 0:
                // +y
