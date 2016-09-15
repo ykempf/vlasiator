@@ -289,21 +289,16 @@ namespace vmesh {
 
       // Transform GID into the current column direction
       //GID blockMappedGID = blockMapGID(block, sortDimension);
-      printf("   - Our blockMappedGID is %d\n", blockMappedGID);
 
       for(int c=0; c<nColumns; c++) {
          LID columnStart = sortedBlockMappedGID[columnStartLID[c]];
          // If even this column's start is already beyond our target, we can exit early.
-         printf("   - Column %d starts at start LID %d (=globalID %d)\n", c, columnStartLID[c], columnStart);
          if(columnStart > blockMappedGID) {
-            printf("    => That's beyond the end, so go away.\n");
             return INVALID_LOCALID;
          }
 
-         printf("   - And it contains %d blocks.\n", columnSize(columnStartLID[c]));
          // If this column contains our target block, return it!
          if(columnSize(columnStartLID[c]) > blockMappedGID - columnStart) {
-            printf("     => So it contains us!\n");
             LID sortedIndex = columnStartLID[c] + blockMappedGID - columnStart;
 
             // Sanity check: did we actually find the correct block?
@@ -493,7 +488,7 @@ namespace vmesh {
             if(d_vmesh->data[WID3*id + i] != 0) {
                d_vmesh->hasContent[id] = true;
                d_vmesh->hasFilledNeighbour[id] = true; // If a block is filled, this also counts as having a filled neighbour
-               printf("Block %d has content.\n");
+               //printf("Block %d has content.\n", id);
             }
          }
       } else {
@@ -503,10 +498,8 @@ namespace vmesh {
 
    // Look at the neighbours of a block and determine if any of them are filled, setting the flag accordingly
    template<typename GID, typename LID> __global__ void determineFilledNeighbours(VelocityMeshCuda<GID,LID> *d_vmesh) {
-      printf(" KERNEL determineFilledNeighbours running. \n");
       int id = blockIdx.x * blockDim.x + threadIdx.x;
       // We early-skip all blocks that we already know to have neigbours.
-      printf("    + Running for id %d with filledNeighbour %i\n", id, d_vmesh->hasFilledNeighbour[d_vmesh->sortedBlockLID[id]]);
       if (id < d_vmesh->nBlocks && d_vmesh->hasFilledNeighbour[d_vmesh->sortedBlockLID[id]] == false){
          // Determine our own blockMappedGID
          GID blockMappedGID=d_vmesh->sortedBlockMappedGID[id];
