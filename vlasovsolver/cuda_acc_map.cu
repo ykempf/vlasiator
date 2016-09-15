@@ -1,6 +1,5 @@
 #include "../velocity_mesh_cuda.h"
 #include "cuda_acc_map.h"
-// #include "vec.h"
 
 #warning "Integrate this Realv with the vec.h machinery"
 #define Realv float
@@ -12,6 +11,17 @@ __global__ void map_1d(vmesh::VelocityMeshCuda<vmesh::GlobalID, vmesh::LocalID>*
                        Realv intersection_dj,
                        Realv intersection_dk,
                        uint dimension);
+
+__global__ void printOutput(vmesh::VelocityMeshCuda<vmesh::GlobalID, vmesh::LocalID>* d_Vmesh,
+                            int tag) {
+   const vmesh::LocalID columnStart = d_Vmesh->columnStartLID[0];
+   const vmesh::LocalID sortedBlockLID = d_Vmesh->sortedBlockLID[columnStart];
+   printf("=== %i ===\n", tag);
+   for (uint i=0; i<64; i++) {
+      printf("%d_%e\t", i, d_Vmesh->data[sortedBlockLID * WID3 + i]);
+   }
+   printf("\n============\n");
+}
 
 bool map3DCuda(Realf **blockDatas,
                vmesh::GlobalID **blockIDs,
@@ -28,8 +38,7 @@ bool map3DCuda(Realf **blockDatas,
    
    vmesh::VelocityMeshCuda<vmesh::GlobalID, vmesh::LocalID>* d_targetVmesh[nCells];
    vmesh::VelocityMeshCuda<vmesh::GlobalID, vmesh::LocalID>* h_targetVmesh[nCells];
-
-
+   
    /*allocate memory for all cells, these operations are blocking*/
    //TODO: add checks/throttling to make sure there is enough memory on device...
 
@@ -51,23 +60,26 @@ bool map3DCuda(Realf **blockDatas,
                               intersections[i * AccelerationIntersections::N_INTERSECTIONS + AccelerationIntersections::Z_DJ],
                               intersections[i * AccelerationIntersections::N_INTERSECTIONS + AccelerationIntersections::Z_DK],
                               2, streams[i]);
-      
-      map_1d<<<d_sourceVmesh[i]->nColumns, dim3 (4, 4, 1)>>>(d_sourceVmesh[i],
+      printOutput<<<1,1>>>(d_sourceVmesh[i], 0);
+      map_1d<<<h_sourceVmesh[i]->nColumns, dim3 (4, 4, 1)>>>(d_sourceVmesh[i],
                                                              d_targetVmesh[i],
                                                              intersections[i * AccelerationIntersections::N_INTERSECTIONS + AccelerationIntersections::Z],
                                                              intersections[i * AccelerationIntersections::N_INTERSECTIONS + AccelerationIntersections::Z_DI],
                                                              intersections[i * AccelerationIntersections::N_INTERSECTIONS + AccelerationIntersections::Z_DJ],
                                                              intersections[i * AccelerationIntersections::N_INTERSECTIONS + AccelerationIntersections::Z_DK],
                                                              2);
+      printOutput<<<1,1>>>(d_sourceVmesh[i], 1);
+      cudaDeviceSynchronize();
       
 //      vmesh::sortVelocityBlocksInColumns(d_sourceVmesh[i], h_sourceVmesh[i], 0, streams[i]);
 //      vmesh::sortVelocityBlocksInColumns(d_sourceVmesh[i], h_sourceVmesh[i], 1, streams[i]);
    }
+   
    for (int i = 0; i < nCells; i++) {
       vmesh::destroyVelocityMeshCuda(d_sourceVmesh[i], h_sourceVmesh[i]);
       cudaStreamDestroy(streams[i]);
    }
-
+   
    //cudaDeviceSynchronize();
    return success;
 }
@@ -79,6 +91,12 @@ __global__ void map_1d(vmesh::VelocityMeshCuda<vmesh::GlobalID, vmesh::LocalID>*
                        Realv intersection_dj,
                        Realv intersection_dk,
                        uint dimension) {
+   if (   blockIdx.x > d_sourceVmesh->nColumns
+       || threadIdx.x >= WID
+       || threadIdx.y >= WID 
+   ) {
+      return;
+   }
    const vmesh::LocalID columnStart = d_sourceVmesh->columnStartLID[blockIdx.x];
    
    for (uint k=0; k<d_sourceVmesh->columnSize(blockIdx.x); k++) {
@@ -86,7 +104,7 @@ __global__ void map_1d(vmesh::VelocityMeshCuda<vmesh::GlobalID, vmesh::LocalID>*
       const uint threadIdxBXY = sortedBlockLID * WID3 + threadIdx.x + threadIdx.y * WID;
       
       for (uint kz=0; kz<4; kz++) {
-         d_targetVmesh->data[threadIdxBXY + kz * WID2] = 2.0 * d_sourceVmesh->data[threadIdxBXY + kz * WID2];
+         d_sourceVmesh->data[threadIdxBXY + kz * WID2] = 2.0 * d_sourceVmesh->data[threadIdxBXY + kz * WID2];
       }
    }
    
