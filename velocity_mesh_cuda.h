@@ -500,9 +500,7 @@ namespace vmesh {
                //printf("Block %d has content.\n", id);
             }
          }
-      } else {
-         printf("determineFilledBlocks skipping id %d because it's bigger than %d\n", id, d_vmesh->nBlocks);
-      }
+      } 
    }
 
    // Look at the neighbours of a block and determine if any of them are filled, setting the flag accordingly
