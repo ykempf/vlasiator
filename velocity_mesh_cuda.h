@@ -112,8 +112,6 @@ namespace vmesh {
    template<typename GID, typename LID> __global__ void determineFilledBlocks(VelocityMeshCuda<GID,LID> *d_vmesh);
    template<typename GID, typename LID> __global__ void determineFilledNeighbours(VelocityMeshCuda<GID,LID> *d_vmesh);
 
-   template<typename GID, typename LID> __global__ void testFindLID(VelocityMeshCuda<GID,LID> *d_vmesh);
-   
 /*----------------------------------------CLASS functions ------------------------------------------*/
 
    
@@ -258,7 +256,7 @@ namespace vmesh {
    template<typename GID, typename LID> __device__ __host__ GID VelocityMeshCuda<GID,LID>::blockMapGID(GID block, uint dimension) {
       GID blockMappedGID;
 
-      switch(sortDimension) {
+      switch(dimension) {
          case 0:
             blockMappedGID = block;
             break;
@@ -518,9 +516,7 @@ namespace vmesh {
                //printf("Block %d has content.\n", id);
             }
          }
-      } else {
-         printf("determineFilledBlocks skipping id %d because it's bigger than %d\n", id, d_vmesh->nBlocks);
-      }
+      } 
    }
 
    // Look at the neighbours of a block and determine if any of them are filled, setting the flag accordingly
@@ -548,7 +544,6 @@ namespace vmesh {
          // TODO: Ugh, lots of code replication here.
          GID neighbourBlockMappedGID;
          LID neighbourLID;
-         if(id == 0) { printf("    + sortDimension = %d\n", d_vmesh->sortDimension); }
          switch(d_vmesh->sortDimension) {
             case 0:
                // +y
@@ -640,28 +635,6 @@ namespace vmesh {
                break;
          }
          
-      }
-   }
-
-   template<typename GID, typename LID> __global__ void testFindLID(VelocityMeshCuda<GID,LID> *d_vmesh) {
-      //printf("TestFindLID kernel started!\n");
-      int id = blockIdx.x * blockDim.x + threadIdx.x;
-      if (id < d_vmesh->nBlocks ){
-         GID block = d_vmesh->sortedBlockMappedGID[id];
-         //printf(" Our GID is %d\n", block);
-         LID thisBlocksLID = d_vmesh->findLIDforGID(block);
-         //printf(" This leads to LID %d\n", thisBlocksLID);
-         if(thisBlocksLID == INVALID_LOCALID) {
-            printf("INVALID_LOCALID returned.\n");
-            return;
-         }
-         if(block == d_vmesh->blockIDs[thisBlocksLID]) {
-            //printf("findLID test succeeded\n");
-         } else {
-            printf("Test failed: %i != %i\n", block, d_vmesh->blockIDs[thisBlocksLID]);
-         }
-      } else {
-         //printf("testFindLID never ran, because id %d is >= %d\n",id,d_vmesh->nBlocks);
       }
    }
 
@@ -758,13 +731,6 @@ namespace vmesh {
       determineFilledNeighbours<<<cuGridSize, cuBlockSize, 0, stream>>>(d_vmesh);
       cudaDeviceSynchronize();
 
-      // TEST: find an example 
-      //cudaDeviceSynchronize();
-      //printf("Running testFindLID<<<1,1,0>>>(d_vmesh);\n v v v v v Output below v v v v v \n");
-      //testFindLID<<<1,1,0>>>(d_vmesh);
-      //cudaDeviceSynchronize();
-      //printf(" ^ ^ ^ ^ ^ Output above ^ ^ ^ ^ ^\n");
- 
       //TODO: Do above for all local velocity blocks, then communicate ghost cells, then return here
       // Copy full blocks over from all 6 neighbours, mark those cells as having neighbours  
       
