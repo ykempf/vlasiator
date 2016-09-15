@@ -28,7 +28,8 @@
 //
 
 /*todo
- -  make blocksize, gridlength cellsize static, and also the function computing stuff for them, 
+ -  make blocksize, gridlength cellsize static, and also the function computing stuff for them,
+ -  rename columnSize to columnLength
 */
 
 //#define CUDA_PERF_DEBUG      
@@ -45,19 +46,23 @@ namespace vmesh {
       __device__ __host__ void getIndices(const GID& globalID, LID blockIndices[3]);
       __device__ __host__ void transposeIndices(LID blockIndices[3], uint dimension);
       __device__ __host__ GID getGlobalID(LID blockIndices[3]);
+      __device__ __host__ GID blockMapGID(GID block, uint dimension);
+      __device__ LID findLIDforGID(GID blockMappedGID);
       __device__ __host__ LID size();
       __device__ __host__ LID numColumns();
       __device__ LID columnSize(LID column);
       
-      Realf cellSize[3];      /**< Size (in m) of a cell in a block*/
-      Realf blockSize[3];     /**< Size (in m) of a block*/
-      Realf gridMinLimits[3]; /**< Minimum coordinate (m) of the grid */
+      Realf cellSize[3];      /**< Size (in m/s) of a cell in a block*/
+      Realf blockSize[3];     /**< Size (in m/s) of a block*/
+      Realf gridMinLimits[3]; /**< Minimum coordinate (m/s) of the grid */
       LID gridLength[3];      /**< Max number of blocks per dim in block  grid*/
       uint nBlocks;
       uint nColumns;
       uint sortDimension;    /**< dimension (0,1,2) along which blocks are sorted*/
       Realf *data;  
       GID *blockIDs;
+      bool *hasContent;            /**< Flag denoting whether this cell is filled (for block adjustment) */
+      bool *hasFilledNeighbour;    /**< Flag denoting whether this cell has a neighbour that is filled (for block adjustment) */
       GID *sortedBlockMappedGID;   /**< Array for storing rotated/mapped blockIDs where the dimenionality is taken into account */
       LID *sortedBlockLID;         /**< After sorting into columns, this tells the position ( local ID) of a block in the unsorted data array */
       LID *columnStartLID;         /**< The start LID of each column in sorted data.*/
@@ -98,7 +103,10 @@ namespace vmesh {
 
    template<typename GID, typename LID> __global__ void prepareSort(VelocityMeshCuda<GID,LID> *d_vmesh, uint dimension);
    template<typename GID, typename LID> __global__ void prepareColumnCompute(VelocityMeshCuda<GID,LID> *d_vmesh);
+   template<typename GID, typename LID> __global__ void determineFilledBlocks(VelocityMeshCuda<GID,LID> *d_vmesh);
+   template<typename GID, typename LID> __global__ void determineFilledNeighbours(VelocityMeshCuda<GID,LID> *d_vmesh);
 
+   template<typename GID, typename LID> __global__ void testFindLID(VelocityMeshCuda<GID,LID> *d_vmesh);
    
 /*----------------------------------------CLASS functions ------------------------------------------*/
 
@@ -159,7 +167,13 @@ namespace vmesh {
       cudaMalloc(&sortedBlockMappedGID, nBlocks * sizeof(GID));
       cudaMalloc(&sortedBlockLID, nBlocks * sizeof(LID));
       cudaMalloc(&columnStartLID, nBlocks * sizeof(LID));
-      
+      cudaMalloc(&hasContent, nBlocks * sizeof(bool));
+      cudaMalloc(&hasFilledNeighbour, nBlocks * sizeof(bool));
+
+      if(!data || !blockIDs || !sortedBlockMappedGID || !sortedBlockLID || !columnStartLID) {
+         printf("One of the cuda mallocs returned zero!");
+      }
+
       for(int i=0;i < 3; i++){
          this->gridLength[i] = gridLength[i];
          this->blockSize[i] = blockSize[i];
@@ -183,6 +197,8 @@ namespace vmesh {
       sortedBlockMappedGID = (GID*) malloc(nBlocks * sizeof(GID));
       sortedBlockLID = (LID*) malloc(nBlocks * sizeof(LID));
       columnStartLID = (LID*) malloc(nBlocks * sizeof(LID));
+      hasContent = (bool*) malloc(nBlocks * sizeof(bool));
+      hasFilledNeighbour = (bool*) malloc(nBlocks * sizeof(bool));
       
       for(int i=0;i < 3; i++){
          this->gridLength[i] = gridLength[i];
@@ -202,10 +218,12 @@ namespace vmesh {
       cudaFree(sortedBlockMappedGID);
       cudaFree(sortedBlockLID);
       cudaFree(columnStartLID);
+      cudaFree(hasContent);
+      cudaFree(hasFilledNeighbour);
    }
 
    
-   /*free on host side*/
+   /*free on device side*/
    template<typename GID, typename LID> __device__ void VelocityMeshCuda<GID,LID>::d_clear(){
       nBlocks = 0;
       nColumns = 0;
@@ -214,6 +232,8 @@ namespace vmesh {
       free(sortedBlockMappedGID);
       free(sortedBlockLID);
       free(columnStartLID);
+      free(hasContent);
+      free(hasFilledNeighbour);
    }
 
    template<typename GID, typename LID> __device__ __host__ LID VelocityMeshCuda<GID,LID>::size(){
@@ -226,6 +246,76 @@ namespace vmesh {
    
    template<typename GID, typename LID> __device__ LID VelocityMeshCuda<GID,LID>::columnSize(LID column){
       return ((column < nColumns - 1) ? columnStartLID[column + 1] : nBlocks ) - columnStartLID[column];
+   }
+
+   // Transform a global ID into the version corresponding to the current sorting dimension
+   template<typename GID, typename LID> __device__ __host__ GID VelocityMeshCuda<GID,LID>::blockMapGID(GID block, uint dimension) {
+      GID blockMappedGID;
+
+      switch(sortDimension) {
+         case 0:
+            blockMappedGID = block;
+            break;
+         case 1: {
+            // Do operation: 
+            //   block = x + y*x_max + z*y_max*x_max 
+            //=> block' = block - (x + y*x_max) + y + x*y_max = x + y*x_max + z*y_max*x_max - (x + y*x_max) + y + x*y_max
+            //          = y + x*y_max + z*y_max*x_max
+            const LID x_index = block % gridLength[0];
+            const LID y_index = (block / gridLength[0]) % gridLength[1];
+            // Mapping the block id to different coordinate system if dimension is not zero:
+            blockMappedGID = block - (x_index + y_index*gridLength[0]) + y_index + x_index * gridLength[1];
+           }
+            break;
+         case 2: {
+            // Do operation: 
+            //   block = x + y*x_max + z*y_max*x_max 
+            //=> block' = z + y*z_max + x*z_max*y_max
+            const LID x_index = block % gridLength[0];
+            const LID y_index = (block / gridLength[0]) % gridLength[1];
+            const LID z_index =  (block / (gridLength[0] * gridLength[1]));
+            // Mapping the block id to different coordinate system if dimension is not zero:
+            blockMappedGID =  z_index + y_index * gridLength[2] + x_index * gridLength[1] * gridLength[2];
+           }
+            break;
+      }
+
+      return blockMappedGID;
+   }
+
+   // Find the LID (array index) referring to the block with the given GID.
+   // Sped up by iterating through columns, and finding the one containing this gid first.
+   template<typename GID, typename LID> __device__ LID VelocityMeshCuda<GID,LID>::findLIDforGID(GID blockMappedGID) {
+
+      // Transform GID into the current column direction
+      //GID blockMappedGID = blockMapGID(block, sortDimension);
+      printf("   - Our blockMappedGID is %d\n", blockMappedGID);
+
+      for(int c=0; c<nColumns; c++) {
+         LID columnStart = sortedBlockMappedGID[columnStartLID[c]];
+         // If even this column's start is already beyond our target, we can exit early.
+         printf("   - Column %d starts at start LID %d (=globalID %d)\n", c, columnStartLID[c], columnStart);
+         if(columnStart > blockMappedGID) {
+            printf("    => That's beyond the end, so go away.\n");
+            return INVALID_LOCALID;
+         }
+
+         printf("   - And it contains %d blocks.\n", columnSize(columnStartLID[c]));
+         // If this column contains our target block, return it!
+         if(columnSize(columnStartLID[c]) > blockMappedGID - columnStart) {
+            printf("     => So it contains us!\n");
+            LID sortedIndex = columnStartLID[c] + blockMappedGID - columnStart;
+
+            // Sanity check: did we actually find the correct block?
+            if(sortedBlockMappedGID[sortedIndex] != blockMappedGID) {
+               printf("findLIDforGID: found block has wrong blockMappedGID!\n");
+            }
+            return sortedBlockLID[ columnStartLID[c] + blockMappedGID - columnStart ];
+         }
+      }
+
+      // Nothing found.
+      return INVALID_LOCALID;
    }
    
 /*---------------------------------------- INTERFACE functions ------------------------------------------*/
@@ -385,35 +475,7 @@ namespace vmesh {
          LID blocki = id;
          GID block = d_vmesh->blockIDs[blocki];
          d_vmesh->sortedBlockLID[blocki] = blocki; //reset offsets
-         switch( dimension ) {
-             case 0: {
-                d_vmesh->sortedBlockMappedGID[blocki] = block; // Mapping the block id to different coordinate system if dimension is not zero:
-             }
-                break;
-             case 1: {
-                // Do operation: 
-                //   block = x + y*x_max + z*y_max*x_max 
-                //=> block' = block - (x + y*x_max) + y + x*y_max = x + y*x_max + z*y_max*x_max - (x + y*x_max) + y + x*y_max
-                //          = y + x*y_max + z*y_max*x_max
-                const LID x_index = block % d_vmesh->gridLength[0];
-                const LID y_index = (block / d_vmesh->gridLength[0]) % d_vmesh->gridLength[1];
-                // Mapping the block id to different coordinate system if dimension is not zero:
-                d_vmesh->sortedBlockMappedGID[blocki] = block - (x_index + y_index*d_vmesh->gridLength[0]) + y_index + x_index * d_vmesh->gridLength[1];
-                
-             }
-                break;
-             case 2: {
-                // Do operation: 
-                //   block = x + y*x_max + z*y_max*x_max 
-                //=> block' = z + y*z_max + x*z_max*y_max
-                const LID x_index = block % d_vmesh->gridLength[0];
-                const LID y_index = (block / d_vmesh->gridLength[0]) % d_vmesh->gridLength[1];
-                const LID z_index =  (block / (d_vmesh->gridLength[0] * d_vmesh->gridLength[1]));
-                // Mapping the block id to different coordinate system if dimension is not zero:
-                d_vmesh->sortedBlockMappedGID[blocki] =  z_index + y_index * d_vmesh->gridLength[2] + x_index * d_vmesh->gridLength[1] * d_vmesh->gridLength[2];
-             }
-                break;
-         }
+         d_vmesh->sortedBlockMappedGID[blocki] = d_vmesh->blockMapGID(block,dimension);
       }
    }
 
@@ -427,6 +489,169 @@ namespace vmesh {
             d_vmesh->columnStartLID[id] = 0;
       }
       //            }
+   }
+
+   // Set (or clear) the flag indicating whether a block is filled (= data != 0)
+   template<typename GID, typename LID> __global__ void determineFilledBlocks(VelocityMeshCuda<GID,LID> *d_vmesh) {
+      int id = blockIdx.x * blockDim.x + threadIdx.x;
+      if (id < d_vmesh->nBlocks ){
+         d_vmesh->hasContent[id] = false;
+         d_vmesh->hasFilledNeighbour[id] = false; 
+         for(int i=0; i< WID3; i++) {
+            //TODO: Should the thresholding thing be done here?
+            if(d_vmesh->data[WID3*id + i] != 0) {
+               d_vmesh->hasContent[id] = true;
+               d_vmesh->hasFilledNeighbour[id] = true; // If a block is filled, this also counts as having a filled neighbour
+               printf("Block %d has content.\n");
+            }
+         }
+      } else {
+         printf("determineFilledBlocks skipping id %d because it's bigger than %d\n", id, d_vmesh->nBlocks);
+      }
+   }
+
+   // Look at the neighbours of a block and determine if any of them are filled, setting the flag accordingly
+   template<typename GID, typename LID> __global__ void determineFilledNeighbours(VelocityMeshCuda<GID,LID> *d_vmesh) {
+      printf(" KERNEL determineFilledNeighbours running. \n");
+      int id = blockIdx.x * blockDim.x + threadIdx.x;
+      // We early-skip all blocks that we already know to have neigbours.
+      printf("    + Running for id %d with filledNeighbour %i\n", id, d_vmesh->hasFilledNeighbour[d_vmesh->sortedBlockLID[id]]);
+      if (id < d_vmesh->nBlocks && d_vmesh->hasFilledNeighbour[d_vmesh->sortedBlockLID[id]] == false){
+         // Determine our own blockMappedGID
+         GID blockMappedGID=d_vmesh->sortedBlockMappedGID[id];
+
+         // Check if our neighbours along the column exist (and whether they are filled)
+         // (we know they are our neighbours if their blockMappedGIDs are +-1)
+         if(id > 0 && d_vmesh->sortedBlockMappedGID[id-1] == blockMappedGID-1) {
+            if(d_vmesh->hasContent[d_vmesh->sortedBlockLID[id-1]]) {
+               d_vmesh->hasFilledNeighbour[d_vmesh->sortedBlockLID[id]] = true;
+            }
+         }
+         if(id < d_vmesh->nBlocks - 1 && d_vmesh->sortedBlockMappedGID[id+1] == blockMappedGID+1) {
+            if(d_vmesh->hasContent[d_vmesh->sortedBlockLID[id+1]]) {
+               d_vmesh->hasFilledNeighbour[d_vmesh->sortedBlockLID[id]] = true;
+            }
+         }
+
+         // Next, check our 4 neighbours in the other directions
+         // TODO: Ugh, lots of code replication here.
+         GID neighbourBlockMappedGID;
+         LID neighbourLID;
+         if(id == 0) { printf("    + sortDimension = %d\n", d_vmesh->sortDimension); }
+         switch(d_vmesh->sortDimension) {
+            case 0:
+               // +y
+               neighbourBlockMappedGID = blockMappedGID + d_vmesh->gridLength[0];
+               neighbourLID = d_vmesh->findLIDforGID(neighbourBlockMappedGID);
+               if(d_vmesh->hasContent[d_vmesh->sortedBlockLID[neighbourLID]]) {
+                  d_vmesh->hasFilledNeighbour[d_vmesh->sortedBlockLID[id]] = true;
+               }
+               
+               // -y
+               neighbourBlockMappedGID = blockMappedGID - d_vmesh->gridLength[0];
+               neighbourLID = d_vmesh->findLIDforGID(neighbourBlockMappedGID);
+               if(d_vmesh->hasContent[d_vmesh->sortedBlockLID[neighbourLID]]) {
+                  d_vmesh->hasFilledNeighbour[d_vmesh->sortedBlockLID[id]] = true;
+               }
+
+               // +z
+               neighbourBlockMappedGID = blockMappedGID + d_vmesh->gridLength[0]*d_vmesh->gridLength[1];
+               neighbourLID = d_vmesh->findLIDforGID(neighbourBlockMappedGID);
+               if(d_vmesh->hasContent[d_vmesh->sortedBlockLID[neighbourLID]]) {
+                  d_vmesh->hasFilledNeighbour[d_vmesh->sortedBlockLID[id]] = true;
+               }
+               // -z
+               neighbourBlockMappedGID = blockMappedGID - d_vmesh->gridLength[0]*d_vmesh->gridLength[1];
+               neighbourLID = d_vmesh->findLIDforGID(neighbourBlockMappedGID);
+               if(d_vmesh->hasContent[d_vmesh->sortedBlockLID[neighbourLID]]) {
+                  d_vmesh->hasFilledNeighbour[d_vmesh->sortedBlockLID[id]] = true;
+               }
+               break;
+               
+            case 1:
+               // +x
+               neighbourBlockMappedGID = blockMappedGID + d_vmesh->gridLength[1];
+               neighbourLID = d_vmesh->findLIDforGID(neighbourBlockMappedGID);
+               if(d_vmesh->hasContent[d_vmesh->sortedBlockLID[neighbourLID]]) {
+                  d_vmesh->hasFilledNeighbour[d_vmesh->sortedBlockLID[id]] = true;
+               }
+
+               // -x
+               neighbourBlockMappedGID = blockMappedGID - d_vmesh->gridLength[1];
+               neighbourLID = d_vmesh->findLIDforGID(neighbourBlockMappedGID);
+               if(d_vmesh->hasContent[d_vmesh->sortedBlockLID[neighbourLID]]) {
+                  d_vmesh->hasFilledNeighbour[d_vmesh->sortedBlockLID[id]] = true;
+               }
+
+               // +z
+               neighbourBlockMappedGID = blockMappedGID + d_vmesh->gridLength[1]*d_vmesh->gridLength[0];
+               neighbourLID = d_vmesh->findLIDforGID(neighbourBlockMappedGID);
+               if(d_vmesh->hasContent[d_vmesh->sortedBlockLID[neighbourLID]]) {
+                  d_vmesh->hasFilledNeighbour[d_vmesh->sortedBlockLID[id]] = true;
+               }
+
+               // -z
+               neighbourBlockMappedGID = blockMappedGID - d_vmesh->gridLength[1]*d_vmesh->gridLength[0];
+               neighbourLID = d_vmesh->findLIDforGID(neighbourBlockMappedGID);
+               if(d_vmesh->hasContent[d_vmesh->sortedBlockLID[neighbourLID]]) {
+                  d_vmesh->hasFilledNeighbour[d_vmesh->sortedBlockLID[id]] = true;
+               }
+               break;
+
+            case 2:
+               // +y
+               neighbourBlockMappedGID = blockMappedGID + d_vmesh->gridLength[2];
+               neighbourLID = d_vmesh->findLIDforGID(neighbourBlockMappedGID);
+               if(d_vmesh->hasContent[d_vmesh->sortedBlockLID[neighbourLID]]) {
+                  d_vmesh->hasFilledNeighbour[d_vmesh->sortedBlockLID[id]] = true;
+               }
+
+               // -y
+               neighbourBlockMappedGID = blockMappedGID - d_vmesh->gridLength[2];
+               neighbourLID = d_vmesh->findLIDforGID(neighbourBlockMappedGID);
+               if(d_vmesh->hasContent[d_vmesh->sortedBlockLID[neighbourLID]]) {
+                  d_vmesh->hasFilledNeighbour[d_vmesh->sortedBlockLID[id]] = true;
+               }
+
+               // +x
+               neighbourBlockMappedGID = blockMappedGID + d_vmesh->gridLength[2]*d_vmesh->gridLength[1];
+               neighbourLID = d_vmesh->findLIDforGID(neighbourBlockMappedGID);
+               if(d_vmesh->hasContent[d_vmesh->sortedBlockLID[neighbourLID]]) {
+                  d_vmesh->hasFilledNeighbour[d_vmesh->sortedBlockLID[id]] = true;
+               }
+
+               // -x
+               neighbourBlockMappedGID = blockMappedGID - d_vmesh->gridLength[2]*d_vmesh->gridLength[1];
+               neighbourLID = d_vmesh->findLIDforGID(neighbourBlockMappedGID);
+               if(d_vmesh->hasContent[d_vmesh->sortedBlockLID[neighbourLID]]) {
+                  d_vmesh->hasFilledNeighbour[d_vmesh->sortedBlockLID[id]] = true;
+               }
+               break;
+         }
+         
+      }
+   }
+
+   template<typename GID, typename LID> __global__ void testFindLID(VelocityMeshCuda<GID,LID> *d_vmesh) {
+      //printf("TestFindLID kernel started!\n");
+      int id = blockIdx.x * blockDim.x + threadIdx.x;
+      if (id < d_vmesh->nBlocks ){
+         GID block = d_vmesh->sortedBlockMappedGID[id];
+         //printf(" Our GID is %d\n", block);
+         LID thisBlocksLID = d_vmesh->findLIDforGID(block);
+         //printf(" This leads to LID %d\n", thisBlocksLID);
+         if(thisBlocksLID == INVALID_LOCALID) {
+            printf("INVALID_LOCALID returned.\n");
+            return;
+         }
+         if(block == d_vmesh->blockIDs[thisBlocksLID]) {
+            //printf("findLID test succeeded\n");
+         } else {
+            printf("Test failed: %i != %i\n", block, d_vmesh->blockIDs[thisBlocksLID]);
+         }
+      } else {
+         //printf("testFindLID never ran, because id %d is >= %d\n",id,d_vmesh->nBlocks);
+      }
    }
 
    struct isZero{
@@ -506,7 +731,37 @@ namespace vmesh {
 
       //h_vmesh will now be deallocated
    }
-   
+
+   template<typename GID, typename LID> __host__ void adjustVelocityBlocks(VelocityMeshCuda<GID,LID> *d_vmesh, VelocityMeshCuda<GID,LID> *h_vmesh, cudaStream_t stream) {
+      int cuBlockSize = 512; 
+      int cuGridSize = 1 + h_vmesh->size() / cuBlockSize; // value determine by block size and total work
+
+      // Mark full blocks
+      fprintf(stderr,"      `-> determineFilledBlocks\n");
+      determineFilledBlocks<<<cuGridSize, cuBlockSize, 0, stream>>>(d_vmesh);
+      cudaDeviceSynchronize();
+
+      // Mark their vspace neighbours
+      // (also mark themselves as having neighbours, to make things easier)
+      fprintf(stderr,"      `-> determineFilledNeighbours\n");
+      determineFilledNeighbours<<<cuGridSize, cuBlockSize, 0, stream>>>(d_vmesh);
+      cudaDeviceSynchronize();
+
+      // TEST: find an example 
+      //cudaDeviceSynchronize();
+      //printf("Running testFindLID<<<1,1,0>>>(d_vmesh);\n v v v v v Output below v v v v v \n");
+      //testFindLID<<<1,1,0>>>(d_vmesh);
+      //cudaDeviceSynchronize();
+      //printf(" ^ ^ ^ ^ ^ Output above ^ ^ ^ ^ ^\n");
+ 
+      //TODO: Do above for all local velocity blocks, then communicate ghost cells, then return here
+      // Copy full blocks over from all 6 neighbours, mark those cells as having neighbours  
+      
+
+      // Remove all blocks that do not have the hasFilledNeighbour flag set
+
+   }
+
 }; // namespace vmesh
 
 #endif
