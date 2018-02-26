@@ -43,6 +43,7 @@
 #include "Larmor/Larmor.h"
 #include "Magnetosphere/Magnetosphere.h"
 #include "MultiPeak/MultiPeak.h"
+#include "ObliqueWaves/ObliqueWaves.h"
 #include "VelocityBox/VelocityBox.h"
 #include "Riemann1/Riemann1.h"
 #include "Shock/Shock.h"
@@ -772,10 +773,13 @@ Project* createProject() {
    }
    if(Parameters::projectName == "MultiPeak") {
       rvalue = new projects::MultiPeak;
-   } 
+   }
+   if(Parameters::projectName == "ObliqueWaves") {
+      rvalue = new projects::ObliqueWaves;
+   }
    if(Parameters::projectName == "VelocityBox") {
       rvalue = new projects::VelocityBox;
-   } 
+   }
    if(Parameters::projectName == "Riemann1") {
       rvalue = new projects::Riemann1;
    }
