@@ -121,6 +121,7 @@ namespace projects {
       projects::Larmor::addParameters();
       projects::Magnetosphere::addParameters();
       projects::MultiPeak::addParameters();
+      projects::ObliqueWaves::addParameters();
       projects::VelocityBox::addParameters();
       projects::Riemann1::addParameters();
       projects::Shock::addParameters();
