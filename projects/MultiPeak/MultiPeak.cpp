@@ -193,10 +193,11 @@ namespace projects {
             }
          }
          avg *= rhoFactor;
+         N3_sum += N*N*N;
          
          // Compare the current and accumulated volume averages:
          Real eps = max(numeric_limits<creal>::min(),avg * static_cast<Real>(1e-6));
-         Real avgAccum   = avgTotal / (avg + N3_sum);
+         Real avgAccum   = avgTotal / N3_sum;
          Real avgCurrent = avg / (N*N*N);
          if (fabs(avgCurrent-avgAccum)/(avgAccum+eps) < 0.01) ok = true;
          else if (avg < avgLimit) ok = true;
@@ -205,7 +206,6 @@ namespace projects {
          }
 
          avgTotal += avg;
-         N3_sum += N*N*N;
          ++N;
       } while (ok == false);
 
