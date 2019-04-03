@@ -377,7 +377,10 @@ void calculateAcceleration(dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& 
        }
 
        // Compute global maximum for number of subcycles
+       cint timer = phiprof::initializeTimer("acc-subcycle-Allreduce", "MPI");
+       phiprof::start(timer);
        MPI_Allreduce(&maxSubcycles, &globalMaxSubcycles, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+       phiprof::stop(timer);
        
        // substep global max times
        for(uint step=0; step<(uint)globalMaxSubcycles; ++step) {
