@@ -906,7 +906,7 @@ int main(int argn,char* args[]) {
          // * shrink to fit after LB * //
          shrink_to_fit_grid_data(mpiGrid);
          phiprof::stop("Shrink_to_fit");
-         logFile << "(LB): ... done!"  << endl << writeVerbose;
+
          P::prepareForRebalance = false;
 
          // Re-couple fsgrids to updated grid situation
@@ -917,7 +917,8 @@ int main(int argn,char* args[]) {
 //          cout << "Reloadbalance: Local cells are: ";
 //          for(auto id : cells) cout << id << " ";
 //          cout << endl;
-         
+
+         phiprof::start("setupForGridCoupling");
          perBGrid.      setupForGridCoupling();
          perBDt2Grid.   setupForGridCoupling();        
          EGrid.         setupForGridCoupling();
@@ -931,9 +932,11 @@ int main(int argn,char* args[]) {
          BgBGrid.       setupForGridCoupling();
          volGrid.       setupForGridCoupling();
          technicalGrid. setupForGridCoupling();
+         phiprof::stop("setupForGridCoupling");
          
          // Each dccrg cell may have to communicate with multiple fsgrid cells, if they are on a lower refinement level.
          // Calculate the corresponding fsgrid ids for each dccrg cell and set coupling for each fsgrid id.
+         phiprof::start("setGridCoupling");
          for(auto& dccrgId : cells) {
             const auto fsgridIds = mapDccrgIdToFsGridGlobalID(mpiGrid, dccrgId);
             for (auto& fsgridId : fsgridIds) {
@@ -953,8 +956,9 @@ int main(int argn,char* args[]) {
                technicalGrid. setGridCoupling(fsgridId, myRank);
             }
          }
-         // cout << endl;
-         
+         phiprof::stop("setGridCoupling");
+
+         phiprof::start("finishGridCoupling");         
          perBGrid.      finishGridCoupling();
          perBDt2Grid.   finishGridCoupling();
          EGrid.         finishGridCoupling();
@@ -968,7 +972,10 @@ int main(int argn,char* args[]) {
          BgBGrid.       finishGridCoupling();
          volGrid.       finishGridCoupling();
          technicalGrid. finishGridCoupling();
+         phiprof::stop("finishGridCoupling");         
          phiprof::stop("fsgrid-recouple-after-lb");
+
+         logFile << "(LB): ... done!"  << endl << writeVerbose;
 
          overrideRebalanceNow = false;
       }
