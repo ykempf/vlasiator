@@ -1107,6 +1107,7 @@ int main(int argn,char* args[]) {
          feedMomentsIntoFsGrid(mpiGrid, cells, momentsGrid,false);
          feedMomentsIntoFsGrid(mpiGrid, cells, momentsDt2Grid,true);
          phiprof::stop("fsgrid-coupling-in");
+         addTimedBarrier("barrier-after-fsgrid-coupling-in");
 
          propagateFields(
             perBGrid,
@@ -1126,13 +1127,14 @@ int main(int argn,char* args[]) {
             P::dt,
             P::fieldSolverSubcycles
          );
+         addTimedBarrier("barrier-after-field-solver");
 
          phiprof::start("fsgrid-coupling-out");
          // Copy results back from fsgrid.
          getVolumeFieldsFromFsGrid(volGrid, mpiGrid, cells);
          phiprof::stop("fsgrid-coupling-out");
          phiprof::stop("Propagate Fields",cells.size(),"SpatialCells");
-         addTimedBarrier("barrier-after-field-solver");
+         addTimedBarrier("barrier-after-fsgrid-coupling-out");
       }
 
       if (P::propagatePotential == true) {
