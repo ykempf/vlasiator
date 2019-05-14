@@ -1522,9 +1522,11 @@ namespace DRO {
       Real swe = solarwindenergy/physicalconstants::CHARGE;
       Real e1l = E1limit/physicalconstants::CHARGE;
       Real e2l = E2limit/physicalconstants::CHARGE;
+      std::array<Real, 3> vector = {swe, e1l, e2l};
       if( vlsvWriter.writeParameter("EnergyDensityESW", &swe) == false ) { return false; }
       if( vlsvWriter.writeParameter("EnergyDensityELimit1", &e1l) == false ) { return false; }
       if( vlsvWriter.writeParameter("EnergyDensityELimit2", &e2l) == false ) { return false; }
+      if( vlsvWriter.writeParameter("EnergyDensityVector", &vector, 3) == false ) { return false; }
       return true;
    }
 
