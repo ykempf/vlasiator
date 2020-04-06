@@ -348,9 +348,9 @@ namespace SBC {
       Real fieldValue;
       
       if(RKCase == RK_ORDER1 || RKCase == RK_ORDER2_STEP2) {
-         fieldValue = fieldBoundaryCopyFromExistingFaceNbrMagneticField(perBGrid, technicalGrid, i, j, k, component);
+         fieldValue = fieldBoundaryCopyFromSolvingFaceNbrMagneticField(perBGrid, technicalGrid, i, j, k, component);
       } else {
-         fieldValue = fieldBoundaryCopyFromExistingFaceNbrMagneticField(perBDt2Grid, technicalGrid, i, j, k, component);
+         fieldValue = fieldBoundaryCopyFromSolvingFaceNbrMagneticField(perBDt2Grid, technicalGrid, i, j, k, component);
       }
       return fieldValue;
    }

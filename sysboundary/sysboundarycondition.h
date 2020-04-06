@@ -280,6 +280,14 @@ namespace SBC {
             cint k,
             cuint component
          );
+         Real fieldBoundaryCopyFromSolvingFaceNbrMagneticField(
+            FsGrid< std::array<Real, fsgrids::bfield::N_BFIELD>, 2> & perBGrid,
+            FsGrid< fsgrids::technical, 2> & technicalGrid,
+            cint i,
+            cint j,
+            cint k,
+            cuint component
+         );
          
          /*! Precedence value of the system boundary condition. */
          uint precedence;

@@ -828,6 +828,112 @@ namespace SBC {
       
       return perBGrid.get(closestCell[0], closestCell[1], closestCell[2])->at(fsgrids::bfield::PERBX+component);
    }
+
+   Real SysBoundaryCondition::fieldBoundaryCopyFromSolvingFaceNbrMagneticField(
+      FsGrid< std::array<Real, fsgrids::bfield::N_BFIELD>, 2> & perBGrid,
+      FsGrid< fsgrids::technical, 2> & technicalGrid,
+      cint i,
+      cint j,
+      cint k,
+      cuint component
+   ) {
+      switch(component) {
+         case 0:
+            if (technicalGrid.get(i,j,k)->sysBoundaryLayer == 1) {
+               if ((technicalGrid.get(i-1,j,k)->SOLVE & compute::BX) == compute::BX) {
+                  return perBGrid.get(i-1,j,k)->at(fsgrids::bfield::PERBX);
+               } else {
+                  return perBGrid.get(i+1,j,k)->at(fsgrids::bfield::PERBX);
+               }
+            } else {
+               if (technicalGrid.get(i-1,j,k) != NULL) {
+                  if ((technicalGrid.get(i-1,j,k)->SOLVE & compute::BX) == compute::BX) {
+                     return perBGrid.get(i-1,j,k)->at(fsgrids::bfield::PERBX);
+                  } 
+               }
+               if (technicalGrid.get(i-2,j,k) != NULL) {
+                  if ((technicalGrid.get(i-2,j,k)->SOLVE & compute::BX) == compute::BX) {
+                     return perBGrid.get(i-2,j,k)->at(fsgrids::bfield::PERBX);
+                  }
+               }
+               if (technicalGrid.get(i+1,j,k) != NULL) {
+                  if ((technicalGrid.get(i+1,j,k)->SOLVE & compute::BX) == compute::BX) {
+                     return perBGrid.get(i+1,j,k)->at(fsgrids::bfield::PERBX);
+                  }
+               }
+               if (technicalGrid.get(i+2,j,k) != NULL) {
+                  if ((technicalGrid.get(i+2,j,k)->SOLVE & compute::BX) == compute::BX) {
+                     return perBGrid.get(i+2,j,k)->at(fsgrids::bfield::PERBX);
+                  }
+               }
+               return 0.0;
+            }
+            break;
+         case 1:
+            if (technicalGrid.get(i,j,k)->sysBoundaryLayer == 1) {
+               if ((technicalGrid.get(i,j-1,k)->SOLVE & compute::BY) == compute::BY) {
+                  return perBGrid.get(i,j-1,k)->at(fsgrids::bfield::PERBY);
+               } else {
+                  return perBGrid.get(i,j+1,k)->at(fsgrids::bfield::PERBY);
+               }
+            } else {
+               if (technicalGrid.get(i,j-1,k) != NULL) {
+                  if ((technicalGrid.get(i,j-1,k)->SOLVE & compute::BY) == compute::BY) {
+                     return perBGrid.get(i,j-1,k)->at(fsgrids::bfield::PERBY);
+                  } 
+               }
+               if (technicalGrid.get(i,j-2,k) != NULL) {
+                  if ((technicalGrid.get(i,j-2,k)->SOLVE & compute::BY) == compute::BY) {
+                     return perBGrid.get(i,j-2,k)->at(fsgrids::bfield::PERBY);
+                  }
+               }
+               if (technicalGrid.get(i,j+1,k) != NULL) {
+                  if ((technicalGrid.get(i,j+1,k)->SOLVE & compute::BY) == compute::BY) {
+                     return perBGrid.get(i,j+1,k)->at(fsgrids::bfield::PERBY);
+                  }
+               }
+               if (technicalGrid.get(i,j+2,k) != NULL) {
+                  if ((technicalGrid.get(i,j+2,k)->SOLVE & compute::BY) == compute::BY) {
+                     return perBGrid.get(i,j+2,k)->at(fsgrids::bfield::PERBY);
+                  }
+               }
+               return 0.0;
+            }
+            break;
+         case 2:
+            if (technicalGrid.get(i,j,k)->sysBoundaryLayer == 1) {
+               if ((technicalGrid.get(i,j,k-1)->SOLVE & compute::BZ) == compute::BZ) {
+                  return perBGrid.get(i,j,k-1)->at(fsgrids::bfield::PERBZ);
+               } else {
+                  return perBGrid.get(i,j,k+1)->at(fsgrids::bfield::PERBZ);
+               }
+            } else {
+               if (technicalGrid.get(i,j,k-1) != NULL) {
+                  if ((technicalGrid.get(i,j,k-1)->SOLVE & compute::BZ) == compute::BZ) {
+                     return perBGrid.get(i,j,k-1)->at(fsgrids::bfield::PERBZ);
+                  } 
+               }
+               if (technicalGrid.get(i,j,k-2) != NULL) {
+                  if ((technicalGrid.get(i,j,k-2)->SOLVE & compute::BZ) == compute::BZ) {
+                     return perBGrid.get(i,j,k-2)->at(fsgrids::bfield::PERBZ);
+                  }
+               }
+               if (technicalGrid.get(i,j,k+1) != NULL) {
+                  if ((technicalGrid.get(i,j,k+1)->SOLVE & compute::BZ) == compute::BZ) {
+                     return perBGrid.get(i,j,k+1)->at(fsgrids::bfield::PERBZ);
+                  }
+               }
+               if (technicalGrid.get(i,j,k+2) != NULL) {
+                  if ((technicalGrid.get(i,j,k+2)->SOLVE & compute::BZ) == compute::BZ) {
+                     return perBGrid.get(i,j,k+2)->at(fsgrids::bfield::PERBZ);
+                  }
+               }
+               return 0.0;
+            }
+            break;
+      }
+   }
+
    
    /*! Function used in some cases to know which faces the system boundary condition is being applied to.
     * \param faces Pointer to array of 6 bool in which the values are returned whether the corresponding face is of that type. Order: 0 x+; 1 x-; 2 y+; 3 y-; 4 z+; 5 z-
