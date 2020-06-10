@@ -23,12 +23,8 @@ using namespace spatial_cell;
 // ordinary space, i,j,k are the cell ids inside on block (i in vector
 // elements).
 #define i_trans_pt_blockv(planeVectorIndex, planeIndex, blockIndex)  ( planeVectorIndex + planeIndex * VEC_PER_PLANE + (blockIndex + 1) * VEC_PER_BLOCK)
-// Note: this one is not used anymore
 
 #define i_trans_ps_blockv_pencil(planeVectorIndex, planeIndex, blockIndex, lengthOfPencil) ( (blockIndex) + VLASOV_STENCIL_WIDTH  +  ( (planeVectorIndex) + (planeIndex) * VEC_PER_PLANE ) * ( lengthOfPencil + 2 * VLASOV_STENCIL_WIDTH) )
-
-#define i_trans_pt_blockv_pencil(planeVectorIndex, planeIndex, blockIndex, lengthOfPencil) ( (blockIndex) + 1 +  ( (planeVectorIndex) + (planeIndex) * VEC_PER_PLANE ) * ( lengthOfPencil + 2) )
-
 
 /* Get the one-dimensional neighborhood index for a given direction and neighborhood size.
  * 
@@ -593,7 +589,6 @@ void propagatePencil(
                                     
             // Store mapped density in two target cells
             // in the neighbor cell we will put this density
-	    /*
             targetValues[i_trans_pt_blockv(planeVector, k, i + 1)] += select( positiveTranslationDirection,
                                                                               ngbr_target_density
                                                                               * dz[i_source] / dz[i_source + 1],
@@ -605,19 +600,6 @@ void propagatePencil(
             
             // in the current original cells we will put the rest of the original density
             targetValues[i_trans_pt_blockv(planeVector, k, i)] += 
-               values[i_trans_ps_blockv_pencil(planeVector, k, i, lengthOfPencil)] - ngbr_target_density;
-	    */
-            targetValues[i_trans_pt_blockv_pencil(planeVector, k, i + 1, lengthOfPencil)] += select( positiveTranslationDirection,
-                                                                              ngbr_target_density
-                                                                              * dz[i_source] / dz[i_source + 1],
-                                                                              Vec(0.0));
-            targetValues[i_trans_pt_blockv_pencil(planeVector, k, i - 1, lengthOfPencil)] += select(!positiveTranslationDirection,
-                                                                              ngbr_target_density
-                                                                              * dz[i_source] / dz[i_source - 1],
-                                                                              Vec(0.0));
-            
-            // in the current original cells we will put the rest of the original density
-            targetValues[i_trans_pt_blockv_pencil(planeVector, k, i, lengthOfPencil)] += 
                values[i_trans_ps_blockv_pencil(planeVector, k, i, lengthOfPencil)] - ngbr_target_density;
          }
       }
@@ -668,7 +650,7 @@ void getSeedIds(const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGr
       
 #warning This forces single-cell pencils!
       // FIXME TODO Tuomas look at this! BUG
-      bool addToSeedIds = false;
+      bool addToSeedIds = true;
       // Returns all neighbors as (id, direction-dimension) pair pointers.
       for ( const auto nbrPair : *(mpiGrid.get_neighbors_of(celli, neighborhood)) ) {
          
@@ -1264,7 +1246,8 @@ bool trans_map_1d_amr(const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>&
                         // Unpack the vector data
                         Realf vector[VECL];
                         //pencilSourceVecData[pencili][i_trans_ps_blockv_pencil(planeVector, k, icell - 1, L)].store(vector);
-			pencilTargetValues[pencili][i_trans_pt_blockv_pencil(planeVector, k, icell - 1, L)].store(vector);
+			//pencilTargetValues[pencili][i_trans_pt_blockv_pencil(planeVector, k, icell - 1, L)].store(vector);
+			pencilTargetValues[pencili][i_trans_pt_blockv(planeVector, k, icell - 1)].store(vector);
                         
                         // Loop over 3rd (vectorized) vspace dimension
                         for (uint iv = 0; iv < VECL; iv++) {
