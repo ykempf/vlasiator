@@ -11,19 +11,23 @@ using namespace std;
 using namespace spatial_cell;
 
 // indices in padded source block, which is of type Vec with VECL
-// element sin each vector. b_k is the block index in z direction in
+// elements in each vector. b_k is the block index in z direction in
 // ordinary space [- VLASOV_STENCIL_WIDTH to VLASOV_STENCIL_WIDTH],
 // i,j,k are the cell ids inside on block (i in vector elements).
 // Vectors with same i,j,k coordinates, but in different spatial cells, are consequtive
 #define i_trans_ps_blockv(planeVectorIndex, planeIndex, blockIndex) ( (blockIndex) + VLASOV_STENCIL_WIDTH  +  ( (planeVectorIndex) + (planeIndex) * VEC_PER_PLANE ) * ( 1 + 2 * VLASOV_STENCIL_WIDTH)  )
+// Note: this one is not used
 
 // indices in padded target block, which is of type Vec with VECL
-// element sin each vector. b_k is the block index in z direction in
+// elements in each vector. b_k is the block index in z direction in
 // ordinary space, i,j,k are the cell ids inside on block (i in vector
 // elements).
 #define i_trans_pt_blockv(planeVectorIndex, planeIndex, blockIndex)  ( planeVectorIndex + planeIndex * VEC_PER_PLANE + (blockIndex + 1) * VEC_PER_BLOCK)
+// Note: this one is not used anymore
 
 #define i_trans_ps_blockv_pencil(planeVectorIndex, planeIndex, blockIndex, lengthOfPencil) ( (blockIndex) + VLASOV_STENCIL_WIDTH  +  ( (planeVectorIndex) + (planeIndex) * VEC_PER_PLANE ) * ( lengthOfPencil + 2 * VLASOV_STENCIL_WIDTH) )
+
+#define i_trans_pt_blockv_pencil(planeVectorIndex, planeIndex, blockIndex, lengthOfPencil) ( (blockIndex) + 1 +  ( (planeVectorIndex) + (planeIndex) * VEC_PER_PLANE ) * ( lengthOfPencil + 2) )
 
 
 /* Get the one-dimensional neighborhood index for a given direction and neighborhood size.
@@ -589,6 +593,7 @@ void propagatePencil(
                                     
             // Store mapped density in two target cells
             // in the neighbor cell we will put this density
+	    /*
             targetValues[i_trans_pt_blockv(planeVector, k, i + 1)] += select( positiveTranslationDirection,
                                                                               ngbr_target_density
                                                                               * dz[i_source] / dz[i_source + 1],
@@ -601,6 +606,19 @@ void propagatePencil(
             // in the current original cells we will put the rest of the original density
             targetValues[i_trans_pt_blockv(planeVector, k, i)] += 
                values[i_trans_ps_blockv_pencil(planeVector, k, i, lengthOfPencil)] - ngbr_target_density;
+	    */
+            targetValues[i_trans_pt_blockv_pencil(planeVector, k, i + 1, lengthOfPencil)] += select( positiveTranslationDirection,
+                                                                              ngbr_target_density
+                                                                              * dz[i_source] / dz[i_source + 1],
+                                                                              Vec(0.0));
+            targetValues[i_trans_pt_blockv_pencil(planeVector, k, i - 1, lengthOfPencil)] += select(!positiveTranslationDirection,
+                                                                              ngbr_target_density
+                                                                              * dz[i_source] / dz[i_source - 1],
+                                                                              Vec(0.0));
+            
+            // in the current original cells we will put the rest of the original density
+            targetValues[i_trans_pt_blockv_pencil(planeVector, k, i, lengthOfPencil)] += 
+               values[i_trans_ps_blockv_pencil(planeVector, k, i, lengthOfPencil)] - ngbr_target_density;
          }
       }
    }
@@ -608,7 +626,7 @@ void propagatePencil(
    // Write target data into source data
    // VLASOV_STENCIL_WIDTH >= nTargetNeighborsPerPencil is required (default 2 >= 1)
 
-   for (uint i = 0; i < lengthOfPencil + 2 * nTargetNeighborsPerPencil; i++) {
+   /*   for (uint i = 0; i < lengthOfPencil + 2 * nTargetNeighborsPerPencil; i++) {
 
       for (uint k = 0; k < WID; ++k) {
          
@@ -619,7 +637,8 @@ void propagatePencil(
             
          }
       }
-   }  
+   }
+   */ 
 }
 
 /* Determine which cells in the local DCCRG mesh should be starting points for pencils.
@@ -649,7 +668,7 @@ void getSeedIds(const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGr
       
 #warning This forces single-cell pencils!
       // FIXME TODO Tuomas look at this! BUG
-      bool addToSeedIds = true;
+      bool addToSeedIds = false;
       // Returns all neighbors as (id, direction-dimension) pair pointers.
       for ( const auto nbrPair : *(mpiGrid.get_neighbors_of(celli, neighborhood)) ) {
          
@@ -1109,9 +1128,9 @@ bool trans_map_1d_amr(const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>&
 
    if(printPencils) printPencilsFunc(pencils,dimension,myRank);
 
-   if(!checkPencils(mpiGrid, localPropagatedCells, pencils)) {
-      abort();
-   }
+   // if(!checkPencils(mpiGrid, localPropagatedCells, pencils)) {
+   //    abort();
+   // }
    
    if (Parameters::prepareForRebalance == true) {
       for (uint i=0; i<localPropagatedCells.size(); i++) {
@@ -1164,7 +1183,7 @@ bool trans_map_1d_amr(const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>&
    
    int t1 = phiprof::initializeTimer("mapping");
    int t2 = phiprof::initializeTimer("store");
-   
+
 #pragma omp parallel
    {
       // declarations for variables needed by the threads
@@ -1181,7 +1200,7 @@ bool trans_map_1d_amr(const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>&
          cint L = pencils.lengthOfPencils[pencili];
          cuint sourceLength = L + 2 * VLASOV_STENCIL_WIDTH;
          
-         // Vector buffer where we write data, initialized to 0*/
+         // Vector buffer where we write data, initialized to 0 in propagatePencils */
          std::vector<Vec, aligned_allocator<Vec,WID3>> targetValues((L + 2 * nTargetNeighborsPerPencil) * WID3 / VECL);
          pencilTargetValues.push_back(targetValues);
          // Allocate source data: sourcedata<length of pencil * WID3)
@@ -1234,19 +1253,18 @@ bool trans_map_1d_amr(const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>&
                // Dz and sourceVecData are both padded by VLASOV_STENCIL_WIDTH
                // Dz has 1 value/cell, sourceVecData has WID3 values/cell
                propagatePencil(pencildz[pencili].data(), pencilSourceVecData[pencili].data(), pencilTargetValues[pencili].data(), dimension, blockGID, dt, vmesh, L, pencilSourceCells[pencili][0]->getVelocityBlockMinValue(popID));
-
-               // sourceVecData => targetBlockData[this pencil])
-
-               // Loop over cells in pencil
+	     
+               // pencilTargetValues => targetBlockData[this pencil])
+	       // Loop over cells in pencil
                for (uint icell = 0; icell < targetLength; icell++) {
                   // Loop over 1st vspace dimension
                   for (uint k=0; k<WID; k++) {
                      // Loop over 2nd vspace dimension
                      for(uint planeVector = 0; planeVector < VEC_PER_PLANE; planeVector++){
-
                         // Unpack the vector data
                         Realf vector[VECL];
-                        pencilSourceVecData[pencili][i_trans_ps_blockv_pencil(planeVector, k, icell - 1, L)].store(vector);
+                        //pencilSourceVecData[pencili][i_trans_ps_blockv_pencil(planeVector, k, icell - 1, L)].store(vector);
+			pencilTargetValues[pencili][i_trans_pt_blockv_pencil(planeVector, k, icell - 1, L)].store(vector);
                         
                         // Loop over 3rd (vectorized) vspace dimension
                         for (uint iv = 0; iv < VECL; iv++) {
@@ -1315,7 +1333,7 @@ bool trans_map_1d_amr(const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>&
                      
                      Realf* blockData = targetCell->get_data(blockLID, popID);
                      
-                     // areaRatio is the reatio of the cross-section of the spatial cell to the cross-section of the pencil.
+                     // areaRatio is the ratio of the cross-section of the spatial cell to the cross-section of the pencil.
                      int diff = targetCell->SpatialCell::parameters[CellParams::REFINEMENT_LEVEL] - pencils.path[pencili].size();
                      int ratio;
                      Realf areaRatio;
