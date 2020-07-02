@@ -7,7 +7,7 @@
 #include "cpu_trans_map_amr.hpp"
 #include "cpu_trans_map.hpp"
 
-#include <cstring> // for memset
+//#include <cstring> // for memset
 
 using namespace std;
 using namespace spatial_cell;
@@ -1172,9 +1172,6 @@ bool trans_map_1d_amr(const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>&
    {
       // declarations for variables needed by the threads
       std::vector<Realf, aligned_allocator<Realf, WID3>> targetBlockData((pencils.sumOfLengths + 2 * nTargetNeighborsPerPencil * pencils.N) * WID3);
-      //std::memset(targetBlockData[0],(char)0.0,sizeof(Realf)*(pencils.sumOfLengths + 2 * nTargetNeighborsPerPencil * pencils.N) * WID3);
-      for (int i = 0; i < (pencils.sumOfLengths + 2 * nTargetNeighborsPerPencil * pencils.N) * WID3; i++) targetBlockData[i] = (Realf)0.0;
-  
       std::vector<std::vector<SpatialCell*>> pencilSourceCells;
       
       // Allocate aligned vectors which are needed once per pencil to avoid reallocating once per block loop + pencil loop iteration
@@ -1213,6 +1210,9 @@ bool trans_map_1d_amr(const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>&
       // Loop over velocity space blocks. Thread this loop (over vspace blocks) with OpenMP.
 #pragma omp for schedule(guided)
       for(uint blocki = 0; blocki < unionOfBlocks.size(); blocki++) {
+
+         //std::memset(targetBlockData[0],(char)0.0,sizeof(Realf)*(pencils.sumOfLengths + 2 * nTargetNeighborsPerPencil * pencils.N) * WID3);
+         for (int i = 0; i < (pencils.sumOfLengths + 2 * nTargetNeighborsPerPencil * pencils.N) * WID3; i++) targetBlockData[i] = (Realf)0.0;
 
          // Get global id of the velocity block
          vmesh::GlobalID blockGID = unionOfBlocks[blocki];
@@ -1260,7 +1260,7 @@ bool trans_map_1d_amr(const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>&
                            // Store vector data in target data array.
                            targetBlockData[(totalTargetLength + icell) * WID3 +
                                            cellid_transpose[iv + planeVector * VECL + k * WID2]]
-                              += vector[iv];
+                              = vector[iv];
                         }
                      }
                   }
