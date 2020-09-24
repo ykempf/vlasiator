@@ -353,6 +353,10 @@ void computeSpatialTargetCellsForPencils(const dccrg::Dccrg<SpatialCell,dccrg::C
       }
 
       if (frontNeighborIds.size() == 0) {
+	 std::cerr<<"abort frontNeighborIds.size() == 0 at "<<ids.front()<<std::endl;
+	 for( const auto nbrPair: *frontNbrPairs ) {
+	    std::cerr<<ids.front()<<" dim "<<dimension<<" "<<nbrPair.first<<" "<<nbrPair.second.at(0)<<" "<<nbrPair.second.at(1)<<" "<<nbrPair.second.at(2)<<std::endl;
+	 }
          abort();
       }
       
@@ -364,6 +368,10 @@ void computeSpatialTargetCellsForPencils(const dccrg::Dccrg<SpatialCell,dccrg::C
       }
 
       if (backNeighborIds.size() == 0) {
+	 std::cerr<<"abort backNeighborIds.size() == 0 at "<<ids.back()<<std::endl;
+	 for( const auto nbrPair: *frontNbrPairs ) {
+	    std::cerr<<ids.front()<<" dim "<<dimension<<" "<<nbrPair.first<<" "<<nbrPair.second.at(0)<<" "<<nbrPair.second.at(1)<<" "<<nbrPair.second.at(2)<<std::endl;
+	 }
          abort();
       }
 
@@ -518,6 +526,17 @@ CellID selectNeighbor(const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry> 
 	 myNeighbors.push_back(nbr.first);
       }
    }
+   
+   // int neighborhood = getNeighborhood(dimension,1);   
+   // const auto* nbrPairs = grid.get_neighbors_of(id, neighborhood);
+
+   // // Iterate through neighbor ids in the positive direction of the chosen dimension,
+   // // select the neighbor indicated by path, if it is local to this process.
+   // for (const auto nbrPair : *nbrPairs) {
+   //    if (nbrPair.second[dimension] == 1) {
+   //       myNeighbors.push_back(nbrPair.first);
+   //    }
+   // }
 
    if( myNeighbors.size() == 0 ) {
       return neighbor;
@@ -537,7 +556,7 @@ CellID selectNeighbor(const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry> 
    // dim = 2, dir = +1     y, y, y, y,  ,  ,  , 
    
    if (grid.is_local(myNeighbors[neighborIndex])) {
-      neighbor = myNeighbors[neighborIndex];
+     neighbor = myNeighbors[neighborIndex];
    }
    
    return neighbor;
@@ -587,7 +606,7 @@ setOfPencils buildPencilsWithNeighbors( const dccrg::Dccrg<SpatialCell,dccrg::Ca
       
       for ( int i = path.size(); i < startingRefLvl; ++i) {
 
-         CellID parentId = grid.get_parent(myId);
+         CellID parentId = grid.mapping.get_parent(myId);
          
          auto myCoords = grid.get_center(myId);
          auto parentCoords = grid.get_center(parentId);
@@ -877,6 +896,7 @@ void getSeedIds(const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGr
 #warning This forces single-cell pencils!
       // FIXME TODO Tuomas look at this! BUG
       bool addToSeedIds = true;
+      /*
       // Returns all neighbors as (id, direction-dimension) pair pointers.
       for ( const auto nbrPair : *(mpiGrid.get_neighbors_of(celli, neighborhood)) ) {
          
@@ -894,8 +914,9 @@ void getSeedIds(const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGr
                  !do_translate_cell(mpiGrid[nbrPair.first]) ) {              
                addToSeedIds = true;
             }
-         }
+	 }
       }
+      */
 
       if ( addToSeedIds ) {
          seedIds.push_back(celli);
@@ -1069,7 +1090,7 @@ void check_ghost_cells(const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>
 	    if (frontNeighbors.size() > 0) {
 	       ngh_front.erase(ngh_front.begin());
 	       for (const auto nbr: frontNeighbors) {
-		  if(nbr.second == ((int)dimension + 1)) {
+		  if(nbr.second == -((int)dimension + 1)) {
 		     ngh_front.push_back(nbr.first);
 		     maxNbrRefLvl = max(maxNbrRefLvl,mpiGrid.get_refinement_level(nbr.first));
 		  }
@@ -1081,7 +1102,7 @@ void check_ghost_cells(const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>
 	    if (backNeighbors.size() > 0) {
 	       ngh_back.erase(ngh_back.begin());
 	       for (const auto nbr: backNeighbors) {
-		  if(nbr.second == -((int)dimension + 1)) {
+		  if(nbr.second == ((int)dimension + 1)) {
 		     ngh_back.push_back(nbr.first);
 		     maxNbrRefLvl = max(maxNbrRefLvl,mpiGrid.get_refinement_level(nbr.first));
 		  }
@@ -1367,9 +1388,10 @@ bool trans_map_1d_amr(const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>&
 
    if(printPencils) printPencilsFunc(pencils,dimension,myRank);
 
-   if(!checkPencils(mpiGrid, localPropagatedCells, pencils)) {
-      abort();
-   }
+   // if(!checkPencils(mpiGrid, localPropagatedCells, pencils)) {
+   //    std::cerr<<"abort checkpencils"<<std::endl;
+   //    abort();
+   // }
    
    if (Parameters::prepareForRebalance == true) {
       for (uint i=0; i<localPropagatedCells.size(); i++) {
@@ -1424,7 +1446,7 @@ bool trans_map_1d_amr(const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>&
    int t1 = phiprof::initializeTimer("mapping");
    int t2 = phiprof::initializeTimer("store");
    
-#pragma omp parallel
+   #pragma omp parallel
    {
       // declarations for variables needed by the threads
       std::vector<Realf, aligned_allocator<Realf, WID3>> targetBlockData((pencils.sumOfLengths + 2 * nTargetNeighborsPerPencil * pencils.N) * WID3);
@@ -1465,7 +1487,7 @@ bool trans_map_1d_amr(const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>&
       }
       
       // Loop over velocity space blocks. Thread this loop (over vspace blocks) with OpenMP.
-#pragma omp for schedule(guided)
+      #pragma omp for schedule(guided)
       for(uint blocki = 0; blocki < unionOfBlocks.size(); blocki++) {
 
          // Get global id of the velocity block
@@ -1619,17 +1641,24 @@ int get_sibling_index(dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGr
       return NO_SIBLINGS;
    }
    
-   CellID parent = mpiGrid.get_parent(cellid);
+   CellID parent = mpiGrid.mapping.get_parent(cellid);
 
    if (parent == INVALID_CELLID) {
       std::cerr<<"Invalid parent id"<<std::endl;
       abort();
    }
-   
-   vector<CellID> siblings = mpiGrid.get_all_children(parent);
+
+   // get_all_children returns an array instead of a vector now, need to map it to a vector for find and distance
+   std::array<uint64_t, 8> siblingarr = mpiGrid.mapping.get_all_children(parent);
+   vector<CellID> siblings(siblingarr.begin(), siblingarr.end());
+   //vector<CellID> siblings(&siblingarr[0], &siblingarr[0] + sizeof(siblingarr) / sizeof(siblingarr[0]));
+   //vector<CellID> siblings = mpiGrid.mapping.get_all_children(parent);
    auto location = std::find(siblings.begin(),siblings.end(),cellid);
    auto index = std::distance(siblings.begin(), location);
-
+   if (index>7) {
+      std::cerr<<"Invalid parent id"<<std::endl;
+      abort();
+   }
    return index;
    
 }
@@ -1854,7 +1883,7 @@ void update_remote_mapping_contribution_amr(
 
                   recvIndex = mySiblingIndex;
                   
-                  auto mySiblings = mpiGrid.get_all_children(mpiGrid.get_parent(c));
+                  auto mySiblings = mpiGrid.mapping.get_all_children(mpiGrid.mapping.get_parent(c));
                   auto myIndices = mpiGrid.mapping.get_indices(c);
                   
                   // Allocate memory for each sibling to receive all the data sent by coarser ncell. 
