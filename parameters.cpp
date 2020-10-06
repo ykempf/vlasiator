@@ -38,6 +38,8 @@ using namespace std;
 
 typedef Parameters P;
 
+int P::neighborhoodSizeAdd = 0;
+
 //Using numeric_limits<Real>::max() leads to FP exceptions inside boost programoptions, use a slightly smaller value to avoid...
 
 const Real LARGE_REAL=1e20;
@@ -170,6 +172,8 @@ bool Parameters::addParameters(){
    Readparameters::add("io.write_restart_stripe_factor","Stripe factor for restart writing.", -1);
    Readparameters::add("io.write_as_float","If true, write in floats instead of doubles", false);
    Readparameters::add("io.restart_write_path", "Path to the location where restart files should be written. Defaults to the local directory, also if the specified destination is not writeable.", string("./"));
+
+   Readparameters::add("neighborhoodSizeAdd", "extra depth to neighborhood sizes in trans", 0);
    
    Readparameters::add("propagate_field","Propagate magnetic field during the simulation",true);
    Readparameters::add("propagate_vlasov_acceleration","Propagate distribution functions during the simulation in velocity space. If false, it is propagated with zero length timesteps.",true);
@@ -301,6 +305,8 @@ bool Parameters::addParameters(){
 
 
 bool Parameters::getParameters(){
+
+   Readparameters::get("neighborhoodSizeAdd", P::neighborhoodSizeAdd);
 
    //get numerical values of the parameters
    Readparameters::get("io.diagnostic_write_interval", P::diagnosticInterval);

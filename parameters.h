@@ -33,6 +33,8 @@
 const uint64_t INVALID_CELLID = 0;
 
 struct Parameters {
+   static int neighborhoodSizeAdd;
+
    static int geometry; /**< Simulation geometry, one of the values defined in 
                          * geometry::Setup. Defaults to geometry::XYZ6D.*/
    static Real xmin;  /*!< X-coordinate of the lower left corner of the spatial grid. */
