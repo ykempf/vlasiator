@@ -895,12 +895,12 @@ void getSeedIds(const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGr
       
 #warning This forces single-cell pencils!
       // FIXME TODO Tuomas look at this! BUG
-      bool addToSeedIds = true;
-      /*
+      bool addToSeedIds = P::transShortPencils;
+      
       // Returns all neighbors as (id, direction-dimension) pair pointers.
-      for ( const auto nbrPair : *(mpiGrid.get_neighbors_of(celli, neighborhood)) ) {
+      for ( const auto nbrPair : mpiGrid.get_face_neighbors_of(celli) ) {
          
-         if ( nbrPair.second[dimension] == -1 ) {
+         if ( nbrPair.second == -((int)dimension + 1) ) {
 
             // Check that the neighbor is not across a periodic boundary by calculating
             // the distance in indices between this cell and its neighbor.
@@ -916,7 +916,7 @@ void getSeedIds(const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGr
             }
 	 }
       }
-      */
+      
 
       if ( addToSeedIds ) {
          seedIds.push_back(celli);
