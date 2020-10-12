@@ -33,6 +33,7 @@
 const uint64_t INVALID_CELLID = 0;
 
 struct Parameters {
+   static bool reversePencilLoop;
    static bool transShortPencils;
    static int neighborhoodSizeAdd;
 

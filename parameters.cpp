@@ -39,6 +39,7 @@ using namespace std;
 typedef Parameters P;
 
 bool P::transShortPencils = true;
+bool P::reversePencilLoop = false;
 int P::neighborhoodSizeAdd = 0;
 
 //Using numeric_limits<Real>::max() leads to FP exceptions inside boost programoptions, use a slightly smaller value to avoid...
@@ -175,6 +176,7 @@ bool Parameters::addParameters(){
    Readparameters::add("io.restart_write_path", "Path to the location where restart files should be written. Defaults to the local directory, also if the specified destination is not writeable.", string("./"));
 
    Readparameters::add("transShortPencils", "if true, use one-cell pencils", true);
+   Readparameters::add("reversePencilLoop", "if true, go through pencils in reverse order", false);
    Readparameters::add("neighborhoodSizeAdd", "extra depth to neighborhood sizes in trans", 0);
    
    Readparameters::add("propagate_field","Propagate magnetic field during the simulation",true);
@@ -309,6 +311,7 @@ bool Parameters::addParameters(){
 bool Parameters::getParameters(){
 
    Readparameters::get("transShortPencils", P::transShortPencils);
+   Readparameters::get("reversePencilLoop", P::reversePencilLoop);
    Readparameters::get("neighborhoodSizeAdd", P::neighborhoodSizeAdd);
 
    //get numerical values of the parameters

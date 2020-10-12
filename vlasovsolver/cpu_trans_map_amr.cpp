@@ -1358,12 +1358,22 @@ bool trans_map_1d_amr(const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>&
       // accumulate thread results in global set of pencils
 #pragma omp critical
       {
-         for (uint i=0; i<thread_pencils.N; i++) {
-            // Use vector range constructor
-            ibeg = thread_pencils.ids.begin() + thread_pencils.idsStart[i];
-            iend = ibeg + thread_pencils.lengthOfPencils[i];
-            std::vector<CellID> pencilIds(ibeg, iend);
-            pencils.addPencil(pencilIds,thread_pencils.x[i],thread_pencils.y[i],thread_pencils.periodic[i],thread_pencils.path[i]);
+         if (P::reversePencilLoop) {
+            for (int i=thread_pencils.N-1; i>=0; i--) {
+               // Use vector range constructor
+               ibeg = thread_pencils.ids.begin() + thread_pencils.idsStart[i];
+               iend = ibeg + thread_pencils.lengthOfPencils[i];
+               std::vector<CellID> pencilIds(ibeg, iend);
+               pencils.addPencil(pencilIds,thread_pencils.x[i],thread_pencils.y[i],thread_pencils.periodic[i],thread_pencils.path.at(i));
+            }
+         } else {
+            for (uint i=0; i<thread_pencils.N; i++) {
+               // Use vector range constructor
+               ibeg = thread_pencils.ids.begin() + thread_pencils.idsStart[i];
+               iend = ibeg + thread_pencils.lengthOfPencils[i];
+               std::vector<CellID> pencilIds(ibeg, iend);
+               pencils.addPencil(pencilIds,thread_pencils.x[i],thread_pencils.y[i],thread_pencils.periodic[i],thread_pencils.path.at(i));
+            }
          }
       }
 
