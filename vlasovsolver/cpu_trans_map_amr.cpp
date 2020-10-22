@@ -69,124 +69,13 @@ int getNeighborhood(const uint dimension, const uint stencil) {
 }
 
 
-
 /* Get pointers to spatial cells that are considered source cells for a pencil.
  * Source cells are cells that the pencil reads data from to compute polynomial
  * fits that are used for propagation in the vlasov solver. All cells included
  * in the pencil + VLASOV_STENCIL_WIDTH cells on both ends are source cells.
  * Invalid cells are replaced by closest good cells.
  * Boundary cells are included.
- *
- * @param [in] mpiGrid DCCRG grid object
- * @param [in] pencils pencil data struct
- * @param [in] ipencil index of a pencil in the pencils data struct
- * @param [in] dimension spatial dimension
- * @param [out] sourceCells pointer to an array of pointers to SpatialCell objects for the source cells
- */
-void computeSpatialSourceCellsForPencil(const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
-                                        setOfPencils& pencils,
-                                        const uint iPencil,
-                                        const uint dimension,
-                                        SpatialCell **sourceCells){
-
-   // L = length of the pencil iPencil
-   int L = pencils.lengthOfPencils[iPencil];
-   vector<CellID> ids = pencils.getIds(iPencil);
-   
-   int neighborhood = getNeighborhood(dimension,2);
-
-   // Get pointers for each cell id of the pencil
-   for (int i = 0; i < L; ++i) {
-      sourceCells[i + VLASOV_STENCIL_WIDTH] = mpiGrid[ids[i]];
-   }
-   
-   // Insert pointers for neighbors of ids.front() and ids.back()
-   const auto* frontNbrPairs = mpiGrid.get_neighbors_of(ids.front(), neighborhood);
-   const auto* backNbrPairs  = mpiGrid.get_neighbors_of(ids.back(),  neighborhood);
-
-   int maxRefLvl = mpiGrid.get_maximum_refinement_level();
-      
-   // Create list of unique distances in the negative direction from the first cell in pencil
-   std::set< int > distances;
-   for (const auto nbrPair : *frontNbrPairs) {
-      if(nbrPair.second[dimension] < 0) {
-         distances.insert(nbrPair.second[dimension]);
-      }
-   }
-
-
-   int iSrc = VLASOV_STENCIL_WIDTH - 1;
-   // Iterate through distances for VLASOV_STENCIL_WIDTH elements starting from the smallest distance.
-   // Distances are negative here so largest distance has smallest value
-   auto irend = distances.rbegin();
-   std::advance(irend, std::min((int)distances.size(), VLASOV_STENCIL_WIDTH));
-   for (auto it = distances.rbegin(); it != irend; ++it) {
-      // Collect all neighbors at distance *it to a vector
-      std::vector< CellID > neighbors;
-      for (const auto nbrPair : *frontNbrPairs) {
-         int distanceInRefinedCells = nbrPair.second[dimension];
-         if(distanceInRefinedCells == *it) neighbors.push_back(nbrPair.first);
-      }
-
-      int refLvl = mpiGrid.get_refinement_level(ids.front());
-      
-      if (neighbors.size() == 1) {
-         sourceCells[iSrc--] = mpiGrid[neighbors.at(0)];
-      } else if ( pencils.path[iPencil][refLvl] < neighbors.size() ) {
-         sourceCells[iSrc--] = mpiGrid[neighbors.at(pencils.path[iPencil][refLvl])];
-      }
-   }
-
-   iSrc = L + VLASOV_STENCIL_WIDTH;
-   distances.clear();
-   // Create list of unique distances in the positive direction from the last cell in pencil
-   for (const auto nbrPair : *backNbrPairs) {
-      if(nbrPair.second[dimension] > 0) {
-         distances.insert(nbrPair.second[dimension]);
-      }
-   }
-
-   // Iterate through distances for VLASOV_STENCIL_WIDTH elements starting from the smallest distance.
-   // Distances are positive here so smallest distance has smallest value.
-   auto iend = distances.begin();
-   std::advance(iend,std::min((int)distances.size(), VLASOV_STENCIL_WIDTH));
-   for (auto it = distances.begin(); it != iend; ++it) {
-      
-      // Collect all neighbors at distance *it to a vector
-      std::vector< CellID > neighbors;
-      for (const auto nbrPair : *backNbrPairs) {
-         int distanceInRefinedCells = nbrPair.second[dimension];
-         if(distanceInRefinedCells == *it) neighbors.push_back(nbrPair.first);
-      }
-
-      int refLvl = mpiGrid.get_refinement_level(ids.back());
-
-      if (neighbors.size() == 1) {
-         sourceCells[iSrc++] = mpiGrid[neighbors.at(0)];
-      } else if ( pencils.path[iPencil][refLvl] < neighbors.size() ) {
-         sourceCells[iSrc++] = mpiGrid[neighbors.at(pencils.path[iPencil][refLvl])];
-      }
-   }
-
-   /*loop to negative side and replace all invalid cells with the closest good cell*/
-   SpatialCell* lastGoodCell = mpiGrid[ids.front()];
-   for(int i = VLASOV_STENCIL_WIDTH - 1; i >= 0 ;i--){
-      if(sourceCells[i] == NULL)
-         sourceCells[i] = lastGoodCell;
-      else
-         lastGoodCell = sourceCells[i];
-   }
-   /*loop to positive side and replace all invalid cells with the closest good cell*/
-   lastGoodCell = mpiGrid[ids.back()];
-   for(int i = L + VLASOV_STENCIL_WIDTH; i < L + 2*VLASOV_STENCIL_WIDTH; i++){
-      if(sourceCells[i] == NULL)
-         sourceCells[i] = lastGoodCell;
-      else
-         lastGoodCell = sourceCells[i];
-   }
-}
-
-/* This version uses get_face_neighbors_of
+ * Now uses get_face_neighbors_of().
  *
  * @param [in] mpiGrid DCCRG grid object
  * @param [in] pencils pencil data struct
@@ -231,14 +120,13 @@ void computeSpatialSourceCellsForPencilWithFaces(const dccrg::Dccrg<SpatialCell,
 	 }
        }
        if (neighbors.size() == 1) {
-	 if (neighbors.at(0)==INVALID_CELLID || mpiGrid[neighbors.at(0)]->sysBoundaryFlag == sysboundarytype::DO_NOT_COMPUTE) {
+	 if (neighbors[0]==INVALID_CELLID || mpiGrid[neighbors[0]]->sysBoundaryFlag == sysboundarytype::DO_NOT_COMPUTE) {
 	   sourceCells[VLASOV_STENCIL_WIDTH-1-ngh_i] = mpiGrid[ngh_front.front()];
            stringi += " cell " + to_string(ngh_front.front()) + " "; //at position " + to_string(VLASOV_STENCIL_WIDTH-1-ngh_i);
 	 } else {
-	   sourceCells[VLASOV_STENCIL_WIDTH-1-ngh_i] = mpiGrid[neighbors.at(0)];
-           stringi += " cell " + to_string(neighbors.at(0)) + " "; //at position " + to_string(VLASOV_STENCIL_WIDTH-1-ngh_i);
+	   sourceCells[VLASOV_STENCIL_WIDTH-1-ngh_i] = mpiGrid[neighbors[0]];
 	   ngh_front.erase(ngh_front.begin());
-	   ngh_front.push_back(neighbors.at(0));
+	   ngh_front.push_back(neighbors[0]);
 	 }
        } else if (neighbors.size() == 0) {
 	 // At edge of simulation
@@ -246,15 +134,14 @@ void computeSpatialSourceCellsForPencilWithFaces(const dccrg::Dccrg<SpatialCell,
          stringi += " cell " + to_string(ngh_front.front()) + " "; //at position " + to_string(VLASOV_STENCIL_WIDTH-1-ngh_i);
 	 if (mpiGrid[ngh_front.front()]->sysBoundaryFlag==sysboundarytype::NOT_SYSBOUNDARY)
 	   std::cerr<<"error no accepted front face neighbors for non-sysboundary cell"<<std::endl;
-       } else if ( pencils.path.at(iPencil).at(refLvl) < neighbors.size() ) {
-	 if (neighbors.at(pencils.path.at(iPencil).at(refLvl))==INVALID_CELLID || mpiGrid[neighbors.at(pencils.path.at(iPencil).at(refLvl))]->sysBoundaryFlag == sysboundarytype::DO_NOT_COMPUTE) {
+       } else if ( pencils.path[iPencil][refLvl] < neighbors.size() ) {
+	 if (neighbors[pencils.path[iPencil][refLvl]]==INVALID_CELLID || mpiGrid[neighbors[pencils.path[iPencil][refLvl]]]->sysBoundaryFlag == sysboundarytype::DO_NOT_COMPUTE) {
 	   sourceCells[VLASOV_STENCIL_WIDTH-1-ngh_i] = mpiGrid[ngh_front.front()];
            stringi += " cell " + to_string(ngh_front.front()) + " "; //at position " + to_string(VLASOV_STENCIL_WIDTH-1-ngh_i);
 	 } else {
-	   sourceCells[VLASOV_STENCIL_WIDTH-1-ngh_i] = mpiGrid[neighbors.at(pencils.path.at(iPencil).at(refLvl))];
-           stringi += " cell " + to_string(neighbors.at(pencils.path.at(iPencil).at(refLvl))) + " "; //at position " + to_string(VLASOV_STENCIL_WIDTH-1-ngh_i);
+	   sourceCells[VLASOV_STENCIL_WIDTH-1-ngh_i] = mpiGrid[neighbors[pencils.path[iPencil][refLvl]]];
 	   ngh_front.erase(ngh_front.begin());
-	   ngh_front.push_back(neighbors.at(pencils.path.at(iPencil).at(refLvl)));
+	   ngh_front.push_back(neighbors[pencils.path[iPencil][refLvl]]);
 	 }
        }
      } else {
@@ -271,14 +158,13 @@ void computeSpatialSourceCellsForPencilWithFaces(const dccrg::Dccrg<SpatialCell,
 	 }
        }
        if (neighbors.size() == 1) {
-	 if (neighbors.at(0)==INVALID_CELLID || mpiGrid[neighbors.at(0)]->sysBoundaryFlag == sysboundarytype::DO_NOT_COMPUTE) {
+	 if (neighbors[0]==INVALID_CELLID || mpiGrid[neighbors[0]]->sysBoundaryFlag == sysboundarytype::DO_NOT_COMPUTE) {
 	   sourceCells[VLASOV_STENCIL_WIDTH+L+ngh_i] = mpiGrid[ngh_back.front()];
            stringi += " cell " + to_string(ngh_back.front()) + " "; //at position " + to_string(VLASOV_STENCIL_WIDTH+L+ngh_i);
 	 } else {
-	   sourceCells[VLASOV_STENCIL_WIDTH+L+ngh_i] = mpiGrid[neighbors.at(0)];	   
-           stringi += " cell " + to_string(neighbors.at(0)) + " "; //at position " + to_string(VLASOV_STENCIL_WIDTH+L+ngh_i);
+	   sourceCells[VLASOV_STENCIL_WIDTH+L+ngh_i] = mpiGrid[neighbors[0]];	   
 	   ngh_back.erase(ngh_back.begin());
-	   ngh_back.push_back(neighbors.at(0));
+	   ngh_back.push_back(neighbors[0]);
 	 }
        } else if (neighbors.size() == 0) {
 	 // At edge of simulation
@@ -286,15 +172,14 @@ void computeSpatialSourceCellsForPencilWithFaces(const dccrg::Dccrg<SpatialCell,
          stringi += " cell " + to_string(ngh_back.front()) + " "; //at position " + to_string(VLASOV_STENCIL_WIDTH+L+ngh_i);
 	 if (mpiGrid[ngh_back.front()]->sysBoundaryFlag==sysboundarytype::NOT_SYSBOUNDARY)
 	   std::cerr<<"error no accepted back face neighbors for non-sysboundary cell"<<std::endl;
-       } else if ( pencils.path.at(iPencil).at(refLvl) < neighbors.size() ) {
-	 if (neighbors.at(pencils.path.at(iPencil).at(refLvl))==INVALID_CELLID || mpiGrid[neighbors.at(pencils.path.at(iPencil).at(refLvl))]->sysBoundaryFlag == sysboundarytype::DO_NOT_COMPUTE) {
+       } else if ( pencils.path[iPencil][refLvl] < neighbors.size() ) {
+	 if (neighbors[pencils.path[iPencil][refLvl]]==INVALID_CELLID || mpiGrid[neighbors[pencils.path[iPencil][refLvl]]]->sysBoundaryFlag == sysboundarytype::DO_NOT_COMPUTE) {
 	   sourceCells[VLASOV_STENCIL_WIDTH+L+ngh_i] = mpiGrid[ngh_back.front()];
            stringi += " cell " + to_string(ngh_back.front()) + " "; //at position " + to_string(VLASOV_STENCIL_WIDTH+L+ngh_i);
 	 } else {
-	   sourceCells[VLASOV_STENCIL_WIDTH+L+ngh_i] = mpiGrid[neighbors.at(pencils.path.at(iPencil).at(refLvl))];
-           stringi += " cell " + to_string(neighbors.at(pencils.path.at(iPencil).at(refLvl))) + " "; //at position " + to_string(VLASOV_STENCIL_WIDTH+L+ngh_i);
+	   sourceCells[VLASOV_STENCIL_WIDTH+L+ngh_i] = mpiGrid[neighbors[pencils.path[iPencil][refLvl]]];
 	   ngh_back.erase(ngh_back.begin());
-	   ngh_back.push_back(neighbors.at(pencils.path.at(iPencil).at(refLvl)));
+	   ngh_back.push_back(neighbors[pencils.path[iPencil][refLvl]]);
 	 }
        }
      } else {
@@ -339,96 +224,7 @@ void computeSpatialSourceCellsForPencilWithFaces(const dccrg::Dccrg<SpatialCell,
  * Target cells are cells that the pencil writes data into after translation by
  * the vlasov solver. All cells included in the pencil + 1 cells on both ends 
  * are source cells. Boundary cells are not included.
- *
- * @param [in] mpiGrid DCCRG grid object
- * @param [in] pencils pencil data struct
- * @param [in] dimension spatial dimension
- * @param [out] sourceCells pointer to an array of pointers to SpatialCell objects for the target cells
- *
- */
-void computeSpatialTargetCellsForPencils(const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
-                                         setOfPencils& pencils,
-                                         const uint dimension,
-                                         SpatialCell **targetCells){
-
-   int neighborhood = getNeighborhood(dimension,1);
-   
-   uint GID = 0;
-   // Loop over pencils
-   for(uint iPencil = 0; iPencil < pencils.N; iPencil++){
-      
-      int L = pencils.lengthOfPencils[iPencil];
-      vector<CellID> ids = pencils.getIds(iPencil);
-      
-      // Get pointers for each cell id of the pencil
-      for (int i = 0; i < L; ++i) {
-         targetCells[GID + i + 1] = mpiGrid[ids[i]];
-      }
-
-      // Insert pointers for neighbors of ids.front() and ids.back()
-      auto frontNbrPairs = mpiGrid.get_neighbors_of(ids.front(), neighborhood);
-      auto backNbrPairs  = mpiGrid.get_neighbors_of(ids.back(),  neighborhood);
-      
-      vector <CellID> frontNeighborIds;
-      for( const auto nbrPair: *frontNbrPairs ) {
-         if (nbrPair.second.at(dimension) < 0) {
-            frontNeighborIds.push_back(nbrPair.first);
-         }
-      }
-
-      if (frontNeighborIds.size() == 0) {
-	 std::cerr<<"abort frontNeighborIds.size() == 0 at "<<ids.front()<<std::endl;
-	 for( const auto nbrPair: *frontNbrPairs ) {
-	    std::cerr<<ids.front()<<" dim "<<dimension<<" "<<nbrPair.first<<" "<<nbrPair.second.at(0)<<" "<<nbrPair.second.at(1)<<" "<<nbrPair.second.at(2)<<std::endl;
-	 }
-         abort();
-      }
-      
-      vector <CellID> backNeighborIds;
-      for( const auto nbrPair: *backNbrPairs ) {
-         if (nbrPair.second.at(dimension) > 0) {
-            backNeighborIds.push_back(nbrPair.first);
-         }
-      }
-
-      if (backNeighborIds.size() == 0) {
-	 std::cerr<<"abort backNeighborIds.size() == 0 at "<<ids.back()<<std::endl;
-	 for( const auto nbrPair: *backNbrPairs ) {
-	    std::cerr<<ids.back()<<" dim "<<dimension<<" "<<nbrPair.first<<" "<<nbrPair.second.at(0)<<" "<<nbrPair.second.at(1)<<" "<<nbrPair.second.at(2)<<std::endl;
-	 }
-         abort();
-      }
-
-      int refLvl = mpiGrid.get_refinement_level(ids.front());
-
-      if (frontNeighborIds.size() == 1) {
-         targetCells[GID] = mpiGrid[frontNeighborIds.at(0)];
-      } else if ( pencils.path[iPencil][refLvl] < frontNeighborIds.size() ) {
-         targetCells[GID] = mpiGrid[frontNeighborIds.at(pencils.path[iPencil][refLvl])];
-      }
-      
-      refLvl = mpiGrid.get_refinement_level(ids.back());
-
-      if (backNeighborIds.size() == 1) {
-         targetCells[GID + L + 1] = mpiGrid[backNeighborIds.at(0)];
-      } else if ( pencils.path[iPencil][refLvl] < backNeighborIds.size() ) {
-         targetCells[GID + L + 1] = mpiGrid[backNeighborIds.at(pencils.path[iPencil][refLvl])];
-      }
-           
-      // Incerment global id by L + 2 ghost cells.
-      GID += (L + 2);
-   }
-
-   // Remove any boundary cells from the list of valid targets
-   for (uint i = 0; i < GID; ++i) {
-      if (targetCells[i] && targetCells[i]->sysBoundaryFlag != sysboundarytype::NOT_SYSBOUNDARY ) {
-         targetCells[i] = NULL;
-      }
-   }
-
-}
-
-/* This version uses get_face_neighbors_of
+ * Now uses get_face_neighbors_of().
  *
  * @param [in] mpiGrid DCCRG grid object
  * @param [in] pencils pencil data struct
@@ -476,11 +272,9 @@ void computeSpatialTargetCellsForPencilsWithFaces(const dccrg::Dccrg<SpatialCell
 	  }
 	}
 	if (frontNeighborIds.size() == 1) {
-	  targetCells[GID] = mpiGrid[frontNeighborIds.at(0)];
-          stringi += " cell " + to_string(frontNeighborIds.at(0)) + " "; //at position " + to_string(GID);
-	} else if ( pencils.path.at(iPencil).at(refLvl) < frontNeighborIds.size() ) {
-	  targetCells[GID] = mpiGrid[frontNeighborIds.at(pencils.path.at(iPencil).at(refLvl))];
-          stringi += " cell " + to_string(frontNeighborIds.at(pencils.path.at(iPencil).at(refLvl))) + " "; //at position " + to_string(GID);
+	  targetCells[GID] = mpiGrid[frontNeighborIds[0]];
+	} else if ( pencils.path[iPencil][refLvl] < frontNeighborIds.size() ) {
+	  targetCells[GID] = mpiGrid[frontNeighborIds[pencils.path[iPencil][refLvl]]];
 	}
       } else {
 	std::cerr<<"error, found cell without any face neighbors"<<std::endl;
@@ -502,11 +296,9 @@ void computeSpatialTargetCellsForPencilsWithFaces(const dccrg::Dccrg<SpatialCell
 	  }
 	}
 	if (backNeighborIds.size() == 1) {
-	  targetCells[GID + L + 1] = mpiGrid[backNeighborIds.at(0)];
-          stringi += " cell " + to_string(backNeighborIds.at(0)) + " "; //at position " + to_string(GID + L + 1);
-	} else if ( pencils.path.at(iPencil).at(refLvl) < backNeighborIds.size() ) {
-	  targetCells[GID + L + 1] = mpiGrid[backNeighborIds.at(pencils.path.at(iPencil).at(refLvl))];
-          stringi += " cell " + to_string(backNeighborIds.at(pencils.path.at(iPencil).at(refLvl))) + " "; //at position " + to_string(GID + L + 1);
+	  targetCells[GID + L + 1] = mpiGrid[backNeighborIds[0]];
+	} else if ( pencils.path[iPencil][refLvl] < backNeighborIds.size() ) {
+	  targetCells[GID + L + 1] = mpiGrid[backNeighborIds[pencils.path[iPencil][refLvl]]];
 	}
       } else {
 	std::cerr<<"error, found cell without any face neighbors"<<std::endl;
@@ -550,13 +342,6 @@ CellID selectNeighbor(const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry> 
    
    // Iterate through neighbor ids in the positive direction of the chosen dimension,
    // select the neighbor indicated by path, if it is local to this process.
-   /*
-   for (const auto nbrPair : *nbrPairs) {
-      if (nbrPair.second[dimension] == 1) {
-         myNeighbors.push_back(nbrPair.first);
-      }
-   } */
-
    const auto faceNbrs = grid.get_face_neighbors_of(id);
    for (const auto nbr : faceNbrs) {
      if (nbr.second == ((int)dimension + 1)) {
@@ -564,17 +349,6 @@ CellID selectNeighbor(const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry> 
       }
    }
    
-   // int neighborhood = getNeighborhood(dimension,1);   
-   // const auto* nbrPairs = grid.get_neighbors_of(id, neighborhood);
-
-   // // Iterate through neighbor ids in the positive direction of the chosen dimension,
-   // // select the neighbor indicated by path, if it is local to this process.
-   // for (const auto nbrPair : *nbrPairs) {
-   //    if (nbrPair.second[dimension] == 1) {
-   //       myNeighbors.push_back(nbrPair.first);
-   //    }
-   // }
-
    if( myNeighbors.size() == 0 ) {
       return neighbor;
    }
@@ -627,6 +401,7 @@ setOfPencils buildPencilsWithNeighbors( const dccrg::Dccrg<SpatialCell,dccrg::Ca
    CellID id = seedId;
    int startingRefLvl = grid.get_refinement_level(id);
    bool periodic = false;
+   // If this is a new pencil (instead of being a result of a pencil being split
    if( ids.size() == 0 )
       ids.push_back(seedId);
 
@@ -635,6 +410,7 @@ setOfPencils buildPencilsWithNeighbors( const dccrg::Dccrg<SpatialCell,dccrg::Ca
    // use the order or the children of the parent cell to figure out which
    // corner we are in.
 
+   std::array<double, 3> coordinates = grid.get_center(seedId);
    int startingPathSize = path.size();
    auto it = path.end();
    if( startingRefLvl > startingPathSize ) {
@@ -669,13 +445,13 @@ setOfPencils buildPencilsWithNeighbors( const dccrg::Dccrg<SpatialCell,dccrg::Ca
 
          int step = -1;
          
-         if        (myCoords.at(ix) < parentCoords.at(ix) && myCoords.at(iy) < parentCoords.at(iy)) {
+         if        (myCoords[ix] < parentCoords[ix] && myCoords[iy] < parentCoords[iy]) {
             step = 0;
-         } else if (myCoords.at(ix) > parentCoords.at(ix) && myCoords.at(iy) < parentCoords.at(iy)) {
+         } else if (myCoords[ix] > parentCoords[ix] && myCoords[iy] < parentCoords[iy]) {
             step = 1;
-         } else if (myCoords.at(ix) < parentCoords.at(ix) && myCoords.at(iy) > parentCoords.at(iy)) {
+         } else if (myCoords[ix] < parentCoords[ix] && myCoords[iy] > parentCoords[iy]) {
             step = 2;
-         } else if (myCoords.at(ix) > parentCoords.at(ix) && myCoords.at(iy) > parentCoords.at(iy)) {
+         } else if (myCoords[ix] > parentCoords[ix] && myCoords[iy] > parentCoords[iy]) {
             step = 3;
          }
 
@@ -718,8 +494,10 @@ setOfPencils buildPencilsWithNeighbors( const dccrg::Dccrg<SpatialCell,dccrg::Ca
                   stringi += to_string(*k) + " ";
                stringi += "\n";
             }
-            nextNeighbor = selectNeighbor(grid,id,dimension,path.at(refLvl - 1));      
 	
+            nextNeighbor = selectNeighbor(grid,id,dimension,path[refLvl - 1]);      
+            coordinates = grid.get_center(nextNeighbor);
+
          } else {
 	
             if(debug) {
@@ -741,7 +519,8 @@ setOfPencils buildPencilsWithNeighbors( const dccrg::Dccrg<SpatialCell,dccrg::Ca
 	    
                   // This builder continues with neighbor 3
                   path = myPath;
-	    
+		  coordinates = grid.get_center(nextNeighbor);
+
                } else {
 	    
                   // Spawn new builders for neighbors 0,1,2
@@ -755,14 +534,15 @@ setOfPencils buildPencilsWithNeighbors( const dccrg::Dccrg<SpatialCell,dccrg::Ca
 
       } else {
          if(debug) {
-            stringi = "I am cell " + to_string(id) + ". " + " I am on refinement level 0. ";
+            std::cout << "I am cell " << id << ". ";
+            std::cout << " This pencil has reached refinement level 0." << std::endl;
          }
       }// Closes if (refLvl == 0)
 
       // If we found a neighbor, add it to the list of ids for this pencil.
       if(nextNeighbor != INVALID_CELLID) {
          if (debug) {
-            stringi += " Next neighbor to me " + to_string(id) + " is " + to_string(nextNeighbor) + ".\n";
+            std::cout << " Next neighbor to me " << id << " is " << nextNeighbor << std::endl;
          }
 
          if ( std::any_of(endIds.begin(), endIds.end(), [nextNeighbor](uint i){return i == nextNeighbor;}) ||
@@ -779,7 +559,6 @@ setOfPencils buildPencilsWithNeighbors( const dccrg::Dccrg<SpatialCell,dccrg::Ca
    //cout << stringi;
 
    // Get the x,y - coordinates of the pencil (in the direction perpendicular to the pencil)
-   const auto coordinates = grid.get_center(ids[0]);
    double x,y;
    int ix=0,iy=0;
 
@@ -915,21 +694,16 @@ void propagatePencil(
       }
    }
 
-   // Write target data into source data
-   // VLASOV_STENCIL_WIDTH >= nTargetNeighborsPerPencil is required (default 2 >= 1)
-
-   for (uint i = 0; i < lengthOfPencil + 2 * nTargetNeighborsPerPencil; i++) {
-
-      for (uint k = 0; k < WID; ++k) {
-         
-         for (uint planeVector = 0; planeVector < VEC_PER_PLANE; planeVector++) {            
-            int im1 = i - 1; // doing this to shut up compiler warnings
-            values[i_trans_ps_blockv_pencil(planeVector, k, im1, lengthOfPencil)] =
-               targetValues[i_trans_pt_blockv(planeVector, k, im1)];
-            
-         }
-      }
-   }  
+   // Previously we wrote target data into source data, but this is unnecessary
+   // for (uint i = 0; i < lengthOfPencil + 2 * nTargetNeighborsPerPencil; i++) {
+   //    for (uint k = 0; k < WID; ++k) {
+   //       for (uint planeVector = 0; planeVector < VEC_PER_PLANE; planeVector++) {            
+   //          int im1 = i - 1; // doing this to shut up compiler warnings
+   //          values[i_trans_ps_blockv_pencil(planeVector, k, im1, lengthOfPencil)] =
+   //             targetValues[i_trans_pt_blockv(planeVector, k, im1)];
+   //       }
+   //    }
+   // }  
 }
 
 /* Determine which cells in the local DCCRG mesh should be starting points for pencils.
@@ -957,36 +731,30 @@ void getSeedIds(const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGr
 
       auto myIndices = mpiGrid.mapping.get_indices(celli);
       
-#warning This forces single-cell pencils!
-      // FIXME TODO Tuomas look at this! BUG
       bool addToSeedIds = P::transShortPencils;
-      
+      if (addToSeedIds) continue;
+
       // Returns all neighbors as (id, direction-dimension) pair pointers.
       for ( const auto nbrPair : mpiGrid.get_face_neighbors_of(celli) ) {
-         
          if ( nbrPair.second == -((int)dimension + 1) ) {
-
             // Check that the neighbor is not across a periodic boundary by calculating
             // the distance in indices between this cell and its neighbor.
             auto nbrIndices = mpiGrid.mapping.get_indices(nbrPair.first);
-            
+
             // If a neighbor is non-local, across a periodic boundary, or in non-periodic boundary layer 1
             // then we use this cell as a seed for pencils
-            if ( abs ( (int64_t)(myIndices[dimension] - nbrIndices[dimension]) ) >                  
-                 pow(2,mpiGrid.get_maximum_refinement_level()) ||
-                 !mpiGrid.is_local(nbrPair.first) ||
-                 !do_translate_cell(mpiGrid[nbrPair.first]) ) {              
+            if ( abs ( (int64_t)(myIndices[dimension] - nbrIndices[dimension]) ) >
+               pow(2,mpiGrid.get_maximum_refinement_level()) ||
+               !mpiGrid.is_local(nbrPair.first) ||
+               !do_translate_cell(mpiGrid[nbrPair.first]) ) {
                addToSeedIds = true;
             }
-	 }
+         }
       }
-      
 
       if ( addToSeedIds ) {
          seedIds.push_back(celli);
       }
-
-      //cout << endl;
    }
 
    if(debug) {
@@ -1128,22 +896,10 @@ void check_ghost_cells(const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>
       // It is possible that the pencil has already been refined by the pencil building algorithm
       // and is on a higher refinement level than the refinement level of any of the cells it contains
       // due to e.g. process boundaries.
-      int maxPencilRefLvl = pencils.path.at(pencili).size();
+      int maxPencilRefLvl = pencils.path[pencili].size();
       int maxNbrRefLvl = 0;
 
-      
-/*      const auto* frontNeighbors = mpiGrid.get_neighbors_of(ids.front(),neighborhoodId);
-      const auto* backNeighbors  = mpiGrid.get_neighbors_of(ids.back() ,neighborhoodId);
-
-      for (const auto nbrPair: *frontNeighbors) {
-         maxNbrRefLvl = max(maxNbrRefLvl,mpiGrid.get_refinement_level(nbrPair.first));
-      }
-         
-      for (const auto nbrPair: *backNeighbors) {
-         maxNbrRefLvl = max(maxNbrRefLvl,mpiGrid.get_refinement_level(nbrPair.first));
-      }
-*/      
-
+      // loop up to VLASOV_STENCIL_WIDTH face neighbors to check refinement levels
       CellID ngh_front = ids.front();
       CellID ngh_back = ids.back();
       for (int ngh_i = 0; ngh_i < VLASOV_STENCIL_WIDTH; ++ngh_i) {
@@ -1394,7 +1150,7 @@ bool trans_map_1d_amr(const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>&
    // Output vectors for ready pencils
    setOfPencils pencils;
    
-   //#pragma omp parallel
+   #pragma omp parallel
    {
       // Empty vectors for internal use of buildPencilsWithNeighbors. Could be default values but
       // default vectors are complicated. Should overload buildPencilsWithNeighbors like suggested here
@@ -1406,16 +1162,15 @@ bool trans_map_1d_amr(const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>&
       // iterators used in the accumulation
       std::vector<CellID>::iterator ibeg, iend;
       
-      //#pragma omp for schedule(guided)
+      #pragma omp for schedule(guided)
       for (uint i=0; i<seedIds.size(); i++) {
-	//for (int i=seedIds.size()-1; i>=0; --i) {
          cuint seedId = seedIds[i];
          // Construct pencils from the seedIds into a set of pencils.
          thread_pencils = buildPencilsWithNeighbors(mpiGrid, thread_pencils, seedId, ids, dimension, path, seedIds);
       }
       
       // accumulate thread results in global set of pencils
-      //#pragma omp critical
+      #pragma omp critical
       {
          if (P::reversePencilLoop) {
             for (int i=thread_pencils.N-1; i>=0; i--) {
@@ -1437,7 +1192,7 @@ bool trans_map_1d_amr(const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>&
       }
 
       // init cellid_transpose (moved here to take advantage of the omp parallel region)
-      //#pragma omp for collapse(3)
+      #pragma omp for collapse(3)
       for (uint k=0; k<WID; ++k) {
          for (uint j=0; j<WID; ++j) {
             for (uint i=0; i<WID; ++i) {
@@ -1457,6 +1212,7 @@ bool trans_map_1d_amr(const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>&
 
    if(printPencils) printPencilsFunc(pencils,dimension,myRank);
 
+   // Warning: checkPencils fails to understand situations where pencils reach across 3 levels of refinement.
    // if(!checkPencils(mpiGrid, localPropagatedCells, pencils)) {
    //    std::cerr<<"abort checkpencils"<<std::endl;
    //    abort();
@@ -1505,7 +1261,6 @@ bool trans_map_1d_amr(const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>&
    // For targets we need the local cells, plus a padding of 1 cell at both ends
    phiprof::start("computeSpatialTargetCellsForPencils");
    std::vector<SpatialCell*> targetCells(pencils.sumOfLengths + pencils.N * 2 * nTargetNeighborsPerPencil );
-   //computeSpatialTargetCellsForPencils(mpiGrid, pencils, dimension, targetCells.data());
    computeSpatialTargetCellsForPencilsWithFaces(mpiGrid, pencils, dimension, targetCells.data());
    phiprof::stop("computeSpatialTargetCellsForPencils");
    
@@ -1542,8 +1297,6 @@ bool trans_map_1d_amr(const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>&
          // Compute spatial neighbors for the source cells of the pencil. In
          // source cells we have a wider stencil and take into account boundaries.
          std::vector<SpatialCell*> sourceCells(sourceLength);
-         //                std::vector<CellID> sourceCellIds(sourceLength);
-         //computeSpatialSourceCellsForPencil(mpiGrid, pencils, pencili, dimension, sourceCells.data());
          computeSpatialSourceCellsForPencilWithFaces(mpiGrid, pencils, pencili, dimension, sourceCells.data());
          pencilSourceCells.push_back(sourceCells);
 
@@ -1597,8 +1350,9 @@ bool trans_map_1d_amr(const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>&
 
                         // Unpack the vector data
                         Realf vector[VECL];
-                        pencilSourceVecData.at(pencili)[i_trans_ps_blockv_pencil(planeVector, k, icell - 1, L)].store(vector);
-                        
+                        //pencilSourceVecData[pencili][i_trans_ps_blockv_pencil(planeVector, k, icell - 1, L)].store(vector);
+                        pencilTargetValues[pencili][i_trans_pt_blockv(planeVector, k, icell - 1)].store(vector);
+
                         // Loop over 3rd (vectorized) vspace dimension
                         for (uint iv = 0; iv < VECL; iv++) {
 
@@ -1800,7 +1554,7 @@ void update_remote_mapping_contribution_amr(
       // We need the default for 1 to 1 communications
       if(ccell) {
          for (uint i = 0; i < MAX_NEIGHBORS_PER_DIM; ++i) {
-            ccell->neighbor_block_data.at(i) = ccell->get_data(popID);
+            ccell->neighbor_block_data[i] = ccell->get_data(popID);
             ccell->neighbor_number_of_blocks[i] = 0;
          }
       }
@@ -1812,7 +1566,7 @@ void update_remote_mapping_contribution_amr(
       if(ccell) {
          // Initialize number of blocks to 0 and neighbor block data pointer to the local block data pointer
          for (uint i = 0; i < MAX_NEIGHBORS_PER_DIM; ++i) {
-            ccell->neighbor_block_data.at(i) = ccell->get_data(popID);
+            ccell->neighbor_block_data[i] = ccell->get_data(popID);
             ccell->neighbor_number_of_blocks[i] = 0;
          }
       }

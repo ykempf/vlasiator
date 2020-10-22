@@ -396,7 +396,7 @@ namespace projects {
 	       if (P::isRestart == false) {
 		  bgFieldDipole.initialize(-8e15 *this->dipoleScalingFactor, 0.0, 0.0, 0.0, 0.0 );
 		  setPerturbedField(bgFieldDipole, perBGrid);
-		  bgVectorDipole.initialize(8e15 *this->dipoleScalingFactor, 0.0, 0.0, 0.0, this->dipoleTiltPhi*3.14159/180., this->dipoleTiltTheta*3.14159/180., this->dipoleXFull, this->dipoleXZero, this->dipoleInflowB[0], this->dipoleInflowB[1], this->dipoleInflowB[2]);
+		  bgVectorDipole.initialize(8e15 *this->dipoleScalingFactor, 0.0, 0.0, 0.0, this->dipoleTiltPhi*M_PI/180., this->dipoleTiltTheta*M_PI/180., this->dipoleXFull, this->dipoleXZero, this->dipoleInflowB[0], this->dipoleInflowB[1], this->dipoleInflowB[2]);
 		  setPerturbedField(bgVectorDipole, perBGrid, true);
 	       }
                break;              
@@ -631,10 +631,10 @@ namespace projects {
      if(myRank == MASTER_RANK) std::cout << "Maximum refinement level is " << mpiGrid.mapping.get_maximum_refinement_level() << std::endl;
       
      // Leave boundary cells and a bit of safety margin
-     const int bw = 2* (VLASOV_STENCIL_WIDTH+P::neighborhoodSizeAdd);
-     const int bw2 = 2*(bw + VLASOV_STENCIL_WIDTH+P::neighborhoodSizeAdd);
-     const int bw3 = 2*(bw2 + VLASOV_STENCIL_WIDTH+P::neighborhoodSizeAdd);
-     const int bw4 = 2*(bw3 + VLASOV_STENCIL_WIDTH+P::neighborhoodSizeAdd);
+     const int bw = 2* (globalflags::AMRstencilWidth);
+     const int bw2 = 2*(bw + globalflags::AMRstencilWidth);
+     const int bw3 = 2*(bw2 + globalflags::AMRstencilWidth);
+     const int bw4 = 2*(bw3 + globalflags::AMRstencilWidth);
 
      // Calculate regions for refinement
      if (P::amrMaxSpatialRefLevel > 0) {

@@ -71,6 +71,8 @@ Real P::fieldSolverMaxCFL = NAN;
 Real P::fieldSolverMinCFL = NAN;
 uint P::fieldSolverSubcycles = 1;
 
+bool P::transShortPencils = true;
+
 uint P::tstep = 0;
 uint P::tstep_min = 0;
 uint P::tstep_max = 0;
@@ -177,7 +179,6 @@ bool Parameters::addParameters(){
 
    Readparameters::add("transShortPencils", "if true, use one-cell pencils", true);
    Readparameters::add("reversePencilLoop", "if true, go through pencils in reverse order", false);
-   Readparameters::add("neighborhoodSizeAdd", "extra depth to neighborhood sizes in trans", 0);
    
    Readparameters::add("propagate_field","Propagate magnetic field during the simulation",true);
    Readparameters::add("propagate_vlasov_acceleration","Propagate distribution functions during the simulation in velocity space. If false, it is propagated with zero length timesteps.",true);
@@ -332,6 +333,7 @@ bool Parameters::getParameters(){
    Readparameters::get("io.write_restart_stripe_factor", P::restartStripeFactor);
    Readparameters::get("io.restart_write_path", P::restartWritePath);
    Readparameters::get("io.write_as_float", P::writeAsFloat);
+   Readparameters::get("transShortPencils", P::transShortPencils);
    
    // Checks for validity of io and restart parameters
    int myRank;
