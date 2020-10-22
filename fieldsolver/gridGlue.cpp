@@ -202,7 +202,7 @@ void feedMomentsIntoFsGrid(dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& 
 
 
 
-  if (P::amrMaxSpatialRefLevel>0 && false) {
+  if (P::amrMaxSpatialRefLevel>0) {
 
     /*----------------------Filtering------------------------*/
     phiprof::start("BoxCar Filtering");
