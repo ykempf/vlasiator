@@ -334,6 +334,7 @@ namespace spatial_cell {
                                                                                * Enumerated in the sysboundarytype namespace's enum.*/
       uint sysBoundaryLayer;                                                  /**< Layers counted from closest systemBoundary. If 0 then it has not 
                                                                                * been computed. First sysboundary layer is layer 1.*/
+      bool vlasovBoundaryCommunicateBlocks;
       int sysBoundaryLayerNew;
       std::vector<vmesh::GlobalID> velocity_block_with_content_list;          /**< List of existing cells with content, only up-to-date after
                                                                                * call to update_has_content().*/

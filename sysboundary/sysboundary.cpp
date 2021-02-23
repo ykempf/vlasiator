@@ -629,6 +629,100 @@ bool SysBoundary::applyInitialState(
    return success;
 }
 
+
+void flagSpatialCellsForAmrCommunication(const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid) {
+   // Only flag/unflag cells if AMR is active
+   if (mpiGrid.get_maximum_refinement_level()==0) return;
+   
+   auto localCells = mpiGrid.get_cells();
+   // Set flags: loop over local cells 
+   int flag=0;
+   int numcells=0;
+   #pragma omp parallel for schedule(dynamic)
+   for (uint i=0; i<localCells.size(); i++) {
+      mpiGrid[localCells[i]]->vlasovBoundaryCommunicateBlocks = true;
+      auto c=localCells[i];
+      SpatialCell *ccell = mpiGrid[c];
+      if (!ccell) continue;
+      numcells++;
+      // Start with false
+      ccell->vlasovBoundaryCommunicateBlocks = false;
+      
+      // In neighborhood for each dimension, check iteratively if any neighbors up to VLASOV_STENCIL_WIDTH distance away are remote
+      
+      const std::vector<std::pair<CellID,std::array<int, 4>>>* NbrPairs;
+      int iSrcStart;
+      if(ccell->sysBoundaryLayer == 1) {
+         NbrPairs = mpiGrid.get_neighbors_of(c, SYSBOUNDARIES_NEIGHBORHOOD_ID);
+         iSrcStart=0;
+      } else if (ccell->sysBoundaryLayer == 2) {
+         NbrPairs = mpiGrid.get_neighbors_of(c, SYSBOUNDARIES_EXTENDED_NEIGHBORHOOD_ID);
+         iSrcStart=1;
+      } else {
+         continue; // other layers don't need to communicate, keeping false is sufficient.
+      }
+      
+      for(uint dimension=0; dimension<3; dimension++) {
+         if (ccell->vlasovBoundaryCommunicateBlocks == true) break; // one of the dimensions triggered, that's enough for us
+         
+         // Create list of unique distances in the negative direction from the first cell in pencil
+         std::set< int > distancesplus;
+         std::set< int > distancesminus;
+         for (const auto nbrPair : *NbrPairs) {
+            if(nbrPair.second[dimension] > 0) {
+               distancesplus.insert(nbrPair.second[dimension]);
+            }
+            if(nbrPair.second[dimension] < 0) {
+               distancesminus.insert(-nbrPair.second[dimension]);
+            }
+         }
+
+         int iSrc = iSrcStart;
+         // Iterate through positive distances starting from the smallest distance.
+         for (auto it = distancesplus.begin(); it != distancesplus.end(); ++it) {
+            if (ccell->vlasovBoundaryCommunicateBlocks == true) iSrc = -1;
+            if (iSrc < 0) break; // found enough elements
+            // Check all neighbors at distance *it
+            for (const auto nbrPair : *NbrPairs) {
+               int distanceInRefinedCells = nbrPair.second[dimension];
+               if (distanceInRefinedCells == *it) {
+                  if (!mpiGrid.is_local(nbrPair.first)) {
+                     ccell->vlasovBoundaryCommunicateBlocks = true;
+                     flag++;
+                     break;
+                  }
+               }
+            } // end loop over neighbors
+            iSrc--;
+         } // end loop over positive distances
+
+         iSrc = iSrcStart;
+         // Iterate through negtive distances starting from the smallest distance.
+         for (auto it = distancesminus.begin(); it != distancesminus.end(); ++it) {
+            if (ccell->vlasovBoundaryCommunicateBlocks == false) iSrc = -1;
+            if (iSrc < 0) break; // found enough elements
+            // Check all neighbors at distance *it
+            for (const auto nbrPair : *NbrPairs) {
+               int distanceInRefinedCells = nbrPair.second[dimension];
+               if (distanceInRefinedCells == *it) {
+                  if (!mpiGrid.is_local(nbrPair.first)) {
+                     ccell->vlasovBoundaryCommunicateBlocks = true;
+                     flag++;
+                     break;
+                  }
+               }
+            } // end loop over neighbors
+            iSrc--;
+         } // end loop over negative distances
+      } // end loop over dimensions
+
+   } // end loop over local propagated cells
+   std::cerr<<"Numcells "<<numcells<<" flags "<<flag<<std::endl;
+
+   return;
+}
+
+
 /*!\brief Apply the Vlasov system boundary conditions to all system boundary cells at time t.
  *
  * Loops through all SysBoundaryConditions and calls the corresponding vlasovBoundaryCondition() function.
@@ -649,7 +743,7 @@ void SysBoundary::applySysBoundaryVlasovConditions(
    if(sysBoundaries.size()==0) {
       return; //no system boundaries
    }
-
+   
    /*Transfer along boundaries*/
    // First the small stuff without overlapping in an extended neighbourhood:
    #warning TODO This now communicates in the wider neighbourhood for both layers, could be reduced to smaller neighbourhood for layer 1, larger neighbourhood for layer 2.
@@ -658,6 +752,8 @@ void SysBoundary::applySysBoundaryVlasovConditions(
       Transfer::POP_METADATA|
       Transfer::CELL_SYSBOUNDARYFLAG,true);
    mpiGrid.update_copies_of_remote_neighbors(SYSBOUNDARIES_EXTENDED_NEIGHBORHOOD_ID);
+   
+   flagSpatialCellsForAmrCommunication(mpiGrid);
    
    // Loop over existing particle species
    for (uint popID=0; popID<getObjectWrapper().particleSpecies.size(); ++popID) {
@@ -679,7 +775,7 @@ void SysBoundary::applySysBoundaryVlasovConditions(
       vector<CellID> localCells;
       getBoundaryCellList(mpiGrid,mpiGrid.get_local_cells_not_on_process_boundary(SYSBOUNDARIES_EXTENDED_NEIGHBORHOOD_ID),localCells);
    
-      #pragma omp parallel for
+      #pragma omp parallel for schedule(dynamic)
       for (uint i=0; i<localCells.size(); i++) {
          cuint sysBoundaryType = mpiGrid[localCells[i]]->sysBoundaryFlag;
          this->getSysBoundary(sysBoundaryType)->vlasovBoundaryCondition(mpiGrid,localCells[i],popID,calculate_V_moments);
@@ -701,7 +797,7 @@ void SysBoundary::applySysBoundaryVlasovConditions(
       phiprof::start(timer);
       vector<CellID> boundaryCells;
       getBoundaryCellList(mpiGrid,mpiGrid.get_local_cells_on_process_boundary(SYSBOUNDARIES_EXTENDED_NEIGHBORHOOD_ID),boundaryCells);
-      #pragma omp parallel for
+      #pragma omp parallel for schedule(dynamic)
       for (uint i=0; i<boundaryCells.size(); i++) {
          cuint sysBoundaryType = mpiGrid[boundaryCells[i]]->sysBoundaryFlag;
          this->getSysBoundary(sysBoundaryType)->vlasovBoundaryCondition(mpiGrid, boundaryCells[i],popID,calculate_V_moments);
@@ -717,12 +813,21 @@ void SysBoundary::applySysBoundaryVlasovConditions(
       phiprof::start(timer);
       mpiGrid.wait_remote_neighbor_copy_update_sends();
       phiprof::stop(timer);
-
+   } // for-loop over populations
+   
+   // reset flag
+   vector<CellID> localCells = mpiGrid.get_cells();
+   #pragma omp parallel for
+   for (uint i=0; i<localCells.size(); i++) {
+      mpiGrid[localCells[i]]->vlasovBoundaryCommunicateBlocks = true;
+   }
+   
+   // Redo those now that we're done with the flags
+   for (uint popID=0; popID<getObjectWrapper().particleSpecies.size(); ++popID) {
       // WARNING Blocks are changed but lists not updated now, if you need to use/communicate them before the next update is done, add an update here.
       // reset lists in smaller default neighborhood
       updateRemoteVelocityBlockLists(mpiGrid, popID);
-
-   } // for-loop over populations
+   }
 }
 
 /*! Get a pointer to the SysBoundaryCondition of given index.

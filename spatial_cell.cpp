@@ -38,6 +38,8 @@ namespace spatial_cell {
    bool SpatialCell::mpiTransferAtSysBoundaries = false;
 
    SpatialCell::SpatialCell() {
+      this->vlasovBoundaryCommunicateBlocks = true;
+      
       // Block list and cache always have room for all blocks
       this->sysBoundaryLayer=0; // Default value, layer not yet initialized
       for (unsigned int i=0; i<WID3; ++i) null_block_data[i] = 0.0;
@@ -75,6 +77,7 @@ namespace spatial_cell {
    SpatialCell::SpatialCell(const SpatialCell& other):
      sysBoundaryFlag(other.sysBoundaryFlag),
      sysBoundaryLayer(other.sysBoundaryLayer),
+     vlasovBoundaryCommunicateBlocks(other.vlasovBoundaryCommunicateBlocks),
      velocity_block_with_content_list(other.velocity_block_with_content_list),
      velocity_block_with_no_content_list(other.velocity_block_with_no_content_list),
      initialized(other.initialized),
@@ -590,7 +593,7 @@ namespace spatial_cell {
 
       // create datatype for actual data if we are in the first two 
       // layers around a boundary, or if we send for the whole system
-      if (this->mpiTransferEnabled && (SpatialCell::mpiTransferAtSysBoundaries==false || this->sysBoundaryLayer ==1 || this->sysBoundaryLayer ==2 )) {
+      if (this->mpiTransferEnabled && (SpatialCell::mpiTransferAtSysBoundaries==false || this->vlasovBoundaryCommunicateBlocks)) {
          //add data to send/recv to displacement and block length lists
          if ((SpatialCell::mpi_transfer_type & Transfer::VEL_BLOCK_LIST_STAGE1) != 0) {
             //first copy values in case this is the send operation
