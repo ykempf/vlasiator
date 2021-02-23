@@ -644,7 +644,10 @@ void flagSpatialCellsForAmrCommunication(const dccrg::Dccrg<SpatialCell,dccrg::C
       auto c=localCells[i];
       SpatialCell *ccell = mpiGrid[c];
       if (!ccell) continue;
-      numcells++;
+      #pragma omp critical
+      {
+         numcells++;
+      }
       // Start with false
       ccell->vlasovBoundaryCommunicateBlocks = false;
       
@@ -688,7 +691,10 @@ void flagSpatialCellsForAmrCommunication(const dccrg::Dccrg<SpatialCell,dccrg::C
                if (distanceInRefinedCells == *it) {
                   if (!mpiGrid.is_local(nbrPair.first)) {
                      ccell->vlasovBoundaryCommunicateBlocks = true;
-                     flag++;
+                     #pragma omp critical
+                     {
+                        flag++;
+                     }
                      break;
                   }
                }
@@ -707,7 +713,11 @@ void flagSpatialCellsForAmrCommunication(const dccrg::Dccrg<SpatialCell,dccrg::C
                if (distanceInRefinedCells == *it) {
                   if (!mpiGrid.is_local(nbrPair.first)) {
                      ccell->vlasovBoundaryCommunicateBlocks = true;
-                     flag++;
+                     ccell->vlasovBoundaryCommunicateBlocks = true;
+                     #pragma omp critical
+                     {
+                        flag++;
+                     }
                      break;
                   }
                }
