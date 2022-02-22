@@ -1421,7 +1421,7 @@ namespace SBC {
 
          // Globally reduce whether any node still needs to be picked up and traced onwards
          std::vector<int> sumNodeNeedsContinuedTracing(nodes.size(), 0);
-         std::vector<std::array<Real, 3>> sumNodeTracingCoordinates(nodes.size());
+         std::vector<std::array<Real, 3>> sumNodeTracingCoordinates(nodes.size(), {0,0,0});
          MPI_Allreduce(nodeNeedsContinuedTracing.data(), sumNodeNeedsContinuedTracing.data(), nodes.size(), MPI_INT, MPI_SUM, MPI_COMM_WORLD);
          if(sizeof(Real) == sizeof(double)) {
             MPI_Allreduce(nodeTracingCoordinates.data(), sumNodeTracingCoordinates.data(), 3*nodes.size(), MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
@@ -1429,20 +1429,20 @@ namespace SBC {
             MPI_Allreduce(nodeTracingCoordinates.data(), sumNodeTracingCoordinates.data(), 3*nodes.size(), MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
          }
          for(uint n=0; n<nodes.size(); n++) {
-            if(sumNodeNeedsContinuedTracing[n] > 0) {
+            if(sumNodeNeedsContinuedTracing.at(n) > 0) {
                anyNodeNeedsTracing=true;
-               nodeNeedsContinuedTracing[n] = 1;
+               nodeNeedsContinuedTracing.at(n) = 1;
 
                // Update that nodes' tracing coordinates
-               nodeTracingCoordinates[n][0] = sumNodeTracingCoordinates[n][0] / sumNodeNeedsContinuedTracing[n];
-               nodeTracingCoordinates[n][1] = sumNodeTracingCoordinates[n][1] / sumNodeNeedsContinuedTracing[n];
-               nodeTracingCoordinates[n][2] = sumNodeTracingCoordinates[n][2] / sumNodeNeedsContinuedTracing[n];
+               nodeTracingCoordinates.at(n).at(0) = sumNodeTracingCoordinates.at(n).at(0) / sumNodeNeedsContinuedTracing.at(n);
+               nodeTracingCoordinates.at(n).at(1) = sumNodeTracingCoordinates.at(n).at(1) / sumNodeNeedsContinuedTracing.at(n);
+               nodeTracingCoordinates.at(n).at(2) = sumNodeTracingCoordinates.at(n).at(2) / sumNodeNeedsContinuedTracing.at(n);
             }
          }
 
       } while(anyNodeNeedsTracing);
       
-      std::vector<Real> reducedNodeDistance(nodes.size());
+      std::vector<Real> reducedNodeDistance(nodes.size(), 0);
       if(sizeof(Real) == sizeof(double)) {
          MPI_Allreduce(nodeDistance.data(), reducedNodeDistance.data(), nodes.size(), MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
       } else {
@@ -1450,14 +1450,14 @@ namespace SBC {
       }
 
       // Reduce upmapped magnetic field to be consistent on all nodes
-      std::vector<Real> sendUpmappedB(3 * nodes.size());
-      std::vector<Real> reducedUpmappedB(3 * nodes.size());
+      std::vector<Real> sendUpmappedB(3 * nodes.size(), 0);
+      std::vector<Real> reducedUpmappedB(3 * nodes.size(), 0);
       // Likewise, reduce upmapped coordinates
-      std::vector<Real> sendxMapped(3 * nodes.size());
-      std::vector<Real> reducedxMapped(3 * nodes.size());
+      std::vector<Real> sendxMapped(3 * nodes.size(), 0);
+      std::vector<Real> reducedxMapped(3 * nodes.size(), 0);
       // And coupling rank number
-      std::vector<int> sendCouplingNum(nodes.size());
-      std::vector<int> reducedCouplingNum(nodes.size());
+      std::vector<int> sendCouplingNum(nodes.size(), 0);
+      std::vector<int> reducedCouplingNum(nodes.size(), 0);
       for(uint n=0; n<nodes.size(); n++) {
          Node& no = nodes.at(n);
          // Discard false hits from cells that are further out from the node
