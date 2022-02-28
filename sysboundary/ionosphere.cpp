@@ -681,10 +681,10 @@ namespace SBC {
 
       // Calculate Hall and Pedersen conductivity coefficient based on charge carrier density
       const Real Bval = 5e-5; // TODO: Hardcoded B strength here?
-      const Real NO_gyroFreq = physicalconstants::CHARGE * Bval / (31*physicalconstants::MASS_PROTON); // Ion (NO+) gyration frequency
+      const Real NO_gyroFreq = physicalconstants::CHARGE * Bval / (30*physicalconstants::MASS_PROTON); // Ion (NO+) gyration frequency
       const Real e_gyroFreq = physicalconstants::CHARGE * Bval / (physicalconstants::MASS_ELECTRON); // Elctron gyration frequency
       for(int h=0; h<numAtmosphereLevels; h++) {
-         Real sigma_i = physicalconstants::CHARGE*physicalconstants::CHARGE / ((31. * physicalconstants::MASS_PROTON)  * atmosphere.at(h).nui);
+         Real sigma_i = physicalconstants::CHARGE*physicalconstants::CHARGE / ((30. * physicalconstants::MASS_PROTON)  * atmosphere.at(h).nui);
          Real sigma_e = physicalconstants::CHARGE*physicalconstants::CHARGE / (physicalconstants::MASS_ELECTRON  * atmosphere.at(h).nue);
          atmosphere.at(h).pedersencoeff = sigma_i * (atmosphere.at(h).nui * atmosphere.at(h).nui)/(atmosphere.at(h).nui*atmosphere.at(h).nui + NO_gyroFreq*NO_gyroFreq)
             + sigma_e *(atmosphere.at(h).nue * atmosphere.at(h).nue)/(atmosphere.at(h).nue*atmosphere.at(h).nue + e_gyroFreq*e_gyroFreq);
