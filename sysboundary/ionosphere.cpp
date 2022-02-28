@@ -1398,8 +1398,8 @@ namespace SBC {
                   }
    
                   if(
-                     technicalGrid.get( fsgridCell.at(0), fsgridCell.at(1), fsgridCell.at(2))->sysBoundaryFlag == sysboundarytype::NOT_SYSBOUNDARY
-                     && x.at(0)*x.at(0)+x.at(1)*x.at(1)+x.at(2)*x.at(2) > Ionosphere::downmapRadius*Ionosphere::downmapRadius*physicalconstants::R_E*physicalconstants::R_E
+                     technicalGrid.get( fsgridCell[0], fsgridCell[1], fsgridCell[2])->sysBoundaryFlag == sysboundarytype::NOT_SYSBOUNDARY
+                     && x[0]*x[0]+x[1]*x[1]+x[2]*x[2] > Ionosphere::downmapRadius*Ionosphere::downmapRadius
                   ) {
    
                      // Store the cells mapped coordinates and upmapped magnetic field
@@ -2655,7 +2655,7 @@ namespace SBC {
       Readparameters::add("ionosphere.centerX", "X coordinate of ionosphere center (m)", 0.0);
       Readparameters::add("ionosphere.centerY", "Y coordinate of ionosphere center (m)", 0.0);
       Readparameters::add("ionosphere.centerZ", "Z coordinate of ionosphere center (m)", 0.0);
-      Readparameters::add("ionosphere.radius", "Radius of the inner simulation boundary (m).", 1.0e7);
+      Readparameters::add("ionosphere.radius", "Radius of the inner simulation boundary (unit is assumed to be R_E if value < 1000, otherwise m).", 1.0e7);
       Readparameters::add("ionosphere.innerRadius", "Radius of the ionosphere model (m).", physicalconstants::R_E + 100e3);
       Readparameters::add("ionosphere.geometry", "Select the geometry of the ionosphere, 0: inf-norm (diamond), 1: 1-norm (square), 2: 2-norm (circle, DEFAULT), 3: 2-norm cylinder aligned with y-axis, use with polar plane/line dipole.", 2);
       Readparameters::add("ionosphere.precedence", "Precedence value of the ionosphere system boundary condition (integer), the higher the stronger.", 2);
@@ -2667,7 +2667,7 @@ namespace SBC {
       Readparameters::addComposing("ionosphere.refineMaxLatitude", "Refine the grid equatorwards of the given latitude. Multiple of these lines can be given for successive refinement, paired up with refineMinLatitude lines.");
       Readparameters::add("ionosphere.atmosphericModelFile", "Filename to read the MSIS atmosphere data from (default: MSIS.dat)", std::string("MSIS.dat"));
       Readparameters::add("ionosphere.recombAlpha", "Ionospheric recombination parameter (m^3/s)", 2.4e-13); // Default value from Schunck & Nagy, Table 8.5
-      Readparameters::add("ionosphere.ionizationModel", "Ionospheric electron production rate model. Options are: Rees1963, Rees1989 (default), SergienkoIvanov.", std::string("Rees1989"));
+      Readparameters::add("ionosphere.ionizationModel", "Ionospheric electron production rate model. Options are: Rees1963, Rees1989, SergienkoIvanovi (default).", std::string("SergienkoIvanov"));
       Readparameters::add("ionosphere.F10_7", "Solar 10.7 cm radio flux (sfu = 10^{-22} W/m^2)", 100);
       Readparameters::add("ionosphere.backgroundIonisation", "Background ionoisation due to cosmic rays (mho)", 0.5);
       Readparameters::add("ionosphere.solverMaxIterations", "Maximum number of iterations for the conjugate gradient solver", 2000);
@@ -2682,7 +2682,7 @@ namespace SBC {
       Readparameters::add("ionosphere.earthAngularVelocity", "Angular velocity of inner boundary convection, in rad/s", 7.2921159e-5);
       Readparameters::add("ionosphere.plasmapauseL", "L-shell at which the plasmapause resides (for corotation)", 5.);
       Readparameters::add("ionosphere.fieldLineTracer", "Field line tracing method to use for coupling ionosphere and magnetosphere (options are: Euler, BS)", std::string("Euler"));
-      Readparameters::add("ionosphere.downmapRadius", "Radius (in RE) from which FACs are coupled down into the ionosphere. If -1: use inner boundary clls.", -1.);
+      Readparameters::add("ionosphere.downmapRadius", "Radius from which FACs are coupled down into the ionosphere. Units are assumed to be RE if value < 1000, otherwise m. If -1: use inner boundary cells.", -1.);
       Readparameters::add("ionosphere.unmappedNodeRho", "Electron density of ionosphere nodes that do not connect to the magnetosphere domain.", 1e4);
       Readparameters::add("ionosphere.unmappedNodeTe", "Electron temperature of ionosphere nodes that do not connect to the magnetosphere domain.", 1e6);
       Readparameters::add("ionosphere.couplingTimescale", "Magnetosphere->Ionosphere coupling timescale (seconds, 0=immediate coupling", 1.);
@@ -2697,7 +2697,6 @@ namespace SBC {
          Readparameters::add(pop + "_ionosphere.VX0", "Bulk velocity of ionospheric distribution function in X direction (m/s)", 0.0);
          Readparameters::add(pop + "_ionosphere.VY0", "Bulk velocity of ionospheric distribution function in X direction (m/s)", 0.0);
          Readparameters::add(pop + "_ionosphere.VZ0", "Bulk velocity of ionospheric distribution function in X direction (m/s)", 0.0);
-         Readparameters::add(pop + "_ionosphere.fluffiness", "Inertia of boundary smoothing when copying neighbour's moments and velocity distributions (0=completely constant boundaries, 1=neighbours are interpolated immediately).", 0);
       }
    }
 
@@ -2707,6 +2706,10 @@ namespace SBC {
       Readparameters::get("ionosphere.centerY", this->center[1]);
       Readparameters::get("ionosphere.centerZ", this->center[2]);
       Readparameters::get("ionosphere.radius", this->radius);
+      if(radius < 1000.) {
+         // If radii are < 1000, assume they are given in R_E.
+         radius *= physicalconstants::R_E;
+      }
       Readparameters::get("ionosphere.geometry", this->geometry);
       Readparameters::get("ionosphere.precedence", this->precedence);
       uint reapply;
@@ -2742,6 +2745,12 @@ namespace SBC {
       Readparameters::get("ionosphere.couplingTimescale",couplingTimescale);
       Readparameters::get("ionosphere.couplingInterval", couplingInterval);
       Readparameters::get("ionosphere.downmapRadius",downmapRadius);
+      if(downmapRadius < 1000.) {
+         downmapRadius *= physicalconstants::R_E;
+      }
+      if(downmapRadius < radius) {
+         downmapRadius = radius;
+      }
       Readparameters::get("ionosphere.unmappedNodeRho", unmappedNodeRho);
       Readparameters::get("ionosphere.unmappedNodeTe",  unmappedNodeTe);
       Readparameters::get("ionosphere.tracerTolerance", eps);
@@ -2777,7 +2786,6 @@ namespace SBC {
         Readparameters::get(pop + "_ionosphere.VX0", sP.V0[0]);
         Readparameters::get(pop + "_ionosphere.VY0", sP.V0[1]);
         Readparameters::get(pop + "_ionosphere.VZ0", sP.V0[2]);
-        Readparameters::get(pop + "_ionosphere.fluffiness", sP.fluffiness);
         Readparameters::get(pop + "_ionosphere.T", sP.T);
 
         if(sP.T == 0) {
@@ -3595,7 +3603,7 @@ namespace SBC {
 
       Real radius = vector_length(r);
       if(radius/physicalconstants::R_E <= Ionosphere::plasmapauseL * (r[0]*r[0] + r[1]*r[1]) / (radius*radius)) {
-         E += cross_product(vn, B);
+         E -= cross_product(vn, B);
       }
 
       const Real Bsqr = B[0]*B[0] + B[1]*B[1] + B[2]*B[2];
@@ -3639,8 +3647,6 @@ namespace SBC {
       // TODO: The moments can also be analytically calculated from ionosphere parameters.
       // Maybe that's faster?
       calculateCellMoments(mpiGrid[cellID], true, true);
-
-      //this->vlasovBoundaryFluffyCopyFromAllCloseNbrs(mpiGrid, cellID, popID, calculate_V_moments, this->speciesParams.at(popID).fluffiness);
 
       phiprof::stop("vlasovBoundaryCondition (Ionosphere)");
    }
