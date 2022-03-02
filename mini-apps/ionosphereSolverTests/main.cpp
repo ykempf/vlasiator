@@ -77,6 +77,7 @@ int main(int argc, char** argv) {
    std::string gaugeFixString="pole";
    std::string inputFile;
    std::vector<std::pair<double, double>> refineExtents;
+   Ionosphere::solverMaxIterations = 1000;
    bool doPrecondition = true;
    if(argc ==1) {
       cerr << "Running with default options. Run main --help to see available settings." << endl;
@@ -112,6 +113,10 @@ int main(int argc, char** argv) {
          inputFile = argv[++i];
          continue;
       }
+      if(!strcmp(argv[i], "-maxIter")) {
+         Ionosphere::solverMaxIterations = atoi(argv[++i]);
+         continue;
+      }
       cerr << "Unknown command line option \"" << argv[i] << "\"" << endl;
       cerr << endl;
       cerr << "main [-N num] [-r <lat0> <lat1>] [-sigma (identity|random|35|53|file)] [-fac (constant|dipole|quadrupole|file)] [-facfile <filename>] [-gaugeFix equator|pole|integral|none] [-np]" << endl;
@@ -124,6 +129,7 @@ int main(int argc, char** argv) {
       cerr << "            ponly    - Constant pedersen conductivitu"<< endl;
       cerr << "            35 -       Sigma_H = 3, Sigma_P = 5" << endl;
       cerr << "            53 -       Sigma_H = 5, Sigma_P = 3" << endl;
+      cerr << "            100 -      Sigma_H = 100, Sigma_P=20" << endl;
       cerr << "            file -     Read from vlsv input file " << endl;
       cerr << " -fac:      FAC pattern on the sphere (default: constant)" << endl;
       cerr << "            options are:" << endl;
@@ -134,6 +140,7 @@ int main(int argc, char** argv) {
       cerr << " -infile:   Read FACs from this input file" << endl;
       cerr << " -gaugeFix: Solver gauge fixing method (default: pole)" << endl;
       cerr << " -np:       DON'T use the matrix preconditioner (default: do)" << endl;
+      cerr << " -maxIter:  Maximum number of solver iterations" << endl;
       
       return 1;
    }
@@ -150,6 +157,12 @@ int main(int argc, char** argv) {
    } else if (gaugeFixString == "equator") {
       ionosphereGrid.gaugeFixing = SphericalTriGrid::Equator;
       Ionosphere::shieldingLatitude = 10.;
+   } else if (gaugeFixString == "equator40") {
+      ionosphereGrid.gaugeFixing = SphericalTriGrid::Equator;
+      Ionosphere::shieldingLatitude = 40.;
+   } else if (gaugeFixString == "equator60") {
+      ionosphereGrid.gaugeFixing = SphericalTriGrid::Equator;
+      Ionosphere::shieldingLatitude = 60.;
    } else if (gaugeFixString == "none") {
       ionosphereGrid.gaugeFixing = SphericalTriGrid::None;
    } else {
@@ -209,6 +222,10 @@ int main(int argc, char** argv) {
    } else if(sigmaString == "53") {
          Real sigmaP=5.;
          Real sigmaH=3.;
+         assignConductivityTensor(nodes, sigmaP, sigmaH);
+   } else if(sigmaString == "100") {
+         Real sigmaP=20.;
+         Real sigmaH=100.;
          assignConductivityTensor(nodes, sigmaP, sigmaH);
    } else {
       cerr << "Conductivity tensor " << sigmaString << " not implemented!" << endl;
@@ -276,7 +293,6 @@ int main(int argc, char** argv) {
 
    // Try to solve the system.
    ionosphereGrid.isCouplingInwards=true;
-   Ionosphere::solverMaxIterations = 1000;
    Ionosphere::solverPreconditioning = doPrecondition;
    ionosphereGrid.rank = 0;
    ionosphereGrid.solve();

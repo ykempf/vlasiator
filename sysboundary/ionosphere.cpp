@@ -651,25 +651,37 @@ namespace SBC {
       Real integratedDensity = 0;
       Real prevDensity = 0;
       Real prevAltitude = 0;
+      std::vector<std::array<Real, 5>> MSISvalues;
       while(in) {
-         Real altitude, density, c1, c2, c3, extra;
-         in >> altitude >>  c1 >> c2 >> c3 >> density >> extra;
+         Real altitude, massdensity, Odensity, N2density, O2density, neutralTemperature;
+         in >> altitude >> Odensity >> N2density >> O2density >> massdensity >> neutralTemperature;
 
-         integratedDensity += (altitude - prevAltitude) *1000 * 0.5 * (density + prevDensity);
+         integratedDensity += (altitude - prevAltitude) *1000 * 0.5 * (massdensity + prevDensity);
+         // Ion-neutral scattering frequencies (from Schunk and Nagy, 2009, Table 4.5)
+         Real nui = 1e-17*(3.67*Odensity + 5.14*N2density + 2.59*O2density);
+         // Elctron-neutral scattering frequencies (Same source, Table 4.6)
+         Real nue = 1e-17*(8.9*Odensity + 2.33*N2density + 18.2*O2density);
          prevAltitude = altitude;
-         prevDensity = density;
+         prevDensity = massdensity;
+         MSISvalues.push_back({altitude, massdensity, nui, nue, integratedDensity});
+      }
+
+      // Iterate through the read data and linearly interpolate
+      for(unsigned int i=1; i<MSISvalues.size(); i++) {
+         Real altitude = MSISvalues[i][0];
 
          // When we encounter one of our reference layers, record its values
-         if(altitude >= alt[altindex] && altindex < numAtmosphereLevels) {
+         while(altitude >= alt[altindex] && altindex < numAtmosphereLevels) {
+            Real interpolationFactor = (alt[altindex] - MSISvalues[i-1][0]) / (MSISvalues[i][0] - MSISvalues[i-1][0]);
+
             AtmosphericLayer newLayer;
-            newLayer.altitude = altitude; // in km
-            newLayer.density = density; // kg/m^3
-            newLayer.depth = integratedDensity; // kg/m^2
-            // Ion-neutral scattering frequencies (from Schunck and Nagy, 2009, Table 4.5)
-            newLayer.nui = 1e-16*(2*c1 + 3.8*c2 + 5*c3);
-            // Elctron-neutral scattering frequencies (Same source, Table 4.6)
-            newLayer.nue = 1e-17*(2.33*c1 + 18.2*c2 + 8.9*c3);
-            atmosphere.at(altindex++) = newLayer;
+            newLayer.altitude = alt[altindex]; // in km
+            newLayer.density = fmax((1.-interpolationFactor) * MSISvalues[i-1][1] + interpolationFactor * MSISvalues[i][1], 0.); // kg/m^3
+            newLayer.depth = fmax((1.-interpolationFactor) * MSISvalues[i-1][4] + interpolationFactor * MSISvalues[i][4], 0.); // kg/m^2
+
+            newLayer.nui = fmax((1.-interpolationFactor) * MSISvalues[i-1][2] + interpolationFactor * MSISvalues[i][2], 0.); // m^-3 s^-1
+            newLayer.nue = fmax((1.-interpolationFactor) * MSISvalues[i-1][3] + interpolationFactor * MSISvalues[i][3], 0.); // m^-3 s^-1
+            atmosphere[altindex++] = newLayer;
          }
       }
 
@@ -2576,11 +2588,16 @@ namespace SBC {
             // but doing so leads to numerical inaccuracy due to roundoff errors
             // when iteration counts are high (because, for example, mesh node count is high and the matrix condition is bad).
             // See https://en.wikipedia.org/wiki/Conjugate_gradient_method#Explicit_residual_calculation
-            iSolverReal newresid = effectiveSource.at(n) - Atimes(n, ionosphereParameters::SOLUTION);
-            N.parameters.at(ionosphereParameters::RESIDUAL) = newresid;
-            residualnorm += newresid * newresid;
-
-            N.parameters.at(ionosphereParameters::RRESIDUAL) = effectiveSource.at(n) - Atimes(n, ionosphereParameters::SOLUTION, true);
+            iSolverReal newresid = effectiveSource[n] - Atimes(n, ionosphereParameters::SOLUTION);
+            if( (gaugeFixing == Pole && n == 0) || (gaugeFixing == Equator && fabs(N.x[2]) < Ionosphere::innerRadius * sin(Ionosphere::shieldingLatitude * M_PI / 180.0))) {
+                  // Don't calculate residual for gauge-pinned nodes
+               N.parameters[ionosphereParameters::RESIDUAL] = 0;
+               N.parameters[ionosphereParameters::RRESIDUAL] = 0;
+            } else {
+               N.parameters[ionosphereParameters::RESIDUAL] = newresid;
+               N.parameters[ionosphereParameters::RRESIDUAL] = effectiveSource[n] - Atimes(n, ionosphereParameters::SOLUTION, true);
+               residualnorm += newresid * newresid;
+            }
          }
 
          #pragma omp for
@@ -2665,7 +2682,7 @@ namespace SBC {
       Readparameters::add("ionosphere.fibonacciNodeNum", "Number of nodes in the spherical fibonacci mesh.",256);
       Readparameters::addComposing("ionosphere.refineMinLatitude", "Refine the grid polewards of the given latitude. Multiple of these lines can be given for successive refinement, paired up with refineMaxLatitude lines.");
       Readparameters::addComposing("ionosphere.refineMaxLatitude", "Refine the grid equatorwards of the given latitude. Multiple of these lines can be given for successive refinement, paired up with refineMinLatitude lines.");
-      Readparameters::add("ionosphere.atmosphericModelFile", "Filename to read the MSIS atmosphere data from (default: MSIS.dat)", std::string("MSIS.dat"));
+      Readparameters::add("ionosphere.atmosphericModelFile", "Filename to read the MSIS atmosphere data from (default: NRLMSIS.dat)", std::string("NRLMSIS.dat"));
       Readparameters::add("ionosphere.recombAlpha", "Ionospheric recombination parameter (m^3/s)", 2.4e-13); // Default value from Schunck & Nagy, Table 8.5
       Readparameters::add("ionosphere.ionizationModel", "Ionospheric electron production rate model. Options are: Rees1963, Rees1989, SergienkoIvanovi (default).", std::string("SergienkoIvanov"));
       Readparameters::add("ionosphere.F10_7", "Solar 10.7 cm radio flux (sfu = 10^{-22} W/m^2)", 100);
