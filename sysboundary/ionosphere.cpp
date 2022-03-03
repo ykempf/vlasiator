@@ -923,13 +923,10 @@ namespace SBC {
 
             // Calculate conductivities
             Real halfdx = 1000 * 0.5 * (atmosphere.at(h).altitude -  atmosphere.at(h-1).altitude);
-            Real halfCH = halfdx * 0.5 * (atmosphere.at(h-1).hallcoeff + atmosphere.at(h).hallcoeff);
-            Real halfCP = halfdx * 0.5 * (atmosphere.at(h-1).pedersencoeff + atmosphere.at(h).pedersencoeff);
-            Real halfCpara = halfdx * 0.5 * (atmosphere.at(h-1).parallelcoeff + atmosphere.at(h).parallelcoeff);
 
-            nodes.at(n).parameters.at(ionosphereParameters::SIGMAP) += (electronDensity.at(h)+electronDensity.at(h-1)) * halfCP;
-            nodes.at(n).parameters.at(ionosphereParameters::SIGMAH) += (electronDensity.at(h)+electronDensity.at(h-1)) * halfCH;
-            nodes.at(n).parameters.at(ionosphereParameters::SIGMAPARALLEL) += (electronDensity.at(h)+electronDensity.at(h-1)) * halfCpara;
+            nodes.at(n).parameters.at(ionosphereParameters::SIGMAP) += halfdx * 0.5 * (electronDensity.at(h)*atmosphere.at(h).pedersencoeff + electronDensity.at(h-1)*atmosphere.at(h-1).pedersencoeff);
+            nodes.at(n).parameters.at(ionosphereParameters::SIGMAH) += halfdx * 0.5 * (electronDensity.at(h)*atmosphere.at(h).hallcoeff + electronDensity.at(h-1)*atmosphere.at(h-1).hallcoeff);
+            nodes.at(n).parameters.at(ionosphereParameters::SIGMAPARALLEL) += halfdx * 0.5 * (electronDensity.at(h)*atmosphere.at(h).parallelcoeff + electronDensity.at(h-1)*atmosphere.at(h-1).parallelcoeff);
          }
       }
 
