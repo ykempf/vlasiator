@@ -2365,8 +2365,10 @@ namespace SBC {
       int &nIterations,
       int &nRestarts,
       Real &residual,
-      Real &minPotential,
-      Real &maxPotential
+      Real &minPotentialN,
+      Real &maxPotentialN,
+      Real &minPotentialS,
+      Real &maxPotentialS
    ) {
 
       // Ranks that don't participate in ionosphere solving skip this function outright
@@ -2381,7 +2383,7 @@ namespace SBC {
       nRestarts = 0;
       
       do {
-         solveInternal(nIterations, nRestarts, residual, minPotential, maxPotential);
+         solveInternal(nIterations, nRestarts, residual, minPotentialN, maxPotentialN, minPotentialS, maxPotentialS);
          if(Ionosphere::solverToggleMinimumResidualVariant) {
             Ionosphere::solverUseMinimumResidualVariant = !Ionosphere::solverUseMinimumResidualVariant;
          }
@@ -2394,8 +2396,10 @@ namespace SBC {
       int & iteration,
       int & nRestarts,
       Real & minerr,
-      Real & minPotential,
-      Real & maxPotential
+      Real & minPotentialN,
+      Real & maxPotentialN,
+      Real & minPotentialS,
+      Real & maxPotentialS
    ) {
       std::vector<iSolverReal> effectiveSource(nodes.size());
 
@@ -2405,10 +2409,10 @@ namespace SBC {
       iSolverReal potentialInt;
       iSolverReal sourcenorm;
       iSolverReal residualnorm;      
-      minPotential = std::numeric_limits<iSolverReal>::max();
-      maxPotential = std::numeric_limits<iSolverReal>::lowest();
+      minPotentialN = minPotentialS = std::numeric_limits<iSolverReal>::max();
+      maxPotentialN = maxPotentialS = std::numeric_limits<iSolverReal>::lowest();
 
-#pragma omp parallel shared(akden,bknum,potentialInt,sourcenorm,residualnorm,effectiveSource,minPotential,maxPotential)
+#pragma omp parallel shared(akden,bknum,potentialInt,sourcenorm,residualnorm,effectiveSource,minPotentialN,maxPotentialN,minPotentialS,maxPotentialS)
 {
 
       // thread variables, initialised here
@@ -2640,15 +2644,22 @@ namespace SBC {
       if(skipSolve && threadID == 0) {
          // sourcenorm was zero, we return zero; return is not allowed inside threaded region
          minerr = 0;
-         minPotential = 0;
-         maxPotential = 0;
+         minPotentialN = 0;
+         maxPotentialN = 0;
+         minPotentialS = 0;
+         maxPotentialS = 0;
       } else {
-         #pragma omp for reduction(max:maxPotential) reduction(min:minPotential)
+         #pragma omp for reduction(max:maxPotentialN,maxPotentialS) reduction(min:minPotentialN,minPotentialS)
          for(uint n=0; n<nodes.size(); n++) {
             Node& N=nodes.at(n);
             N.parameters.at(ionosphereParameters::SOLUTION) = N.parameters.at(ionosphereParameters::BEST_SOLUTION);
-            minPotential = min(minPotential, N.parameters.at(ionosphereParameters::SOLUTION));
-            maxPotential = max(maxPotential, N.parameters.at(ionosphereParameters::SOLUTION));
+            if(N.x.at(2) > 0) {
+               minPotentialN = min(minPotentialN, N.parameters.at(ionosphereParameters::SOLUTION));
+               maxPotentialN = max(maxPotentialN, N.parameters.at(ionosphereParameters::SOLUTION));
+            } else {
+               minPotentialS = min(minPotentialS, N.parameters.at(ionosphereParameters::SOLUTION));
+               maxPotentialS = max(maxPotentialS, N.parameters.at(ionosphereParameters::SOLUTION));
+            }
          }
          // Get out the ones we need before exiting the parallel region
          if(threadID == 0) {
