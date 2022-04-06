@@ -1729,6 +1729,7 @@ namespace SBC {
        FsGrid< std::array<Real, fsgrids::bfield::N_BFIELD>, FS_STENCIL_WIDTH> & perBGrid,
        FsGrid< std::array<Real, fsgrids::dperb::N_DPERB>, FS_STENCIL_WIDTH> & dPerBGrid,
        FsGrid< std::array<Real, fsgrids::moments::N_MOMENTS>, FS_STENCIL_WIDTH> & momentsGrid,
+         FsGrid< std::array<Real, fsgrids::volfields::N_VOL>, FS_STENCIL_WIDTH> & volGrid,
        FsGrid< fsgrids::technical, FS_STENCIL_WIDTH> & technicalGrid) {
 
       if(!isCouplingInwards && !isCouplingOutwards) {
@@ -1741,6 +1742,7 @@ namespace SBC {
       std::vector<double> FACinput(nodes.size());
       std::vector<double> rhoInput(nodes.size());
       std::vector<double> temperatureInput(nodes.size());
+      std::vector<double> poyntingInput(nodes.size());
 
       // Map all coupled nodes down into it
       // Tasks that don't have anything to couple to can skip this step.
@@ -1857,13 +1859,23 @@ namespace SBC {
                      }
 
 
-                     // Map density and temperature down
-                     Real thisCellRho = coupling * momentsGrid.get(lfsc.at(0)+xoffset,lfsc.at(1)+yoffset,lfsc.at(2)+zoffset)->at(fsgrids::RHOQ) / physicalconstants::CHARGE;
-                     rhoInput.at(n) += thisCellRho;
-                     temperatureInput.at(n) += coupling * 1./3. * (
-                          momentsGrid.get(lfsc.at(0)+xoffset,lfsc.at(1)+yoffset,lfsc.at(2)+zoffset)->at(fsgrids::P_11) +
-                          momentsGrid.get(lfsc.at(0)+xoffset,lfsc.at(1)+yoffset,lfsc.at(2)+zoffset)->at(fsgrids::P_22) +
-                          momentsGrid.get(lfsc.at(0)+xoffset,lfsc.at(1)+yoffset,lfsc.at(2)+zoffset)->at(fsgrids::P_33)) / (thisCellRho * physicalconstants::K_B * ion_electron_T_ratio);
+                     // Map density, temperature and Poynting flux down
+                     Real thisCellRho = coupling * momentsGrid.get(lfsc[0]+xoffset,lfsc[1]+yoffset,lfsc[2]+zoffset)->at(fsgrids::RHOQ) / physicalconstants::CHARGE;
+                     rhoInput[n] += thisCellRho;
+                     temperatureInput[n] += coupling * 1./3. * (
+                          momentsGrid.get(lfsc[0]+xoffset,lfsc[1]+yoffset,lfsc[2]+zoffset)->at(fsgrids::P_11) +
+                          momentsGrid.get(lfsc[0]+xoffset,lfsc[1]+yoffset,lfsc[2]+zoffset)->at(fsgrids::P_22) +
+                          momentsGrid.get(lfsc[0]+xoffset,lfsc[1]+yoffset,lfsc[2]+zoffset)->at(fsgrids::P_33)) / (thisCellRho * physicalconstants::K_B * ion_electron_T_ratio);
+                     Vec3d E(volGrid.get(lfsc[0]+xoffset,lfsc[1]+yoffset,lfsc[2]+zoffset)->at(fsgrids::EXVOL),
+                           volGrid.get(lfsc[0]+xoffset,lfsc[1]+yoffset,lfsc[2]+zoffset)->at(fsgrids::EYVOL),
+                           volGrid.get(lfsc[0]+xoffset,lfsc[1]+yoffset,lfsc[2]+zoffset)->at(fsgrids::EZVOL));
+                     Vec3d B(nodes[n].parameters[ionosphereParameters::UPMAPPED_BX],
+                              nodes[n].parameters[ionosphereParameters::UPMAPPED_BY],
+                              nodes[n].parameters[ionosphereParameters::UPMAPPED_BZ]);
+                     Vec3d dipoleB(this->dipoleField(nodes[n].xMapped[0],nodes[n].xMapped[1],nodes[n].xMapped[2],X,0,X),
+                           this->dipoleField(nodes[n].xMapped[0],nodes[n].xMapped[1],nodes[n].xMapped[2],Y,0,Y),
+                           this->dipoleField(nodes[n].xMapped[0],nodes[n].xMapped[1],nodes[n].xMapped[2],Z,0,Z));
+                     poyntingInput[n] += coupling / physicalconstants::MU_0 * dot_product(cross_product(E,B),dipoleB) / sqrt(dot_product(dipoleB,dipoleB)) * upmappedArea / area;
                   }
                }
             }
@@ -1871,8 +1883,9 @@ namespace SBC {
             // The coupling values *would* have summed to 1 in free and open space, but since we are close to the inner
             // boundary, some cells were skipped, as they are in the sysbondary. Renormalize values by dividing by the couplingSum.
             if(couplingSum > 0) {
-               rhoInput.at(n) /= couplingSum;
-               temperatureInput.at(n) /= couplingSum;
+               rhoInput[n] /= couplingSum;
+               temperatureInput[n] /= couplingSum;
+               poyntingInput[n] /= couplingSum;
             }
 
             // Scale density by area ratio
@@ -1884,9 +1897,11 @@ namespace SBC {
       std::vector<double> FACsum(nodes.size());
       std::vector<double> rhoSum(nodes.size());
       std::vector<double> temperatureSum(nodes.size());
-      MPI_Allreduce(&FACinput.at(0), &FACsum.at(0), nodes.size(), MPI_DOUBLE, MPI_SUM, communicator);
-      MPI_Allreduce(&rhoInput.at(0), &rhoSum.at(0), nodes.size(), MPI_DOUBLE, MPI_SUM, communicator);
-      MPI_Allreduce(&temperatureInput.at(0), &temperatureSum.at(0), nodes.size(), MPI_DOUBLE, MPI_SUM, communicator); // TODO: Does it make sense to SUM the temperatures?
+      std::vector<double> poyntingSum(nodes.size());
+      MPI_Allreduce(&FACinput[0], &FACsum[0], nodes.size(), MPI_DOUBLE, MPI_SUM, communicator);
+      MPI_Allreduce(&rhoInput[0], &rhoSum[0], nodes.size(), MPI_DOUBLE, MPI_SUM, communicator);
+      MPI_Allreduce(&temperatureInput[0], &temperatureSum[0], nodes.size(), MPI_DOUBLE, MPI_SUM, communicator); // TODO: Does it make sense to SUM the temperatures?
+      MPI_Allreduce(&poyntingInput[0], &poyntingSum[0], nodes.size(), MPI_DOUBLE, MPI_SUM, communicator);
 
       for(uint n=0; n<nodes.size(); n++) {
 
@@ -1904,15 +1919,17 @@ namespace SBC {
             // Node couples nowhere. Assume some default values.
             nodes.at(n).parameters.at(ionosphereParameters::SOURCE) = 0;
 
-            nodes.at(n).parameters.at(ionosphereParameters::RHON) = Ionosphere::unmappedNodeRho * Chi0;
-            nodes.at(n).parameters.at(ionosphereParameters::TEMPERATURE) = Ionosphere::unmappedNodeTe;
+            nodes[n].parameters[ionosphereParameters::RHON] = Ionosphere::unmappedNodeRho * Chi0;
+            nodes[n].parameters[ionosphereParameters::TEMPERATURE] = Ionosphere::unmappedNodeTe;
+            nodes[n].parameters[ionosphereParameters::POYNTINGFLUX] = 0;
          } else {
             // Store as the node's parameter values.
             if(Ionosphere::couplingTimescale == 0) {
                // Immediate coupling
-               nodes.at(n).parameters.at(ionosphereParameters::SOURCE) = FACsum.at(n);
-               nodes.at(n).parameters.at(ionosphereParameters::RHON) = rhoSum.at(n) * Chi0;
-               nodes.at(n).parameters.at(ionosphereParameters::TEMPERATURE) = temperatureSum.at(n);
+               nodes[n].parameters[ionosphereParameters::SOURCE] = FACsum[n];
+               nodes[n].parameters[ionosphereParameters::RHON] = rhoSum[n] * Chi0;
+               nodes[n].parameters[ionosphereParameters::TEMPERATURE] = temperatureSum[n];
+               nodes[n].parameters[ionosphereParameters::POYNTINGFLUX] = poyntingSum[n];
             } else {
 
                // Slow coupling with a given timescale.
@@ -3612,24 +3629,24 @@ namespace SBC {
          const Real ycen = 0.5*(ymin+ymax);
          const Real zcen = 0.5*(zmin+zmax);
          std::array< std::array<Real, 3>, 6> tracepoints;
-         tracepoints.at(0) = {xmin, ycen, zcen};
-         tracepoints.at(1) = {xmax, ycen, zcen};
-         tracepoints.at(2) = {xcen, ymin, zcen};
-         tracepoints.at(3) = {xcen, ymax, zcen};
-         tracepoints.at(4) = {xcen, ycen, zmin};
-         tracepoints.at(5) = {xcen, ycen, zmax};
+         tracepoints[0] = {xmin, ycen, zcen};
+         tracepoints[1] = {xmax, ycen, zcen};
+         tracepoints[2] = {xcen, ymin, zcen};
+         tracepoints[3] = {xcen, ymax, zcen};
+         tracepoints[4] = {xcen, ycen, zmin};
+         tracepoints[5] = {xcen, ycen, zmax};
          std::array<Real, 6> potentials;
 
          for(int i=0; i<6; i++) {
             // Get potential at each of these 6 points
-            potentials.at(i) = ionosphereGrid.interpolateUpmappedPotential(tracepoints.at(i));
+            potentials[i] = ionosphereGrid.interpolateUpmappedPotential(tracepoints[i]);
          }
 
          // Calculate E from potential differences as E = -grad(phi)
          Vec3d E({
-               (potentials.at(0) - potentials.at(1)) / cellParams[CellParams::DX],
-               (potentials.at(2) - potentials.at(3)) / cellParams[CellParams::DY],
-               (potentials.at(4) - potentials.at(5)) / cellParams[CellParams::DZ]});
+               (potentials[0] - potentials[1]) / cellParams[CellParams::DX],
+               (potentials[2] - potentials[3]) / cellParams[CellParams::DY],
+               (potentials[4] - potentials[5]) / cellParams[CellParams::DZ]});
          Vec3d B({
                cellParams[CellParams::BGBXVOL],
                cellParams[CellParams::BGBYVOL],
@@ -3649,9 +3666,9 @@ namespace SBC {
 
          // Calculate cell bulk velocity as E x B / B^2
          std::array<Real, 3> vDrift;
-         vDrift.at(0) = (E[1] * B[2] - E[2] * B[1])/Bsqr;
-         vDrift.at(1) = (E[2] * B[0] - E[0] * B[2])/Bsqr;
-         vDrift.at(2) = (E[0] * B[1] - E[1] * B[0])/Bsqr;
+         vDrift[0] = (E[1] * B[2] - E[2] * B[1])/Bsqr;
+         vDrift[1] = (E[2] * B[0] - E[0] * B[2])/Bsqr;
+         vDrift[2] = (E[0] * B[1] - E[1] * B[0])/Bsqr;
 
          // Average density and temperature from the nearest cells
          const vector<CellID> closestCells = getAllClosestNonsysboundaryCells(cellID);
@@ -3672,7 +3689,7 @@ namespace SBC {
          Realf* data = cell.get_data(popID);
 
          for (size_t i = 0; i < blocksToInitialize.size(); i++) {
-            const vmesh::GlobalID blockGID = blocksToInitialize.at(i);
+            const vmesh::GlobalID blockGID = blocksToInitialize[i];
             cell.add_velocity_block(blockGID,popID);
             const vmesh::LocalID block = cell.get_velocity_block_local_id(blockGID,popID);
             const Real* blockParameters = cell.get_block_parameters(block,popID);
@@ -3685,9 +3702,9 @@ namespace SBC {
             
             // Iterate over cells within block
             for (uint kc=0; kc<WID; ++kc) for (uint jc=0; jc<WID; ++jc) for (uint ic=0; ic<WID; ++ic) {
-               creal vxCellCenter = vxBlock + (ic+convert<Real>(0.5))*dvxCell - vDrift.at(0);
-               creal vyCellCenter = vyBlock + (jc+convert<Real>(0.5))*dvyCell - vDrift.at(1);
-               creal vzCellCenter = vzBlock + (kc+convert<Real>(0.5))*dvzCell - vDrift.at(2);
+               creal vxCellCenter = vxBlock + (ic+convert<Real>(0.5))*dvxCell - vDrift[0];
+               creal vyCellCenter = vyBlock + (jc+convert<Real>(0.5))*dvyCell - vDrift[1];
+               creal vzCellCenter = vzBlock + (kc+convert<Real>(0.5))*dvzCell - vDrift[2];
 
                data[block*WID3 + cellIndex(ic,jc,kc)] = shiftedMaxwellianDistribution(popID, density, temperature, vxCellCenter, vyCellCenter, vzCellCenter);
             }
@@ -3841,7 +3858,7 @@ namespace SBC {
       while (search) {
          #warning TODO: add SpatialCell::getVelocityBlockMinValue() in place of sparseMinValue ? (if applicable)
          if (0.1 * getObjectWrapper().particleSpecies.at(popID).sparseMinValue >
-            shiftedMaxwellianDistribution(popID,density,temperature,counter*cell.get_velocity_grid_block_size(popID,refLevel)[0] - vDrift.at(0), 0.0 - vDrift.at(1), 0.0 - vDrift.at(2))
+            shiftedMaxwellianDistribution(popID,density,temperature,counter*cell.get_velocity_grid_block_size(popID,refLevel)[0] - vDrift[0], 0.0 - vDrift[1], 0.0 - vDrift[2])
             || counter > vblocks_ini[0]) {
             search = false;
          }

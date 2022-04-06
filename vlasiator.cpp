@@ -962,7 +962,7 @@ int main(int argn,char* args[]) {
 //      SBC::ionosphereGrid.resetReconstructionCoefficientsCache();
       if((P::t > SBC::Ionosphere::solveCount * SBC::Ionosphere::couplingInterval && SBC::Ionosphere::couplingInterval > 0) || SBC::Ionosphere::couplingInterval == 0) {
          SBC::ionosphereGrid.calculateFsgridCoupling(technicalGrid, perBGrid, dPerBGrid, SBC::Ionosphere::radius);
-         SBC::ionosphereGrid.mapDownBoundaryData(perBGrid, dPerBGrid, momentsGrid, technicalGrid);
+         SBC::ionosphereGrid.mapDownBoundaryData(perBGrid, dPerBGrid, momentsGrid, volGrid, technicalGrid);
          SBC::ionosphereGrid.calculateConductivityTensor(SBC::Ionosphere::F10_7, SBC::Ionosphere::recombAlpha, SBC::Ionosphere::backgroundIonisation);
 
          // Solve ionosphere
