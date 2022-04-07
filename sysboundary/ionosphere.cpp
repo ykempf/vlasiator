@@ -3672,15 +3672,25 @@ namespace SBC {
 
          // Average density and temperature from the nearest cells
          const vector<CellID> closestCells = getAllClosestNonsysboundaryCells(cellID);
-         Real density = 0, pressure = 0;
+         Real density = 0, pressure = 0, vx = 0, vy = 0, vz = 0;
          for (CellID celli : closestCells) {
             density += mpiGrid[celli]->parameters[CellParams::RHOM];
             pressure += mpiGrid[celli]->parameters[CellParams::P_11] + mpiGrid[celli]->parameters[CellParams::P_22] + mpiGrid[celli]->parameters[CellParams::P_33];
+            vx += mpiGrid[celli]->parameters[CellParams::VX];
+            vy += mpiGrid[celli]->parameters[CellParams::VY];
+            vz += mpiGrid[celli]->parameters[CellParams::VZ];
          }
          density /= closestCells.size()*physicalconstants::MASS_PROTON;
+         vx /= closestCells.size();
+         vy /= closestCells.size();
+         vz /= closestCells.size();
          pressure /= 3.0*closestCells.size();
          // TODO make this multipop
          creal temperature = pressure / (density * physicalconstants::K_B);
+
+         vDrift[0] += vx;
+         vDrift[1] += vy;
+         vDrift[2] += vz;
 
          // Fill velocity space with new maxwellian data
          SpatialCell& cell = *mpiGrid[cellID];
