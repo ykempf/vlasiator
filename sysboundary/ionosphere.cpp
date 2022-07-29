@@ -1131,7 +1131,6 @@ namespace SBC {
          // 1e-6 m^-3 -> cm^-3
          creal differentialFlux = nodes[n].electronDensity() * 1e-6 * sqrt(1e3*physicalconstants::CHARGE*1e3*physicalconstants::CHARGE*1e3*physicalconstants::CHARGE / (2. * M_PI * physicalconstants::MASS_ELECTRON * tempEnergy*tempEnergy*tempEnergy)) * exp(-energyParam);
          
-         // Leave one energy in keV to match the DeltaEpsilon that's in keV too
          totalIonizationElectrons += electronEnergy[e]*differentialFlux*deltaE*fangEnergyDissipation(Particles::ELECTRON, electronEnergy[e], h);
       }
       // Loss cone
