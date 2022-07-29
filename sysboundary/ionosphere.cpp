@@ -1125,7 +1125,8 @@ namespace SBC {
       }
       for(int e=0; e<productionNumElectronEnergies; e++) {
          creal tempEnergy = physicalconstants::K_B * nodes[n].electronTemperature();
-         creal energyParam = electronEnergy[e] / tempEnergy * 1e3*physicalconstants::CHARGE; // = E_p / (kB T) TODO check that 0.1
+         // TODO Here I removed the acceleration energy term that gets subtracted in the other model. Add back if/when a field-aligned potential drop acceleration is added.
+         creal energyParam = electronEnergy[e] / tempEnergy * 1e3*physicalconstants::CHARGE; // = E_p / (kB T)
          creal deltaE = (electronEnergy[e+1] - electronEnergy[e]);  // dE in keV
          // 1e-6 m^-3 -> cm^-3
          creal differentialFlux = nodes[n].electronDensity() * 1e-6 * sqrt(1e3*physicalconstants::CHARGE*1e3*physicalconstants::CHARGE*1e3*physicalconstants::CHARGE / (2. * M_PI * physicalconstants::MASS_ELECTRON * tempEnergy*tempEnergy*tempEnergy)) * exp(-energyParam);
