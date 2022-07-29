@@ -75,7 +75,7 @@ namespace SBC {
    Real Ionosphere::couplingTimescale; // Magnetosphere->Ionosphere coupling timescale (seconds)
    Real Ionosphere::couplingInterval; // Ionosphere update interval
    int Ionosphere::solveCount; // Counter of the number of solvings
-   Real Ionosphere::backgroundIonisation; // Background ionisation due to stellar UV and cosmic rays
+   Real Ionosphere::backgroundIonization; // Background ionization due to stellar UV and cosmic rays
    int  Ionosphere::solverMaxIterations;
    Real Ionosphere::solverRelativeL2ConvergenceThreshold;
    int Ionosphere::solverMaxFailureCount;
@@ -560,7 +560,7 @@ namespace SBC {
    }
 
 
-   // Energy dissipasion function based on Sergienko & Ivanov (1993), eq. A2
+   // Energy dissipation function based on Sergienko & Ivanov (1993), eq. A2
    static Real SergienkoIvanovLambda(Real E0, Real Chi) {
 
       struct SergienkoIvanovParameters {
@@ -606,8 +606,8 @@ namespace SBC {
       return (C2 + C1*Chi)*exp(C4*Chi + C3*Chi*Chi);
    }
 
-   /* Read atmospheric model file in MSIS format.
-    * Based on the table data, precalculate and fill the ionisation production lookup table
+   /*!< Read atmospheric model file in MSIS format.
+    * Based on the table data, precalculate and fill the ionization production lookup table
     */
    void SphericalTriGrid::readAtmosphericModelFile(const char* filename) {
 
@@ -629,7 +629,7 @@ namespace SBC {
       Real integratedDensity = 0;
       Real prevDensity = 0;
       Real prevAltitude = 0;
-      std::vector<std::array<Real, 5>> MSISvalues;
+      std::vector<std::array<Real, 6>> MSISvalues;
       while(in) {
          Real altitude, massdensity, Odensity, N2density, O2density, neutralTemperature;
          in >> altitude >> Odensity >> N2density >> O2density >> massdensity >> neutralTemperature;
@@ -641,7 +641,12 @@ namespace SBC {
          Real nue = 1e-17*(8.9*Odensity + 2.33*N2density + 18.2*O2density);
          prevAltitude = altitude;
          prevDensity = massdensity;
-         MSISvalues.push_back({altitude, massdensity, nui, nue, integratedDensity});
+         
+         creal averageMolecularWeight = physicalconstants::MASS_PROTON * (16*Odensity + 28*N2density + 32*O2density) / (Odensity + N2density + O2density);
+         creal g = physicalconstants::g * pow(physicalconstants::R_E / (physicalconstants::R_E + altitude*1000), 2);
+         creal scaleHeight = physicalconstants::K_B * neutralTemperature / (averageMolecularWeight * g);
+         
+         MSISvalues.push_back({altitude, massdensity, nui, nue, integratedDensity, scaleHeight});
       }
 
       // Iterate through the read data and linearly interpolate
@@ -656,6 +661,7 @@ namespace SBC {
             newLayer.altitude = alt[altindex]; // in km
             newLayer.density = fmax((1.-interpolationFactor) * MSISvalues[i-1][1] + interpolationFactor * MSISvalues[i][1], 0.); // kg/m^3
             newLayer.depth = fmax((1.-interpolationFactor) * MSISvalues[i-1][4] + interpolationFactor * MSISvalues[i][4], 0.); // kg/m^2
+            newLayer.scaleHeight = fmax((1.-interpolationFactor) * MSISvalues[i-1][5] + interpolationFactor * MSISvalues[i][5], 0.); // m
 
             newLayer.nui = fmax((1.-interpolationFactor) * MSISvalues[i-1][2] + interpolationFactor * MSISvalues[i][2], 0.); // m^-3 s^-1
             newLayer.nue = fmax((1.-interpolationFactor) * MSISvalues[i-1][3] + interpolationFactor * MSISvalues[i][3], 0.); // m^-3 s^-1
@@ -684,20 +690,25 @@ namespace SBC {
          atmosphere[h].parallelcoeff = sigma_e;
       }
 
+      // If we don't use the Rees or Sergienko & Ivanov parametrisations, we don't need the lookup table
+      if(ionizationModel == Fang) {
+         phiprof::stop("ionosphere-readAtmosphericModelFile");
+         return;
+      }
 
       // Energies of particles that sample the production array
       // are logspace-distributed from 10^-1 to 10^2.3 keV
-      std::array< Real, productionNumParticleEnergies+1 > particle_energy; // In KeV
-      for(int e=0; e<productionNumParticleEnergies; e++) {
+      std::vector<Real> particle_energy(productionNumElectronEnergies+1); // In KeV
+      for(int e=0; e<productionNumElectronEnergies; e++) {
          // TODO: Hardcoded constants. Make parameter?
-         particle_energy[e] = pow(10.0, -1.+e*(2.3+1.)/(productionNumParticleEnergies-1));
+         particle_energy[e] = pow(10.0, -1.+e*(2.3+1.)/(productionNumElectronEnergies-1));
       }
-      particle_energy[productionNumParticleEnergies] = 2*particle_energy[productionNumParticleEnergies-1] - particle_energy[productionNumParticleEnergies-2];
+      particle_energy[productionNumElectronEnergies] = 2*particle_energy[productionNumElectronEnergies-1] - particle_energy[productionNumElectronEnergies-2];
 
       // Precalculate scattering rates
       const Real eps_ion_keV = 0.035; // Energy required to create one ion
-      std::array< std::array< Real, numAtmosphereLevels >, productionNumParticleEnergies > scatteringRate;
-      for(int e=0;e<productionNumParticleEnergies; e++) {
+      std::vector< std::array< Real, numAtmosphereLevels > > scatteringRate(productionNumElectronEnergies);
+      for(int e=0;e<productionNumElectronEnergies; e++) {
 
          Real electronRange=0.;
          Real rho_R=0.;
@@ -722,8 +733,12 @@ namespace SBC {
             case SergienkoIvanov:
                electronRange = 1.64e-5 * pow(particle_energy[e], 1.67) * (1. + 9.48e-2 * pow(particle_energy[e], -1.57));
                break;
+            case Fang:
+               cerr << "(IONOSPHERE) Fang ionization model should be handled elsewhere." << endl;
+               abort();
+               break;
             default:
-               cerr << "(IONOSPHERE) Invalid value for Ionization model." << endl;
+               cerr << "(IONOSPHERE) Invalid value for ionization model." << endl;
                abort();
          }
 
@@ -745,13 +760,17 @@ namespace SBC {
                   lambda = SergienkoIvanovLambda(particle_energy[e]*1000., atmosphere[h].depth/electronRange);
                   rate = atmosphere[h].density / eps_ion_keV * particle_energy[e] * lambda / electronRange; // TODO: Albedo flux?
                   break;
+               case Fang:
+                  cerr << "(IONOSPHERE) Fang ionization model should be handled elsewhere." << endl;
+                  abort();
+                  break;
             }
             scatteringRate[e][h] = max(0., rate); // m^-1
          }
       }
 
-      // Fill ionisation production table
-      std::array< Real, productionNumParticleEnergies > differentialFlux; // Differential flux
+      // Fill ionization production table
+      std::vector< Real > differentialFlux(productionNumElectronEnergies); // Differential flux
 
       for(int e=0; e<productionNumAccEnergies; e++) {
 
@@ -762,7 +781,7 @@ namespace SBC {
             const Real productionTemperatureStep = (log10(productionMaxTemperature) - log10(productionMinTemperature)) / productionNumTemperatures;
             Real tempenergy = pow(10, productionMinTemperature + t*productionTemperatureStep); // In KeV
 
-            for(int p=0; p<productionNumParticleEnergies; p++) {
+            for(int p=0; p<productionNumElectronEnergies; p++) {
                // TODO: Kappa distribution here? Now only going for maxwellian
                Real energyparam = (particle_energy[p]-accenergy)/tempenergy; // = E_p / (kB T)
 
@@ -778,7 +797,7 @@ namespace SBC {
             }
             for(int h=0; h < numAtmosphereLevels; h++) {
                productionTable[h][e][t] = 0;
-               for(int p=0; p<productionNumParticleEnergies; p++) {
+               for(int p=0; p<productionNumElectronEnergies; p++) {
                   productionTable[h][e][t] += scatteringRate[p][h]*differentialFlux[p];
                }
             }
@@ -786,8 +805,17 @@ namespace SBC {
       }
       phiprof::stop("ionosphere-readAtmosphericModelFile");
    }
-
-   /* Look up the free electron production rate in the ionosphere, given the atmospheric height index,
+   
+   /*!< Store the value of the magnetic field at the node.*/
+   void SphericalTriGrid::storeNodeB() {
+      for(int n=0; n<nodes.size(); n++) {
+         nodes[n].parameters[NODE_BX] = /*SBC::ionosphereGrid.*/dipoleField(nodes[n].x[0],nodes[n].x[1],nodes[n].x[2],X,0,X) + /*SBC::ionosphereGrid.*/BGB[0];
+         nodes[n].parameters[NODE_BY] = /*SBC::ionosphereGrid.*/dipoleField(nodes[n].x[0],nodes[n].x[1],nodes[n].x[2],Y,0,Y) + /*SBC::ionosphereGrid.*/BGB[1];
+         nodes[n].parameters[NODE_BZ] = /*SBC::ionosphereGrid.*/dipoleField(nodes[n].x[0],nodes[n].x[1],nodes[n].x[2],Z,0,Z) + /*SBC::ionosphereGrid.*/BGB[2];
+      }
+   }
+   
+   /*!< Look up the free electron production rate in the ionosphere, given the atmospheric height index,
     * particle energy after the ionospheric potential drop and inflowing distribution temperature */
    Real SphericalTriGrid::lookupProductionValue(int heightindex, Real energy_keV, Real temperature_keV) {
             Real normEnergy = (log10(energy_keV) - log10(productionMinAccEnergy)) / (log10(productionMaxAccEnergy) - log10(productionMinAccEnergy));
@@ -832,13 +860,13 @@ namespace SBC {
 
    }
 
-   /* Estimate the magnetospheric electron precipitation energy flux (in W/m^2) from
+   /*!< Estimate the magnetospheric electron precipitation energy flux (in W/m^2) from
     * mass density, electron temperature and potential difference.
     *
     * TODO: This is the coarse MHD estimate, lacking a better approximation. Should this
     * instead use the precipitation data reducer?
     */
-   void SphericalTriGrid::calculatePrecipitation() {
+   void SphericalTriGrid::calculateElectronPrecipitation() {
 
       for(uint n=0; n<nodes.size(); n++) {
          Real ne = nodes[n].electronDensity();
@@ -851,13 +879,288 @@ namespace SBC {
 
       }
    }
+   
+   /*!< Compute the differential flux spectrum of the protons in the loss cone.
+    * Used as input to compute the electrons created by the precipitating protons, in turn used to compute the conductivities.
+    * 
+    * \param mpiGrid Needs mpiGrid to compute the spectrum from the VDFs.
+    * 
+    * \sa totalIonizationFang()
+    */
+   void SphericalTriGrid::calculateProtonPrecipitation(
+      dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid
+   ) {
+      if(!precipitatingProtons) {
+         return;
+      }
+      phiprof::start("Ionosphere-proton-precipitation");
+      bool didOnePopulationAtLeast = false;
+      
+      // First determine which DCCRG cells are involved
+      int rank, commSize;
+      MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+      MPI_Comm_size(MPI_COMM_WORLD, &commSize);
+      
+      std::vector<int> coupledNodes;
+      for(uint n=0; n<nodes.size(); n++) {
+         if(nodes[n].xMapped[0] != 0 || nodes[n].xMapped[1] != 0 || nodes[n].xMapped[2] != 0) {
+            coupledNodes.push_back(n);
+         }
+      }
+      
+      std::vector<int> taskSendingToNode(coupledNodes.size()), reducedTaskSendingToNode(coupledNodes.size());
+      std::vector<CellID> cellIdMappedToNode(coupledNodes.size()), reducedCellIdMappedToNode(coupledNodes.size());
+      std::vector<int> amounts(commSize), displacements(commSize);
+      int localAmount=0;
+      
+//       #pragma omp parallel for schedule(dynamic)
+      for(uint co=0; co<coupledNodes.size(); co++) {
+         cint n = coupledNodes[co];
+         const CellID id = mpiGrid.get_existing_cell(nodes[n].xMapped);
+         if(mpiGrid.is_local(id) && mpiGrid[id]->sysBoundaryFlag == sysboundarytype::NOT_SYSBOUNDARY) {
+            taskSendingToNode.at(co) = rank;
+            cellIdMappedToNode.at(co) = id;
+            localAmount+=productionNumProtonEnergies;
+         }
+      }
+      MPI_Allreduce(taskSendingToNode.data(), reducedTaskSendingToNode.data(), coupledNodes.size(), MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+      MPI_Allreduce(cellIdMappedToNode.data(), reducedCellIdMappedToNode.data(), coupledNodes.size(), MPI_UINT64_T, MPI_MAX, MPI_COMM_WORLD);
+      MPI_Allgather(&localAmount, 1, MPI_INT, amounts.data(), 1, MPI_INT, MPI_COMM_WORLD);
+      for(int i=1; i<commSize; i++) {
+         displacements[i] = displacements[i-1] + amounts[i-1];
+      }
+      
+      std::vector<Real> localSpectra(localAmount, 0);
+      std::vector<Real> allSpectra(coupledNodes.size() * productionNumProtonEnergies, 0);
+      int counter = 0;
+      for(uint co=0; co<coupledNodes.size(); co++) {
+         cint n = coupledNodes[co];
+         std::vector<Real> spectrum(productionNumProtonEnergies,0);
+         bool didThisNode = false;
+         if(!mpiGrid.is_local(reducedCellIdMappedToNode.at(co))) {
+            continue;
+         }
+         SpatialCell * cell = mpiGrid[reducedCellIdMappedToNode.at(co)];
+         if(cell->sysBoundaryFlag != sysboundarytype::NOT_SYSBOUNDARY) {
+            continue;
+         }
+         didThisNode = true;
+         
+         std::array<Real,3> B;
+         B[0] = cell->parameters[CellParams::PERBXVOL] +  cell->parameters[CellParams::BGBXVOL];
+         B[1] = cell->parameters[CellParams::PERBYVOL] +  cell->parameters[CellParams::BGBYVOL];
+         B[2] = cell->parameters[CellParams::PERBZVOL] +  cell->parameters[CellParams::BGBZVOL];
+         
+         // Unit B-field direction
+         creal normB = sqrt(B[0]*B[0] + B[1]*B[1] + B[2]*B[2]);
+         std::array<Real,3> b_unit;
+         for (uint i=0; i<3; i++){
+            B[i] /= normB;
+         }
+         
+         creal nodeNormB = sqrt(
+              nodes[n].parameters[ionosphereParameters::NODE_BX]*nodes[n].parameters[ionosphereParameters::NODE_BX]
+            + nodes[n].parameters[ionosphereParameters::NODE_BY]*nodes[n].parameters[ionosphereParameters::NODE_BY]
+            + nodes[n].parameters[ionosphereParameters::NODE_BZ]*nodes[n].parameters[ionosphereParameters::NODE_BZ]
+         );
+         
+         creal cosAngle = cos(asin(sqrt(normB / nodeNormB))); // cosine of loss cone angle
+         //             creal cosAngle = 0.97;
+         
+         // If southern hemisphere, loss cone is around -B
+         if (nodes[n].x[2] < 0.0){
+            for (uint i=0; i<3; i++){
+               B[i] = -B[i];
+            }
+         }
+         
+         for(uint popID=0; popID< getObjectWrapper().particleSpecies.size(); popID++) {
+            const std::string& pop = getObjectWrapper().particleSpecies[popID].name;
+            creal mass = getObjectWrapper().particleSpecies[popID].mass;
+            creal charge = getObjectWrapper().particleSpecies[popID].charge;
+            if(pop != "proton" || mass != physicalconstants::MASS_PROTON || charge != physicalconstants::CHARGE) {
+               continue;
+            }
+            didOnePopulationAtLeast = true;
+            
+            std::vector<Real> sumWeights(productionNumProtonEnergies, 0);
+            
+            # pragma omp parallel
+            {
+               std::vector<Real> thread_lossCone_sum(productionNumProtonEnergies,0.0);
+               std::vector<Real> thread_count(productionNumProtonEnergies,0.0);
+               
+               const Real* parameters  = cell->get_block_parameters(popID);
+               const Realf* block_data = cell->get_data(popID);
+               
+               # pragma omp for
+               for (vmesh::LocalID vn=0; vn<cell->get_number_of_velocity_blocks(popID); vn++) {
+                  for (uint k = 0; k < WID; ++k) for (uint j = 0; j < WID; ++j) for (uint i = 0; i < WID; ++i) {
+                     const Real VX 
+                     =           parameters[vn * BlockParams::N_VELOCITY_BLOCK_PARAMS + BlockParams::VXCRD] 
+                     + (i + 0.5)*parameters[vn * BlockParams::N_VELOCITY_BLOCK_PARAMS + BlockParams::DVX];
+                     const Real VY 
+                     =           parameters[vn * BlockParams::N_VELOCITY_BLOCK_PARAMS + BlockParams::VYCRD] 
+                     + (j + 0.5)*parameters[vn * BlockParams::N_VELOCITY_BLOCK_PARAMS + BlockParams::DVY];
+                     const Real VZ 
+                     =           parameters[vn * BlockParams::N_VELOCITY_BLOCK_PARAMS + BlockParams::VZCRD] 
+                     + (k + 0.5)*parameters[vn * BlockParams::N_VELOCITY_BLOCK_PARAMS + BlockParams::DVZ];
+                     
+                     const Real DV3 
+                     = parameters[vn * BlockParams::N_VELOCITY_BLOCK_PARAMS + BlockParams::DVX]
+                     * parameters[vn * BlockParams::N_VELOCITY_BLOCK_PARAMS + BlockParams::DVY] 
+                     * parameters[vn * BlockParams::N_VELOCITY_BLOCK_PARAMS + BlockParams::DVZ];
+                     
+                     const Real normV = sqrt(VX*VX + VY*VY + VZ*VZ);
+                     const Real VdotB_norm = (B[0]*VX + B[1]*VY + B[2]*VZ)/normV;
+                     Real countAndGate = floor(VdotB_norm/cosAngle);  // gate function: 0 outside loss cone, 1 inside
+                     countAndGate = max(0.,countAndGate);
 
+                     const Real energy = 0.5 * mass * normV*normV / (1000 * physicalconstants::CHARGE); // in keV, as the limits of the bins
+                     
+                     // Find the correct energy bin number to update
+                     int binNumber = round((log(energy) - log(productionMinProtonEnergy)) / log(productionMaxProtonEnergy/productionMinProtonEnergy) * (productionNumProtonEnergies-1));
+                     binNumber = max(binNumber, 0); // anything < emin goes to the lowest channel
+                     binNumber = min(binNumber, productionNumProtonEnergies-1); // anything > emax goes to the highest channel
+                     
+                     // TODO check the bin number or -1
+                     
+                     thread_lossCone_sum.at(binNumber) += block_data[vn * SIZE_VELBLOCK + cellIndex(i,j,k)] * countAndGate * normV*normV * DV3;
+                     thread_count.at(binNumber) += countAndGate * DV3;
+                  }
+               }
+               
+               // Accumulate contributions coming from this velocity block to the 
+               // spatial cell velocity moments. If multithreading / OpenMP is used, 
+               // these updates need to be atomic:
+               # pragma omp critical
+               {
+                  for (int i=0; i<productionNumProtonEnergies; i++) {
+                     spectrum.at(i) += thread_lossCone_sum.at(i);
+                     sumWeights.at(i) += thread_count.at(i);
+                  }
+               }
+            }
+            
+            // Averaging within each bin and conversion to unit of part. cm^-2 s^-1 sr^-1 keV^-1
+            // What TODO with the sr?
+            // FIXME fails with multiple populations
+            for (int i=0; i<productionNumProtonEnergies; i++) {
+               if (sumWeights.at(i) != 0) {
+                  spectrum.at(i) *= 1.0 / (mass * sumWeights.at(i)) * physicalconstants::CHARGE * 1000 / 10000; // 1/10000 to make m^-2 cm^-2 for the Fang formula.
+               }
+            }
+         }
+         if(didThisNode) {
+            for(int i=0; i<productionNumProtonEnergies; i++) {
+               localSpectra.at(counter*productionNumProtonEnergies+i) = spectrum[i];
+            }
+            counter++;
+         }
+      }
+      
+      if(sizeof(Real) == sizeof(double)) {
+         MPI_Allgatherv(localSpectra.data(), localAmount, MPI_DOUBLE, allSpectra.data(), amounts.data(), displacements.data(), MPI_DOUBLE, MPI_COMM_WORLD);
+      } else {
+         MPI_Allgatherv(localSpectra.data(), localAmount, MPI_FLOAT, allSpectra.data(), amounts.data(), displacements.data(), MPI_FLOAT, MPI_COMM_WORLD);
+      }
+      
+      std::vector<int> counterPerTask(commSize, 0);
+      for(uint co=0; co<coupledNodes.size(); co++) {
+         cint task = reducedTaskSendingToNode.at(co);
+         cint n = coupledNodes[co];
+         cint offset = displacements.at(task) + counterPerTask.at(task) * productionNumProtonEnergies;
+         if(nodes[n].protonDifferentialFlux.size() == 0) {
+            nodes[n].protonDifferentialFlux.resize(productionNumProtonEnergies);
+         }
+         for(int i=0; i<productionNumProtonEnergies; i++) {
+            nodes[n].protonDifferentialFlux.at(i) = allSpectra.at(offset+i);
+         }
+         counterPerTask.at(task)++;
+      }
+      
+      bool reduced;
+      MPI_Reduce(&didOnePopulationAtLeast, &reduced, 1, MPI_C_BOOL, MPI_LOR, MASTER_RANK, MPI_COMM_WORLD);
+      if(rank == MASTER_RANK && !reduced) {
+         logFile << endl << "(IONOSPHERE) Did not find any population with name 'proton', mass of physicalconstants::MASS_PROTON and charge of physicalconstants::CHARGE to precipitate into the ionosphere!" << endl;
+      }
+      phiprof::stop("Ionosphere-proton-precipitation");
+   }
+   
+   /*!< Compute the sum of the electron and proton precipitation-induced ionization rate, using the formalism of Fang et al.
+    * 
+    * \param n ionosphere grid node index
+    * \param h altitude index
+    * 
+    * \sa calculateProtonPrecipitation() fangEnergyDissipation() fangNormalizedColumnMass() fC() P_ij
+    */
+   Real SphericalTriGrid::totalIonizationFang(
+      cint n,
+      cint h
+   ) {
+      Real totalIonizationProtons = 0;
+      Real totalIonizationElectrons = 0;
+      creal DeltaEpsilon = 0.035; // keV, scaling value used by both Fang et al. references
+      
+      // PROTON
+      if(ionosphereGrid.precipitatingProtons) {
+         if(nodes[n].protonDifferentialFlux.size() == 0) {
+            totalIonizationProtons = 0;
+         } else {
+            std::vector<Real> protonEnergy(productionNumProtonEnergies+1, 0); // In keV
+            for(int e=0; e<=productionNumProtonEnergies; e++) {
+               protonEnergy[e] = pow(10.0, log10(productionMinProtonEnergy)+e*(log10(productionMaxProtonEnergy)-log10(productionMinProtonEnergy))/productionNumProtonEnergies);
+            }
+            
+            for(int e=0; e<productionNumProtonEnergies; e++) {
+               totalIonizationProtons += protonEnergy[e]*nodes[n].protonDifferentialFlux[e]*(protonEnergy[e+1]-protonEnergy[e])*fangEnergyDissipation(Particles::PROTON, protonEnergy[e], h);
+            }
+         }
+      }
+      //ELECTRON
+      // Energies of electrons, logspace-distributed
+      std::vector<Real> electronEnergy(productionNumElectronEnergies+1, 0); // In keV
+      for(int e=0; e<=productionNumElectronEnergies; e++) {
+         electronEnergy[e] = pow(10.0, log10(productionMinElectronEnergy)+e*(log10(productionMaxElectronEnergy)-log10(productionMinElectronEnergy))/productionNumElectronEnergies);
+      }
+      for(int e=0; e<productionNumElectronEnergies; e++) {
+         creal tempEnergy = physicalconstants::K_B * nodes[n].electronTemperature();
+         creal energyParam = electronEnergy[e] / tempEnergy * 1e3*physicalconstants::CHARGE; // = E_p / (kB T) TODO check that 0.1
+         creal deltaE = (electronEnergy[e+1] - electronEnergy[e]);  // dE in keV
+         // 1e-6 m^-3 -> cm^-3
+         creal differentialFlux = nodes[n].electronDensity() * 1e-6 * sqrt(1e3*physicalconstants::CHARGE*1e3*physicalconstants::CHARGE*1e3*physicalconstants::CHARGE / (2. * M_PI * physicalconstants::MASS_ELECTRON * tempEnergy*tempEnergy*tempEnergy)) * exp(-energyParam);
+         
+         // Leave one energy in keV to match the DeltaEpsilon that's in keV too
+         totalIonizationElectrons += electronEnergy[e]*differentialFlux*deltaE*fangEnergyDissipation(Particles::ELECTRON, electronEnergy[e], h);
+      }
+      // Loss cone
+      creal normB = sqrt(
+           nodes[n].parameters[ionosphereParameters::UPMAPPED_BX]*nodes[n].parameters[ionosphereParameters::UPMAPPED_BX]
+         + nodes[n].parameters[ionosphereParameters::UPMAPPED_BY]*nodes[n].parameters[ionosphereParameters::UPMAPPED_BY]
+         + nodes[n].parameters[ionosphereParameters::UPMAPPED_BZ]*nodes[n].parameters[ionosphereParameters::UPMAPPED_BZ]
+      );
+      creal nodeNormB = sqrt(
+           nodes[n].parameters[ionosphereParameters::NODE_BX]*nodes[n].parameters[ionosphereParameters::NODE_BX]
+         + nodes[n].parameters[ionosphereParameters::NODE_BY]*nodes[n].parameters[ionosphereParameters::NODE_BY]
+         + nodes[n].parameters[ionosphereParameters::NODE_BZ]*nodes[n].parameters[ionosphereParameters::NODE_BZ]
+      );
+      nodes[n].parameters[ionosphereParameters::LOSSCONEANGLE] = asin(sqrt(normB / nodeNormB));
+      // Solid angle of a cone of half-width theta: 4 pi sin^2(theta/2)
+      // Fraction of full sphere: sin^2(theta/2)
+      totalIonizationElectrons *= sin(sqrt(normB / nodeNormB));
+      
+      // 1e6: cm^-3 -> m^-3
+      // 100: m -> cm
+      return (totalIonizationProtons + totalIonizationElectrons) / (DeltaEpsilon * atmosphere[h].scaleHeight * 100) * 1e6; // 1 / (cm^3 s) ==> 1 / (m^3 s)
+   }
+   
    /* Calculate the conductivity tensor for every grid node, based on the
     * given F10.7 photospheric flux as a solar activity proxy.
     *
     * This assumes the FACs have already been coupled into the grid.
     */
-   void SphericalTriGrid::calculateConductivityTensor(const Real F10_7, const Real recombAlpha, const Real backgroundIonisation) {
+   void SphericalTriGrid::calculateConductivityTensor(
+      const Real F10_7, const Real recombAlpha, const Real backgroundIonization) {
 
       phiprof::start("ionosphere-calculateConductivityTensor");
 
@@ -866,8 +1169,11 @@ namespace SBC {
          phiprof::stop("ionosphere-calculateConductivityTensor");
          return;
       }
-
-      calculatePrecipitation();
+      
+      // This could be called when it is actually needed for the DRO.
+      // NOTE that the equivalent function is called from vlasiator.cpp as it gets mpiGrid.
+      // TODO ugh this could be made more consistent and elegant. Why pass all these SBC:: parameters from vlasiator.cpp back into the ionosphere functions?
+      calculateElectronPrecipitation();
 
       //Calculate height-integrated conductivities and 3D electron density
       // TODO: effdt > 0?
@@ -879,7 +1185,7 @@ namespace SBC {
          std::array<Real, numAtmosphereLevels> electronDensity;
 
          // Note this loop counts from 1 (std::vector is zero-initialized, so electronDensity[0] = 0)
-         for(int h=1; h<numAtmosphereLevels; h++) { 
+         for(int h=1; h<numAtmosphereLevels; h++) {
             // Calculate production rate
             Real energy_keV = max(nodes[n].deltaPhi()/1000., productionMinAccEnergy);
 
@@ -893,7 +1199,18 @@ namespace SBC {
                   << "   `-> ne           = " << ne << " m^-3" << endl
                   << "   `-> electronTemp = " << electronTemp << " K" << endl;
             }
-            Real qref = ne * lookupProductionValue(h, energy_keV, temperature_keV);
+            Real qref;
+            switch(ionizationModel) {
+               case Rees1963: case Rees1989: case SergienkoIvanov:
+                  qref = ne * lookupProductionValue(h, energy_keV, temperature_keV);
+                  break;
+               case Fang:
+                  qref = totalIonizationFang(n, h);
+                  break;
+               default:
+                  cerr << "(IONOSPHERE) Invalid value " << ionizationModel << " for Ionization model. Choose from Rees1963 " << Rees1963 << " Rees1989 " << Rees1989 << " SergienkoIvanov " << SergienkoIvanov << " or Fang " << Fang << endl;
+                  abort();
+            }
 
             // Get equilibrium electron density
             electronDensity[h] = sqrt(qref/recombAlpha);
@@ -926,13 +1243,13 @@ namespace SBC {
          std::array<Real, 3>& x = nodes[n].x;
          // TODO: Perform coordinate transformation here?
 
-         // Solar incidence parameter for calculating UV ionisation on the dayside
+         // Solar incidence parameter for calculating UV ionization on the dayside
          Real coschi = x[0] / Ionosphere::innerRadius;
          if(coschi < 0) {
             coschi = 0;
          }
-         Real sigmaP_dayside = backgroundIonisation + F10_7_p_049 * (0.34 * coschi + 0.93 * sqrt(coschi));
-         Real sigmaH_dayside = backgroundIonisation + F10_7_p_053 * (0.81 * coschi + 0.54 * sqrt(coschi));
+         Real sigmaP_dayside = backgroundIonization + F10_7_p_049 * (0.34 * coschi + 0.93 * sqrt(coschi));
+         Real sigmaH_dayside = backgroundIonization + F10_7_p_053 * (0.81 * coschi + 0.54 * sqrt(coschi));
 
          nodes[n].parameters[ionosphereParameters::SIGMAP] = sqrt( pow(nodes[n].parameters[ionosphereParameters::SIGMAP],2) + pow(sigmaP_dayside,2));
          nodes[n].parameters[ionosphereParameters::SIGMAH] = sqrt( pow(nodes[n].parameters[ionosphereParameters::SIGMAH],2) + pow(sigmaH_dayside,2));
@@ -2175,10 +2492,17 @@ namespace SBC {
       Readparameters::addComposing("ionosphere.refineMaxLatitude", "Refine the grid equatorwards of the given latitude. Multiple of these lines can be given for successive refinement, paired up with refineMinLatitude lines.");
       Readparameters::add("ionosphere.atmosphericModelFile", "Filename to read the MSIS atmosphere data from (default: NRLMSIS.dat)", std::string("NRLMSIS.dat"));
       Readparameters::add("ionosphere.recombAlpha", "Ionospheric recombination parameter (m^3/s)", 2.4e-13); // Default value from Schunck & Nagy, Table 8.5
-      Readparameters::add("ionosphere.ionizationModel", "Ionospheric electron production rate model. Options are: Rees1963, Rees1989, SergienkoIvanov (default).", std::string("SergienkoIvanov"));
+      Readparameters::add("ionosphere.ionizationModel", "Ionospheric electron production rate model. Options are: Rees1963, Rees1989, SergienkoIvanov, Fang (default).", std::string("Fang"));
+      Readparameters::add("ionosphere.precipitatingProtons", "Use precipitating proton component to ionization calculations (only has an effect using the Fang model).", 0);
+      Readparameters::add("ionosphere.precipitatingProtonEnergyBins", "Number of log-spaced bins to use when computing the precipitating proton spectrum.", 100);
+      Readparameters::add("ionosphere.precipitatingProtonMinEnergy", "Minimum energy used when computing the precipitating proton spectrum (keV). Default 100 eV as it is the stated validity limit of the Fang model.", 0.1);
+      Readparameters::add("ionosphere.precipitatingProtonMaxEnergy", "Maximum energy used when computing the precipitating proton spectrum (keV). Default 1 MeV as it is the stated validity limit of the Fang model.", 1000);
+      Readparameters::add("ionosphere.precipitatingElectronEnergyBins", "Number of log-spaced bins to use when computing the precipitating electron spectrum.", 100);
+      Readparameters::add("ionosphere.precipitatingElectronMinEnergy", "Minimum energy used when computing the precipitating electron spectrum (keV). Default 100 eV as it is the stated validity limit of the Fang model.", 0.1);
+      Readparameters::add("ionosphere.precipitatingElectronMaxEnergy", "Maximum energy used when computing the precipitating electron spectrum (keV). Default 1 MeV as it is the stated validity limit of the Fang model.", 1000);
       Readparameters::add("ionosphere.innerBoundaryVDFmode", "Inner boundary VDF construction method. Options ar: FixedMoments, AverageMoments, AverageAllMoments, CopyAndLosscone.", std::string("FixedMoments"));
       Readparameters::add("ionosphere.F10_7", "Solar 10.7 cm radio flux (sfu = 10^{-22} W/m^2)", 100);
-      Readparameters::add("ionosphere.backgroundIonisation", "Background ionoisation due to cosmic rays (mho)", 0.5);
+      Readparameters::add("ionosphere.backgroundIonization", "Background ionization due to cosmic rays (mho)", 0.5);
       Readparameters::add("ionosphere.solverMaxIterations", "Maximum number of iterations for the conjugate gradient solver", 2000);
       Readparameters::add("ionosphere.solverRelativeL2ConvergenceThreshold", "Convergence threshold for the relative L2 metric", 1e-6);
       Readparameters::add("ionosphere.solverMaxFailureCount", "Maximum number of iterations allowed to diverge before restarting the ionosphere solver", 5);
@@ -2287,12 +2611,21 @@ namespace SBC {
          ionosphereGrid.ionizationModel = SphericalTriGrid::Rees1989;
       } else if(ionizationModelString == "SergienkoIvanov") {
          ionosphereGrid.ionizationModel = SphericalTriGrid::SergienkoIvanov;
+      } else if (ionizationModelString == "Fang") {
+         ionosphereGrid.ionizationModel = SphericalTriGrid::Fang;
       } else {
          cerr << "(IONOSPHERE) Unknown ionization production model \"" << ionizationModelString << "\". Aborting." << endl;
          abort();
       }
+      Readparameters::get("ionosphere.precipitatingProtons", ionosphereGrid.precipitatingProtons);
+      Readparameters::get("ionosphere.precipitatingProtonEnergyBins", ionosphereGrid.productionNumProtonEnergies);
+      Readparameters::get("ionosphere.precipitatingProtonMinEnergy", ionosphereGrid.productionMinProtonEnergy);
+      Readparameters::get("ionosphere.precipitatingProtonMaxEnergy", ionosphereGrid.productionMaxProtonEnergy);
+      Readparameters::get("ionosphere.precipitatingElectronEnergyBins", ionosphereGrid.productionNumElectronEnergies);
+      Readparameters::get("ionosphere.precipitatingElectronMinEnergy", ionosphereGrid.productionMinElectronEnergy);
+      Readparameters::get("ionosphere.precipitatingElectronMaxEnergy", ionosphereGrid.productionMaxElectronEnergy);
       Readparameters::get("ionosphere.F10_7",F10_7);
-      Readparameters::get("ionosphere.backgroundIonisation",backgroundIonisation);
+      Readparameters::get("ionosphere.backgroundIonization",backgroundIonization);
       this->applyUponRestart = false;
       if(reapply == 1) {
          this->applyUponRestart = true;
@@ -2395,7 +2728,7 @@ namespace SBC {
 
       // Set up ionospheric atmosphere model
       ionosphereGrid.readAtmosphericModelFile(atmosphericModelFile.c_str());
-
+      
       // iniSysBoundary is only called once, generateTemplateCell must
       // init all particle species
       generateTemplateCell(project);

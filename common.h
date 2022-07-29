@@ -401,7 +401,9 @@ enum ionosphereParameters {
   PRECIP,   /*!< Precipitation */
   RHON,     /*!< Downmapped magnetospheric plasma number density */
   TEMPERATURE, /*!< Downmapped electron temperature */
-  POYNTINGFLUX, /*!< Downwards poynting flux from the magnetosphre into the ionosphere */
+  POYNTINGFLUX, /*!< Downwards poynting flux from the magnetosphere into the ionosphere */
+  NODE_BX,NODE_BY,NODE_BZ, /*!< Magnetic field at the node, needed for loss cone calculation */
+  LOSSCONEANGLE,
   UPMAPPED_BX,UPMAPPED_BY,UPMAPPED_BZ, /*!< Magnetic field at the upper and of the mapping fieldline */
   SOLUTION, /*!< Currently considered solution potential */
   BEST_SOLUTION, /*!< Best solution found so far */
@@ -491,6 +493,7 @@ namespace physicalconstants {
    const Real MASS_ELECTRON = 9.10938188e-31; /**< Electron rest mass, units: kg.*/
    const Real MASS_PROTON = 1.67262158e-27; /*!< Proton rest mass, units: kg.*/
    const Real R_E = 6.3712e6; /*!< radius of the Earth, units: m. */
+   const Real g = 9.80665; /*!< Standard acceleration of gravity at Earth's surface, units: m s^-2.*/
 }
 
 const std::vector<CellID>& getLocalCells();

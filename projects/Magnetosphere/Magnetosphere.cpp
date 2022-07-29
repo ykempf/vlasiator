@@ -461,6 +461,7 @@ namespace projects {
          setBackgroundField(bgConstantField, BgBGrid, true);
          SBC::ionosphereGrid.setConstantBackgroundField(this->constBgB);
       }
+      SBC::ionosphereGrid.storeNodeB();
    }
    
    

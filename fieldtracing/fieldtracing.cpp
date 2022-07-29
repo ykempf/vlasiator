@@ -433,6 +433,8 @@ namespace FieldTracing {
       std::array<Real,3> v;
       phiprof::start("ionosphere-VlasovGridCoupling");
       
+      
+      
       // For tracing towards the vlasov boundary, we only require the dipole field.
       TracingFieldFunction dipoleFieldOnly = [](std::array<Real,3>& r, const bool outwards, std::array<Real,3>& b)->bool {
          
