@@ -1148,7 +1148,7 @@ namespace SBC {
       nodes[n].parameters[ionosphereParameters::LOSSCONEANGLE] = asin(sqrt(normB / nodeNormB));
       // Solid angle of a cone of half-width theta: 4 pi sin^2(theta/2)
       // Fraction of full sphere: sin^2(theta/2)
-      totalIonizationElectrons *= sin(sqrt(normB / nodeNormB));
+      totalIonizationElectrons *= sin(sin(0.5*nodes[n].parameters[ionosphereParameters::LOSSCONEANGLE]));
       
       // 1e6: cm^-3 -> m^-3
       // 100: m -> cm
