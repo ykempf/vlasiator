@@ -1117,6 +1117,7 @@ namespace SBC {
             }
          }
       }
+      
       //ELECTRON
       // Energies of electrons, logspace-distributed
       std::vector<Real> electronEnergy(productionNumElectronEnergies+1, 0); // In keV
@@ -1129,7 +1130,8 @@ namespace SBC {
          creal energyParam = electronEnergy[e] / tempEnergy * 1e3*physicalconstants::CHARGE; // = E_p / (kB T)
          creal deltaE = (electronEnergy[e+1] - electronEnergy[e]);  // dE in keV
          // 1e-6 m^-3 -> cm^-3
-         creal differentialFlux = nodes[n].electronDensity() * 1e-6 * sqrt(1e3*physicalconstants::CHARGE*1e3*physicalconstants::CHARGE*1e3*physicalconstants::CHARGE / (2. * M_PI * physicalconstants::MASS_ELECTRON * tempEnergy*tempEnergy*tempEnergy)) * exp(-energyParam);
+         creal differentialFlux = nodes[n].electronDensity() * 1e-6 * electronEnergy[e] * sqrt(1e3*physicalconstants::CHARGE*1e3*physicalconstants::CHARGE*1e3*physicalconstants::CHARGE / (2. * M_PI * physicalconstants::MASS_ELECTRON * 1e3 * tempEnergy*tempEnergy*tempEnergy)) * exp(-energyParam);
+//          creal differentialFlux = nodes[n].electronDensity() * 1e-6 * 2 * electronEnergy[e] / (physicalconstants::MASS_ELECTRON * 1e3 * physicalconstants::MASS_ELECTRON * 1e-6) * pow(physicalconstants::MASS_ELECTRON * 1e3 * 1e3*physicalconstants::CHARGE / (2. * M_PI * tempEnergy), 3/2) * exp(-energyParam);
          
          totalIonizationElectrons += electronEnergy[e]*differentialFlux*deltaE*fangEnergyDissipation(Particles::ELECTRON, electronEnergy[e], h);
       }
@@ -1600,7 +1602,7 @@ namespace SBC {
             theta = M_PI - theta;
          }
          // Smoothstep with an edge at about 67 deg.
-         Real Chi0 = 0.01 + 0.99 * .5 * (1 + tanh((23. - theta * (180. / M_PI)) / 6));
+         Real Chi0 = 1.0; //0.01 + 0.99 * .5 * (1 + tanh((23. - theta * (180. / M_PI)) / 6));
 
          if(rhoSum[n] == 0 || temperatureSum[n] == 0) {
             // Node couples nowhere. Assume some default values.
