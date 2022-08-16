@@ -1005,7 +1005,8 @@ namespace SBC {
          // is overlapped by the loss cone, by recursive (k-d tree) subdivision.
          std::function<Real(std::array<Real,3>, std::array<Real,3>, int, int)> coneCoverage = [&coneSDF,&coneCoverage](std::array<Real,3> v, std::array<Real,3> dv, int maxIteration, int dim) -> Real {
             Real lossconeDistance = coneSDF(v);
-            Real diagonalSqr = dv[0]*dv[0] + dv[1]*dv[1] + dv[2]*dv[2];
+            // Square of spatial diagonal of half a cell.
+            Real diagonalSqr = 0.25*(dv[0]*dv[0] + dv[1]*dv[1] + dv[2]*dv[2]); 
 
             // If we are more than one cell diagonal distance away from the loss cone boundary,
             // we are either fully outside or fully inside
