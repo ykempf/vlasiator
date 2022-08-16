@@ -1002,11 +1002,11 @@ namespace SBC {
          };
 
          // Determine how much the (sub) cell at centre point v with extents dv
-         // is overlapped by the loss cone, by recursive (k-d tree) subdivision.
-         std::function<Real(std::array<Real,3>, std::array<Real,3>, int, int)> coneCoverage = [&coneSDF,&coneCoverage](std::array<Real,3> v, std::array<Real,3> dv, int maxIteration, int dim) -> Real {
+         // is overlapped by the loss cone, by recursive (octree) subdivision.
+         std::function<Real(std::array<Real,3>, Real, int)> coneCoverage = [&coneSDF,&coneCoverage](std::array<Real,3> v, Real dv, int maxIteration) -> Real {
             Real lossconeDistance = coneSDF(v);
             // Square of spatial diagonal of half a cell.
-            Real diagonalSqr = 0.25*(dv[0]*dv[0] + dv[1]*dv[1] + dv[2]*dv[2]); 
+            Real diagonalSqr = 0.25*(3*dv*dv); 
 
             // If we are more than one cell diagonal distance away from the loss cone boundary,
             // we are either fully outside or fully inside
@@ -1034,13 +1034,25 @@ namespace SBC {
             // Otherwise, split the cell and continue recursively.
             Real result = 0.;
             std::array<Real, 3> newV = v;
-            std::array<Real, 3> newDv = dv;
-            newDv[dim] *= 0.5;
-            newV[dim]+= 0.5*dv[dim];
-            result += 0.5*coneCoverage(newV, newDv, maxIteration-1, (dim+1)%3);
-            newV[dim]-= dv[dim];
-            result += 0.5*coneCoverage(newV, newDv, maxIteration-1, (dim+1)%3);
-            
+            Real newDv=0.5 * dv;
+            newV[0]+= 0.25*dv;
+            newV[1]+= 0.25*dv;
+            newV[2]+= 0.25*dv;
+            result += coneCoverage(newV, newDv, maxIteration-1) / 8;
+            newV[0]-= 0.5*dv;
+            result += coneCoverage(newV, newDv, maxIteration-1) / 8;
+            newV[1]-= 0.5*dv;
+            result += coneCoverage(newV, newDv, maxIteration-1) / 8;
+            newV[0]+= 0.5*dv;
+            result += coneCoverage(newV, newDv, maxIteration-1) / 8;
+            newV[2]-= 0.5*dv;
+            result += coneCoverage(newV, newDv, maxIteration-1) / 8;
+            newV[0]-= 0.5*dv;
+            result += coneCoverage(newV, newDv, maxIteration-1) / 8;
+            newV[1]+= 0.5*dv;
+            result += coneCoverage(newV, newDv, maxIteration-1) / 8;
+            newV[0]+= 0.5*dv;
+            result += coneCoverage(newV, newDv, maxIteration-1) / 8;
             return result;
          };
          
@@ -1085,7 +1097,7 @@ namespace SBC {
                      //const Real VdotB_norm = (B[0]*VX + B[1]*VY + B[2]*VZ)/normV;
                      //Real countAndGate = floor(VdotB_norm/cosAngle);  // gate function: 0 outside loss cone, 1 inside
                      //countAndGate = max(0.,countAndGate);
-                     Real countAndGate = coneCoverage({VX,VY,VZ},{parameters[vn * BlockParams::N_VELOCITY_BLOCK_PARAMS + BlockParams::DVX],parameters[vn * BlockParams::N_VELOCITY_BLOCK_PARAMS + BlockParams::DVY],parameters[vn * BlockParams::N_VELOCITY_BLOCK_PARAMS + BlockParams::DVZ]},6,0);
+                     Real countAndGate = coneCoverage({VX,VY,VZ},parameters[vn * BlockParams::N_VELOCITY_BLOCK_PARAMS + BlockParams::DVX],6);
 
                      const Real energy = 0.5 * mass * normV*normV / (1000 * physicalconstants::CHARGE); // in keV, as the limits of the bins
                      

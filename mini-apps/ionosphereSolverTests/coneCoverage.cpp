@@ -50,11 +50,11 @@ int main(int argc, char** argv) {
    };
 
    // Determine how much the (sub) cell at centre point v with extents dv
-   // is overlapped by the loss cone, by recursive (k-d tree) subdivision.
-   std::function<Real(std::array<Real,3>, std::array<Real,3>, int, int)> coneCoverage = [&coneSDF,&coneCoverage](std::array<Real,3> v, std::array<Real,3> dv, int maxIteration, int dim) -> Real {
+   // is overlapped by the loss cone, by recursive (octree) subdivision.
+   std::function<Real(std::array<Real,3>, Real, int)> coneCoverage = [&coneSDF,&coneCoverage](std::array<Real,3> v, Real dv, int maxIteration) -> Real {
       Real lossconeDistance = coneSDF(v);
       // Square of spatial diagonal of half a cell.
-      Real diagonalSqr = 0.25*(dv[0]*dv[0] + dv[1]*dv[1] + dv[2]*dv[2]); 
+      Real diagonalSqr = 0.25*(3*dv*dv); 
 
       // If we are more than one cell diagonal distance away from the loss cone boundary,
       // we are either fully outside or fully inside
@@ -82,13 +82,25 @@ int main(int argc, char** argv) {
       // Otherwise, split the cell and continue recursively.
       Real result = 0.;
       std::array<Real, 3> newV = v;
-      std::array<Real, 3> newDv = dv;
-      newDv[dim] *= 0.5;
-      newV[dim]+= 0.5*dv[dim];
-      result += 0.5*coneCoverage(newV, newDv, maxIteration-1, (dim+1)%3);
-      newV[dim]-= dv[dim];
-      result += 0.5*coneCoverage(newV, newDv, maxIteration-1, (dim+1)%3);
-
+      Real newDv=0.5 * dv;
+      newV[0]+= 0.25*dv;
+      newV[1]+= 0.25*dv;
+      newV[2]+= 0.25*dv;
+      result += coneCoverage(newV, newDv, maxIteration-1) / 8;
+      newV[0]-= 0.5*dv;
+      result += coneCoverage(newV, newDv, maxIteration-1) / 8;
+      newV[1]-= 0.5*dv;
+      result += coneCoverage(newV, newDv, maxIteration-1) / 8;
+      newV[0]+= 0.5*dv;
+      result += coneCoverage(newV, newDv, maxIteration-1) / 8;
+      newV[2]-= 0.5*dv;
+      result += coneCoverage(newV, newDv, maxIteration-1) / 8;
+      newV[0]-= 0.5*dv;
+      result += coneCoverage(newV, newDv, maxIteration-1) / 8;
+      newV[1]+= 0.5*dv;
+      result += coneCoverage(newV, newDv, maxIteration-1) / 8;
+      newV[0]+= 0.5*dv;
+      result += coneCoverage(newV, newDv, maxIteration-1) / 8;
       return result;
    };
 
@@ -97,7 +109,7 @@ int main(int argc, char** argv) {
          Real x = (Real)i - VELSPACE_SIZE/2.;
          Real y = (Real)j - VELSPACE_SIZE/2.;
 
-         std::cout << coneCoverage({x,y,0},{1,1,1},6,0) << " ";
+         std::cout << coneCoverage({x,y,0},1,6) << " ";
       }
       std::cout << std::endl;
    }
