@@ -985,7 +985,7 @@ namespace SBC {
 
             // Go to 2D coordinate system, where y is along cone direction and tip is at 0,0
             std::array<Real,2> q = {pCrossB, pDotB};
-            std::array<Real,2> mantleDir = {cosAngle, sqrt(1 - cosAngle*cosAngle)};
+            std::array<Real,2> mantleDir = {sqrt(1 - cosAngle*cosAngle), cosAngle};
 
             // Are we in front of, or behind the tip?
             Real projected = q[0]*mantleDir[1] + q[1]*-mantleDir[0];
@@ -994,7 +994,7 @@ namespace SBC {
             Real distance = q[0]*mantleDir[0] + q[1] * mantleDir[1];
             // Distance to tip
             if(q[1] < 0 && projected < 0) {
-               distance = max(distance, sqrt(q[0]*q[0]+q[1]*q[1]));
+               distance = std::max(distance, sqrt(q[0]*q[0]+q[1]*q[1]));
             }
 
             return distance;
@@ -1018,7 +1018,15 @@ namespace SBC {
 
             // If our iterations are exhausted, return coverage approximation from the SDF distance.
             if(maxIteration==0) {
-               return 1. - 0.5 * ((lossconeDistance - sqrt(diagonalSqr)) / sqrt(diagonalSqr) +1.);
+               Real diagonalLength = sqrt(diagonalSqr);
+               // Percentage of the equivalent sphere that is covered by the cone
+               // (if distance = 0, => 50% cover.
+               //  if distance = diagonal, 0% cover.
+               //  if distance = -diagonal, 100% cover)
+               Real cover = 0.5 * (diagonalLength - lossconeDistance) / diagonalLength;
+               cover = std::max(0.,cover);
+               cover = std::min(1.,cover);
+               return cover;
             }
 
             // Otherwise, split the cell and continue recursively.
@@ -1027,9 +1035,9 @@ namespace SBC {
             std::array<Real, 3> newDv = dv;
             newDv[dim] *= 0.5;
             newV[dim]+= 0.5*dv[dim];
-            result += coneCoverage(newV, newDv, maxIteration-1, (dim+1)%3);
+            result += 0.5*coneCoverage(newV, newDv, maxIteration-1, (dim+1)%3);
             newV[dim]-= dv[dim];
-            result += coneCoverage(newV, newDv, maxIteration-1, (dim+1)%3);
+            result += 0.5*coneCoverage(newV, newDv, maxIteration-1, (dim+1)%3);
             
             return result;
          };
