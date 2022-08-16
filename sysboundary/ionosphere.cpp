@@ -973,6 +973,66 @@ namespace SBC {
                B[i] = -B[i];
             }
          }
+
+         // Signed distance function of the loss cone.
+         // Returns distance from the point p to the cone surface.
+         // Positive values: outside of the cone
+         // Negative values: inside of the cone
+         std::function<Real(std::array<Real,3>)> coneSDF = [&B,cosAngle](std::array<Real,3> p) -> Real {
+
+            Real pDotB = B[0]*p[0] + B[1]*p[1] + B[2]*p[2];
+            Real pCrossB = sqrt(p[0]*p[0] + p[1]*p[1] + p[2]*p[2] - pDotB*pDotB);
+
+            // Go to 2D coordinate system, where y is along cone direction and tip is at 0,0
+            std::array<Real,2> q = {pCrossB, pDotB};
+            std::array<Real,2> mantleDir = {cosAngle, sqrt(1 - cosAngle*cosAngle)};
+
+            // Are we in front of, or behind the tip?
+            Real projected = q[0]*mantleDir[1] + q[1]*-mantleDir[0];
+
+            // Distance to mantle
+            Real distance = q[0]*mantleDir[0] + q[1] * mantleDir[1];
+            // Distance to tip
+            if(q[1] < 0 && projected < 0) {
+               distance = max(distance, sqrt(q[0]*q[0]+q[1]*q[1]));
+            }
+
+            return distance;
+         };
+
+         // Determine how much the (sub) cell at centre point v with extents dv
+         // is overlapped by the loss cone, by recursive (k-d tree) subdivision.
+         std::function<Real(std::array<Real,3>, std::array<Real,3>, int, int)> coneCoverage = [&coneSDF,&coneCoverage](std::array<Real,3> v, std::array<Real,3> dv, int maxIteration, int dim) -> Real {
+            Real lossconeDistance = coneSDF(v);
+            Real diagonalSqr = dv[0]*dv[0] + dv[1]*dv[1] + dv[2]*dv[2];
+
+            // If we are more than one cell diagonal distance away from the loss cone boundary,
+            // we are either fully outside or fully inside
+            if(lossconeDistance*lossconeDistance > diagonalSqr) {
+               if(lossconeDistance > 0) {
+                  return 0.;
+               } else {
+                  return 1.;
+               }
+            }
+
+            // If our iterations are exhausted, return coverage approximation from the SDF distance.
+            if(maxIteration==0) {
+               return 1. - 0.5 * ((lossconeDistance - sqrt(diagonalSqr)) / sqrt(diagonalSqr) +1.);
+            }
+
+            // Otherwise, split the cell and continue recursively.
+            Real result = 0.;
+            std::array<Real, 3> newV = v;
+            std::array<Real, 3> newDv = dv;
+            newDv[dim] *= 0.5;
+            newV[dim]+= 0.5*dv[dim];
+            result += coneCoverage(newV, newDv, maxIteration-1, (dim+1)%3);
+            newV[dim]-= dv[dim];
+            result += coneCoverage(newV, newDv, maxIteration-1, (dim+1)%3);
+            
+            return result;
+         };
          
          for(uint popID=0; popID< getObjectWrapper().particleSpecies.size(); popID++) {
             const std::string& pop = getObjectWrapper().particleSpecies[popID].name;
@@ -1012,9 +1072,10 @@ namespace SBC {
                      * parameters[vn * BlockParams::N_VELOCITY_BLOCK_PARAMS + BlockParams::DVZ];
                      
                      const Real normV = sqrt(VX*VX + VY*VY + VZ*VZ);
-                     const Real VdotB_norm = (B[0]*VX + B[1]*VY + B[2]*VZ)/normV;
-                     Real countAndGate = floor(VdotB_norm/cosAngle);  // gate function: 0 outside loss cone, 1 inside
-                     countAndGate = max(0.,countAndGate);
+                     //const Real VdotB_norm = (B[0]*VX + B[1]*VY + B[2]*VZ)/normV;
+                     //Real countAndGate = floor(VdotB_norm/cosAngle);  // gate function: 0 outside loss cone, 1 inside
+                     //countAndGate = max(0.,countAndGate);
+                     Real countAndGate = coneCoverage({VX,VY,VZ},{parameters[vn * BlockParams::N_VELOCITY_BLOCK_PARAMS + BlockParams::DVX],parameters[vn * BlockParams::N_VELOCITY_BLOCK_PARAMS + BlockParams::DVY],parameters[vn * BlockParams::N_VELOCITY_BLOCK_PARAMS + BlockParams::DVZ]},6,0);
 
                      const Real energy = 0.5 * mass * normV*normV / (1000 * physicalconstants::CHARGE); // in keV, as the limits of the bins
                      
