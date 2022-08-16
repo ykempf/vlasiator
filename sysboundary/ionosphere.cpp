@@ -975,6 +975,7 @@ namespace SBC {
          }
 
          // Signed distance function of the loss cone.
+         // Adapted from https://mercury.sexy/hg_sdf/
          // Returns distance from the point p to the cone surface.
          // Positive values: outside of the cone
          // Negative values: inside of the cone
