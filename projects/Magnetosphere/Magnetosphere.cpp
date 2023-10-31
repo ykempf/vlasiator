@@ -705,12 +705,13 @@ namespace projects {
       if (myRank == MASTER_RANK) {
          std::cout << "Maximum refinement level is " << mpiGrid.mapping.get_maximum_refinement_level() << std::endl;
       }
-      
+
+      int refines {0};
       if (!P::useAlpha && !P::useJPerB) {
          if (myRank == MASTER_RANK) {
             std::cout << "WARNING All refinement indices disabled" << std::endl;
          }
-         return true;
+         return refines;
       }
 
       //Real ibr2 {pow(ionosphereRadius + 2*P::dx_ini, 2)};
@@ -718,7 +719,6 @@ namespace projects {
       std::vector<CellID> cells {getLocalCells()};
       Real r_max2 {pow(P::refineRadius, 2)};
 
-      int refines {0};
       //#pragma omp parallel for
       for (CellID id : cells) {
          std::array<double,3> xyz {mpiGrid.get_center(id)};
@@ -733,7 +733,8 @@ namespace projects {
             mpiGrid.dont_unrefine(id);
          } else if (r2 < r_max2) {
             // We don't care about cells that are too far from the ionosphere
-            const Real alphaTwo {std::log2(cell->parameters[CellParams::AMR_JPERB]) + logDx + P::JPerBModifier};
+            // Use epsilon here so we don't get infinities
+            const Real alphaTwo {std::log2(cell->parameters[CellParams::AMR_JPERB] + EPS) + logDx + P::JPerBModifier};
             bool shouldRefine = (P::useAlpha ? cell->parameters[CellParams::AMR_ALPHA] > P::refineThreshold : false) || (P::useJPerB ? alphaTwo > refLevel : false);
             bool shouldUnrefine = (P::useAlpha ? cell->parameters[CellParams::AMR_ALPHA] < P::unrefineThreshold : true) && (P::useJPerB ? alphaTwo < refLevel - 1 : true);
 
@@ -742,7 +743,7 @@ namespace projects {
             int coarser_neighbors {0};
             for (const auto& [neighbor, dir] : mpiGrid.get_face_neighbors_of(id)) {
                const int neighborRef = mpiGrid.get_refinement_level(neighbor);
-               const Real neighborAlphaTwo {std::log2(mpiGrid[neighbor]->parameters[CellParams::AMR_JPERB]) + logDx + P::JPerBModifier};
+               const Real neighborAlphaTwo {std::log2(mpiGrid[neighbor]->parameters[CellParams::AMR_JPERB] + EPS) + logDx + P::JPerBModifier};
                if (neighborRef > refLevel) {
                   ++refined_neighbors;
                } else if (neighborRef < refLevel) {
