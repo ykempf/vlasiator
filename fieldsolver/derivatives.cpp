@@ -692,7 +692,12 @@ static std::array<Real, 3> getBVol(SpatialCell* cell)
 static std::array<Real, 3> getMomentumDensity(SpatialCell* cell)
 {
    Real rho = cell->parameters[CellParams::RHOM];
-   return std::array<Real, 3> { {rho * cell->parameters[CellParams::VX], rho * cell->parameters[CellParams::VY], rho * cell->parameters[CellParams::VZ]} };
+   return std::array<Real, 3> { 
+      {
+         rho * cell->parameters[CellParams::VX], 
+         rho * cell->parameters[CellParams::VY], 
+         rho * cell->parameters[CellParams::VZ]} 
+   };
 }
 
 /*! \brief Calculates energy density for spatial cell
@@ -703,7 +708,8 @@ static Real calculateU(SpatialCell* cell)
    Real rho = cell->parameters[CellParams::RHOM];
    std::array<Real, 3> p = getMomentumDensity(cell);
    std::array<Real, 3> B = getBVol(cell);
-   return rho > EPS ? (pow(p[0], 2) + pow(p[1], 2) + pow(p[2], 2)) / (2.0 * cell->parameters[CellParams::RHOM]) : 0.0 + (pow(B[0], 2) + pow(B[1], 2) + pow(B[2], 2)) / (2.0 * physicalconstants::MU_0);
+   return (pow(B[0], 2) + pow(B[1], 2) + pow(B[2], 2)) / (2.0 * physicalconstants::MU_0) + // Magnetic field energy
+      (rho > EPS ? (pow(p[0], 2) + pow(p[1], 2) + pow(p[2], 2)) / (2.0 * cell->parameters[CellParams::RHOM]) : 0.0); // Kinetic energy
 }
 
 /*! \brief Low-level scaled gradients calculation
@@ -743,7 +749,7 @@ void calculateScaledDeltas(
       if (maxU > EPS) {
          dU = std::max(fabs(myU - otherU) / maxU, dU);
          dBsq = std::max(deltaBsq / (2 * physicalconstants::MU_0 * maxU), dBsq);
-         if (maxRho > EPS) {
+         if (myRho > EPS) {
             dPsq = std::max((pow(myP[0] - otherP[0], 2) + pow(myP[1] - otherP[1], 2) + pow(myP[2] - otherP[2], 2)) / (2 * myRho * maxU), dPsq);
          }
       }
