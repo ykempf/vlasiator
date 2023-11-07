@@ -77,7 +77,6 @@ namespace projects {
 
       /*!\brief Set the perturbed fields and distribution of a cell according to the default simulation settings.
        * This is used for the NOT_SYSBOUNDARY cells and some other system boundary conditions (e.g. Outflow).
-       * NOTE: This function is called inside parallel region so it must be declared as const.
        * \param cell Pointer to the cell to set.
        */
       void setCell(spatial_cell::SpatialCell* cell);
@@ -85,6 +84,24 @@ namespace projects {
       Real setVelocityBlock(spatial_cell::SpatialCell* cell,const vmesh::LocalID& blockLID,const uint popID) const;
 
       virtual bool refineSpatialCells( dccrg::Dccrg<spatial_cell::SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid ) const;
+
+      /*!\brief Adapts refinement by one level according to the project. Returns true if any cells were refined, false if not.
+       * \param mpiGrid grid to refine
+       * @return The amount of cells set to refine
+       */
+      virtual int adaptRefinement( dccrg::Dccrg<spatial_cell::SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid ) const;
+
+
+      /*!\brief Refine/unrefine spatial cells one level to the static criteria in the config
+      * \param mpiGrid Spatial grid
+      * \param n Static refinement pass. 0th pass refines level 0 cells and unrefines max level cells, 1st pass refines level 1 and unrefines max level -1 etc.
+      */
+      virtual bool forceRefinement( dccrg::Dccrg<spatial_cell::SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid, int n ) const;
+
+      /*!\brief Boxcar filters spatial cells that were recently refined
+       * \param mpiGrid grid to filter
+       */
+      virtual bool filterRefined( dccrg::Dccrg<spatial_cell::SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid ) const;
       
     protected:
       /*! \brief Returns a list of blocks to loop through when initialising.

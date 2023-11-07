@@ -36,16 +36,17 @@
 #include "../vlasovmover.h"
 #include "../fieldsolver/fs_common.h"
 #include "../fieldsolver/ldz_magnetic_field.hpp"
+#include "../fieldtracing/fieldtracing.h"
 #include "../common.h"
 #include "../object_wrapper.h"
-#include "vectorclass.h"
-#include "vector3d.h"
 
-#include "../fieldtracing/fieldtracing.h"
+#include <Eigen/Dense>
 
-#if VECTORCLASS_H >= 200
-#define Vec3d Vec3Dd
-#endif
+#define Vec3d Eigen::Vector3d
+#define cross_product(av,bv) (av).cross(bv)
+#define dot_product(av,bv) (av).dot(bv)
+#define vector_length(v) (v).norm()
+#define normalize_vector(v) (v).normalized()
 
 #ifndef NDEBUG
    #define DEBUG_IONOSPHERE
@@ -58,24 +59,24 @@ namespace SBC {
 
    IonosphereBoundaryVDFmode boundaryVDFmode = FixedMoments;
 
-   // Ionosphere finite element grid
-   SphericalTriGrid ionosphereGrid;
+   
+   SphericalTriGrid ionosphereGrid; /*!< Ionosphere finite element grid */
 
    std::vector<IonosphereSpeciesParameters> Ionosphere::speciesParams;
 
    // Static ionosphere member variables
    Real Ionosphere::innerRadius;
    Real Ionosphere::radius;
-   Real Ionosphere::recombAlpha; // Recombination parameter, determining atmosphere ionizability (parameter)
-   Real Ionosphere::F10_7; // Solar 10.7 Flux value (parameter)
-   Real Ionosphere::downmapRadius; // Radius from which FACs are downmapped (RE)
-   Real Ionosphere::unmappedNodeRho; // Electron density of ionosphere nodes that don't couple to the magnetosphere
-   Real Ionosphere::unmappedNodeTe; // Electron temperature of ionosphere nodes that don't couple to the magnetosphere
-   Real Ionosphere::ridleyParallelConductivity; // Constant parallel conductivity in the Ridley conductivity model
-   Real Ionosphere::couplingTimescale; // Magnetosphere->Ionosphere coupling timescale (seconds)
-   Real Ionosphere::couplingInterval; // Ionosphere update interval
-   int Ionosphere::solveCount; // Counter of the number of solvings
-   Real Ionosphere::backgroundIonization; // Background ionization due to stellar UV and cosmic rays
+   Real Ionosphere::recombAlpha; /*!< Recombination parameter, determining atmosphere ionizability (parameter) */
+   Real Ionosphere::F10_7; /*!< Solar 10.7 Flux value (parameter) */
+   Real Ionosphere::downmapRadius; /*!< Radius from which FACs are downmapped (RE) */
+   Real Ionosphere::unmappedNodeRho; /*!< Electron density of ionosphere nodes that don't couple to the magnetosphere */
+   Real Ionosphere::unmappedNodeTe; /*!< Electron temperature of ionosphere nodes that don't couple to the magnetosphere */
+   Real Ionosphere::ridleyParallelConductivity; /*!< Constant parallel conductivity in the Ridley conductivity model */
+   Real Ionosphere::couplingTimescale; /*!< Magnetosphere->Ionosphere coupling timescale (seconds) */
+   Real Ionosphere::couplingInterval; /*!< Ionosphere update interval */
+   int Ionosphere::solveCount; /*!< Counter of the number of solvings */
+   Real Ionosphere::backgroundIonisation; /*!< Background ionisation due to stellar UV and cosmic rays */
    int  Ionosphere::solverMaxIterations;
    Real Ionosphere::solverRelativeL2ConvergenceThreshold;
    int Ionosphere::solverMaxFailureCount;
@@ -151,26 +152,28 @@ namespace SBC {
    // Initialize base grid as a tetrahedron
    void SphericalTriGrid::initializeTetrahedron() {
       const static std::array<uint32_t, 3> seedElements[4] = {
-         {1,2,3},{1,3,4},{1,4,2},{2,4,3}};
+         {1,2,3}, {1,3,4}, {1,4,2}, {2,4,3}
+      };
       const static std::array<Real, 3> nodeCoords[4] = {
          {0,0,1.73205},
          {0,1.63299,-0.57735},
          {-1.41421,-0.816497,-0.57735},
-         {1.41421,-0.816497,-0.57735}};
+         {1.41421,-0.816497,-0.57735}
+      };
 
       // Create nodes
       // Additional nodes from table
-      for(int n=0; n<4; n++) {
+      for(const auto& coords : nodeCoords) {
          Node newNode;
-         newNode.x = nodeCoords[n];
-         normalizeRadius(newNode,Ionosphere::innerRadius);
+         newNode.x = coords;
+         normalizeRadius(newNode, Ionosphere::innerRadius);
          nodes.push_back(newNode);
       }
 
       // Create elements
-      for(int i=0; i<4; i++) {
+      for(const auto& seed : seedElements) {
          Element newElement;
-         newElement.corners = seedElements[i];
+         newElement.corners = seed;
          elements.push_back(newElement);
       }
 
@@ -185,28 +188,30 @@ namespace SBC {
         { 0, 1, 5}, { 1, 2, 6}, { 2, 3, 7}, { 3, 4, 8},
         { 4, 5,9}, { 5, 1,10}, { 6, 2, 7}, { 7, 3, 8},
         { 8, 4,9}, {9, 5,10}, {10, 1, 6}, { 6, 7,11},
-        { 7, 8,11}, { 8,9,11}, {9,10,11}, {10, 6,11}};
+        { 7, 8,11}, { 8,9,11}, {9,10,11}, {10, 6,11}
+      };
       const static std::array<Real, 3> nodeCoords[12] = {
         {        0,        0,  1.17557}, {  1.05146,        0, 0.525731},
         {  0.32492,      1.0, 0.525731}, {-0.850651, 0.618034, 0.525731},
         {-0.850651,-0.618034, 0.525731}, {  0.32492,     -1.0, 0.525731},
         { 0.850651, 0.618034,-0.525731}, { -0.32492,      1.0,-0.525731},
         { -1.05146,        0,-0.525731}, { -0.32492,     -1.0,-0.525731},
-        { 0.850651,-0.618034,-0.525731}, {        0,        0, -1.17557}};
+        { 0.850651,-0.618034,-0.525731}, {        0,        0, -1.17557}
+      };
 
       // Create nodes
       // Additional nodes from table
-      for(int n=0; n<12; n++) {
+      for(const auto& coords : nodeCoords) {
          Node newNode;
-         newNode.x = nodeCoords[n];
+         newNode.x = coords;
          normalizeRadius(newNode, Ionosphere::innerRadius);
          nodes.push_back(newNode);
       }
 
       // Create elements
-      for(int i=0; i<20; i++) {
+      for(const auto& seed : seedElements) {
          Element newElement;
-         newElement.corners = seedElements[i];
+         newElement.corners = seed;
          elements.push_back(newElement);
       }
 
@@ -218,7 +223,7 @@ namespace SBC {
    // after Keinert et al 2015
    void SphericalTriGrid::initializeSphericalFibonacci(int n) {
 
-      phiprof::start("ionosphere-sphericalFibonacci");
+      phiprof::Timer timer {"ionosphere-sphericalFibonacci"};
       // Golden ratio
       const Real Phi = (sqrt(5) +1.)/2.;
 
@@ -264,7 +269,6 @@ namespace SBC {
          }
 
          // Make it delaunay
-         int numAdjacentVertices = 0;
          std::vector<int> adjacentVertices;
          for(int i=0; i<(int)nearestSamples.size(); i++) {
             int k = nearestSamples[i];
@@ -314,7 +318,6 @@ namespace SBC {
       }
 
       updateConnectivity();
-      phiprof::stop("ionosphere-sphericalFibonacci");
    }
 
    // Find the neighbouring element of the one with index e, that is sharing the
@@ -409,7 +412,7 @@ namespace SBC {
    // Subdivide mesh within element e
    // The element gets replaced by four new ones:
    //
-   //            2                      2
+   /*            2                      2
    //           /  \                   /  \
    //          /    \                 / 2  \
    //         /      \               /      \
@@ -418,13 +421,13 @@ namespace SBC {
    //      /            \         / 0 \   / 1  \
    //     /              \       /     \ /      \
    //    0----------------1     0-------0--------1
-   //
+   */
    // And three new nodes get created at the interfaces,
    // unless they already exist.
    // The new center element (3) replaces the old parent element in place.
    void SphericalTriGrid::subdivideElement(uint32_t e) {
 
-      phiprof::start("ionosphere-subdivideElement");
+      phiprof::Timer timer {"ionosphere-subdivideElement"};
       Element& parentElement = elements[e];
 
       // 4 new elements
@@ -545,7 +548,6 @@ namespace SBC {
       for(int i=0; i<3; i++) {
          elements.push_back(newElements[i]);
       }
-      phiprof::stop("ionosphere-subdivideElement");
    }
 
 
@@ -611,7 +613,7 @@ namespace SBC {
     */
    void SphericalTriGrid::readAtmosphericModelFile(const char* filename) {
 
-      phiprof::start("ionosphere-readAtmosphericModelFile");
+      phiprof::Timer timer {"ionosphere-readAtmosphericModelFile"};
       // These are the only height values (in km) we are actually interested in
       static const float alt[numAtmosphereLevels] = {
          66, 68, 71, 74, 78, 82, 87, 92, 98, 104, 111,
@@ -654,7 +656,7 @@ namespace SBC {
          Real altitude = MSISvalues[i][0];
 
          // When we encounter one of our reference layers, record its values
-         while(altitude >= alt[altindex] && altindex < numAtmosphereLevels) {
+         while(altindex < numAtmosphereLevels && altitude >= alt[altindex]) {
             Real interpolationFactor = (alt[altindex] - MSISvalues[i-1][0]) / (MSISvalues[i][0] - MSISvalues[i-1][0]);
 
             AtmosphericLayer newLayer;
@@ -698,17 +700,17 @@ namespace SBC {
 
       // Energies of particles that sample the production array
       // are logspace-distributed from 10^-1 to 10^2.3 keV
-      std::vector<Real> particle_energy(productionNumElectronEnergies+1); // In KeV
-      for(int e=0; e<productionNumElectronEnergies; e++) {
+      std::array< Real, SBC::productionNumParticleEnergies+1 > particle_energy; // In KeV
+      for(int e=0; e<SBC::productionNumParticleEnergies; e++) {
          // TODO: Hardcoded constants. Make parameter?
-         particle_energy[e] = pow(10.0, -1.+e*(2.3+1.)/(productionNumElectronEnergies-1));
+         particle_energy[e] = pow(10.0, -1.+e*(2.3+1.)/(SBC::productionNumParticleEnergies-1));
       }
-      particle_energy[productionNumElectronEnergies] = 2*particle_energy[productionNumElectronEnergies-1] - particle_energy[productionNumElectronEnergies-2];
+      particle_energy[SBC::productionNumParticleEnergies] = 2*particle_energy[SBC::productionNumParticleEnergies-1] - particle_energy[SBC::productionNumParticleEnergies-2];
 
       // Precalculate scattering rates
       const Real eps_ion_keV = 0.035; // Energy required to create one ion
-      std::vector< std::array< Real, numAtmosphereLevels > > scatteringRate(productionNumElectronEnergies);
-      for(int e=0;e<productionNumElectronEnergies; e++) {
+      std::array< std::array< Real, numAtmosphereLevels >, SBC::productionNumParticleEnergies > scatteringRate;
+      for(int e=0;e<SBC::productionNumParticleEnergies; e++) {
 
          Real electronRange=0.;
          Real rho_R=0.;
@@ -769,8 +771,8 @@ namespace SBC {
          }
       }
 
-      // Fill ionization production table
-      std::vector< Real > differentialFlux(productionNumElectronEnergies); // Differential flux
+      // Fill ionisation production table
+      std::array< Real, SBC::productionNumParticleEnergies > differentialFlux; // Differential flux
 
       for(int e=0; e<productionNumAccEnergies; e++) {
 
@@ -803,7 +805,15 @@ namespace SBC {
             }
          }
       }
-      phiprof::stop("ionosphere-readAtmosphericModelFile");
+   }
+
+   /*!< Store the value of the magnetic field at the node.*/
+   void SphericalTriGrid::storeNodeB() {
+      for(uint n=0; n<nodes.size(); n++) {
+         nodes[n].parameters[NODE_BX] = /*SBC::ionosphereGrid.*/dipoleField(nodes[n].x[0],nodes[n].x[1],nodes[n].x[2],X,0,X) + /*SBC::ionosphereGrid.*/BGB[0];
+         nodes[n].parameters[NODE_BY] = /*SBC::ionosphereGrid.*/dipoleField(nodes[n].x[0],nodes[n].x[1],nodes[n].x[2],Y,0,Y) + /*SBC::ionosphereGrid.*/BGB[1];
+         nodes[n].parameters[NODE_BZ] = /*SBC::ionosphereGrid.*/dipoleField(nodes[n].x[0],nodes[n].x[1],nodes[n].x[2],Z,0,Z) + /*SBC::ionosphereGrid.*/BGB[2];
+      }
    }
    
    /*!< Store the value of the magnetic field at the node.*/
@@ -1160,77 +1170,83 @@ namespace SBC {
     * given F10.7 photospheric flux as a solar activity proxy.
     *
     * This assumes the FACs have already been coupled into the grid.
+    * 
+    * If refillTensorAtRestart is true, we don't recompute precipitation and integration, we just refill the tensor from the sigmas as read from restart.
+    * That is necessary so ig_inplanecurrent has non-zero data if an output file is written after restart and before the next ionosphere solution step.
     */
    void SphericalTriGrid::calculateConductivityTensor(
-      const Real F10_7, const Real recombAlpha, const Real backgroundIonization) {
-
-      phiprof::start("ionosphere-calculateConductivityTensor");
-
-      // Ranks that don't participate in ionosphere solving skip this function outright
-      if(!isCouplingInwards && !isCouplingOutwards) {
-         phiprof::stop("ionosphere-calculateConductivityTensor");
-         return;
-      }
+      const Real F10_7,
+      const Real recombAlpha,
+      const Real backgroundIonisation,
+      const bool refillTensorAtRestart/*=false*/
+   ) {
+      phiprof::Timer timer {"ionosphere-calculateConductivityTensor"};
       
-      // This could be called when it is actually needed for the DRO.
-      // NOTE that the equivalent function is called from vlasiator.cpp as it gets mpiGrid.
-      // TODO ugh this could be made more consistent and elegant. Why pass all these SBC:: parameters from vlasiator.cpp back into the ionosphere functions?
-      calculateElectronPrecipitation();
+      // At restart we have SIGMAP, SIGMAH and SIGMAPARALLEL read in from the restart file already, no need to update here.
+      if(!refillTensorAtRestart) {
+         // Ranks that don't participate in ionosphere solving skip this function outright
+         if(!isCouplingInwards && !isCouplingOutwards) {
+            phiprof::stop("ionosphere-calculateConductivityTensor");
+            return;
+         }
+         
+         calculatePrecipitation();
+         
+         //Calculate height-integrated conductivities and 3D electron density
+         // TODO: effdt > 0?
+         // (Then, ne += dt*(q - alpha*ne*abs(ne))
+         for(uint n=0; n<nodes.size(); n++) {
+            nodes[n].parameters[ionosphereParameters::SIGMAP] = 0;
+            nodes[n].parameters[ionosphereParameters::SIGMAH] = 0;
+            nodes[n].parameters[ionosphereParameters::SIGMAPARALLEL] = 0;
+            std::array<Real, numAtmosphereLevels> electronDensity;
 
-      //Calculate height-integrated conductivities and 3D electron density
-      // TODO: effdt > 0?
-      // (Then, ne += dt*(q - alpha*ne*abs(ne))
-      for(uint n=0; n<nodes.size(); n++) {
-         nodes[n].parameters[ionosphereParameters::SIGMAP] = 0;
-         nodes[n].parameters[ionosphereParameters::SIGMAH] = 0;
-         nodes[n].parameters[ionosphereParameters::SIGMAPARALLEL] = 0;
-         std::array<Real, numAtmosphereLevels> electronDensity;
+            // Note this loop counts from 1 (std::vector is zero-initialized, so electronDensity[0] = 0)
+            for(int h=1; h<numAtmosphereLevels; h++) { 
+               // Calculate production rate
+               Real energy_keV = max(nodes[n].deltaPhi()/1000., productionMinAccEnergy);
 
-         // Note this loop counts from 1 (std::vector is zero-initialized, so electronDensity[0] = 0)
-         for(int h=1; h<numAtmosphereLevels; h++) {
-            // Calculate production rate
-            Real energy_keV = max(nodes[n].deltaPhi()/1000., productionMinAccEnergy);
+               Real ne = nodes[n].electronDensity();
+               Real electronTemp = nodes[n].electronTemperature();
+               Real temperature_keV = (physicalconstants::K_B / physicalconstants::CHARGE) / 1000. * electronTemp;
+               if(std::isnan(energy_keV) || std::isnan(temperature_keV)) {
+                  cerr << "(ionosphere) NaN encountered in conductivity calculation: " << endl
+                     << "   `-> DeltaPhi     = " << nodes[n].deltaPhi()/1000. << " keV" << endl
+                     << "   `-> energy_keV   = " << energy_keV << endl
+                     << "   `-> ne           = " << ne << " m^-3" << endl
+                     << "   `-> electronTemp = " << electronTemp << " K" << endl;
+               }
+               Real qref;
+               switch(ionizationModel) {
+                  case Rees1963: case Rees1989: case SergienkoIvanov:
+                     qref = ne * lookupProductionValue(h, energy_keV, temperature_keV);
+                     break;
+                  case Fang:
+                     qref = totalIonizationFang(n, h);
+                     break;
+                  default:
+                     cerr << "(IONOSPHERE) Invalid value " << ionizationModel << " for Ionization model. Choose from Rees1963 " << Rees1963 << " Rees1989 " << Rees1989 << " SergienkoIvanov " << SergienkoIvanov << " or Fang " << Fang << endl;
+                     abort();
+               }
 
-            Real ne = nodes[n].electronDensity();
-            Real electronTemp = nodes[n].electronTemperature();
-            Real temperature_keV = (physicalconstants::K_B / physicalconstants::CHARGE) / 1000. * electronTemp;
-            if(std::isnan(energy_keV) || std::isnan(temperature_keV)) {
-               cerr << "(ionosphere) NaN encountered in conductivity calculation: " << endl
-                  << "   `-> DeltaPhi     = " << nodes[n].deltaPhi()/1000. << " keV" << endl
-                  << "   `-> energy_keV   = " << energy_keV << endl
-                  << "   `-> ne           = " << ne << " m^-3" << endl
-                  << "   `-> electronTemp = " << electronTemp << " K" << endl;
+              // Get equilibrium electron density
+               electronDensity[h] = sqrt(qref/recombAlpha);
+
+               // Calculate conductivities
+               Real halfdx = 1000 * 0.5 * (atmosphere[h].altitude -  atmosphere[h-1].altitude);
+               Real halfCH = halfdx * 0.5 * (atmosphere[h-1].hallcoeff + atmosphere[h].hallcoeff);
+               Real halfCP = halfdx * 0.5 * (atmosphere[h-1].pedersencoeff + atmosphere[h].pedersencoeff);
+               Real halfCpara = halfdx * 0.5 * (atmosphere[h-1].parallelcoeff + atmosphere[h].parallelcoeff);
+
+               nodes[n].parameters[ionosphereParameters::SIGMAP] += (electronDensity[h]+electronDensity[h-1]) * halfCP;
+               nodes[n].parameters[ionosphereParameters::SIGMAH] += (electronDensity[h]+electronDensity[h-1]) * halfCH;
+               nodes[n].parameters[ionosphereParameters::SIGMAPARALLEL] += (electronDensity[h]+electronDensity[h-1]) * halfCpara;
             }
-            Real qref;
-            switch(ionizationModel) {
-               case Rees1963: case Rees1989: case SergienkoIvanov:
-                  qref = ne * lookupProductionValue(h, energy_keV, temperature_keV);
-                  break;
-               case Fang:
-                  qref = totalIonizationFang(n, h);
-                  break;
-               default:
-                  cerr << "(IONOSPHERE) Invalid value " << ionizationModel << " for Ionization model. Choose from Rees1963 " << Rees1963 << " Rees1989 " << Rees1989 << " SergienkoIvanov " << SergienkoIvanov << " or Fang " << Fang << endl;
-                  abort();
-            }
-
-            // Get equilibrium electron density
-            electronDensity[h] = sqrt(qref/recombAlpha);
-
-            // Calculate conductivities
-            Real halfdx = 1000 * 0.5 * (atmosphere[h].altitude -  atmosphere[h-1].altitude);
-            Real halfCH = halfdx * 0.5 * (atmosphere[h-1].hallcoeff + atmosphere[h].hallcoeff);
-            Real halfCP = halfdx * 0.5 * (atmosphere[h-1].pedersencoeff + atmosphere[h].pedersencoeff);
-            Real halfCpara = halfdx * 0.5 * (atmosphere[h-1].parallelcoeff + atmosphere[h].parallelcoeff);
-
-            nodes[n].parameters[ionosphereParameters::SIGMAP] += (electronDensity[h]+electronDensity[h-1]) * halfCP;
-            nodes[n].parameters[ionosphereParameters::SIGMAH] += (electronDensity[h]+electronDensity[h-1]) * halfCH;
-            nodes[n].parameters[ionosphereParameters::SIGMAPARALLEL] += (electronDensity[h]+electronDensity[h-1]) * halfCpara;
          }
       }
 
       // Antisymmetric tensor epsilon_ijk
-      static const char epsilon[3][3][3] = {
+      static const int epsilon[3][3][3] = {
          {{0,0,0},{0,0,1},{0,-1,0}},
          {{0,0,-1},{0,0,0},{1,0,0}},
          {{0,1,0},{-1,0,0},{0,0,0}}
@@ -1242,19 +1258,22 @@ namespace SBC {
 
       for(uint n=0; n<nodes.size(); n++) {
 
-         std::array<Real, 3>& x = nodes[n].x;
+        std::array<Real, 3>& x = nodes[n].x;
          // TODO: Perform coordinate transformation here?
-
-         // Solar incidence parameter for calculating UV ionization on the dayside
-         Real coschi = x[0] / Ionosphere::innerRadius;
-         if(coschi < 0) {
-            coschi = 0;
+         
+         // At restart we have SIGMAP, SIGMAH and SIGMAPARALLEL read in from the restart file already.
+         if(!refillTensorAtRestart) {
+            // Solar incidence parameter for calculating UV ionisation on the dayside
+            Real coschi = x[0] / Ionosphere::innerRadius;
+            if(coschi < 0) {
+               coschi = 0;
+            }
+            Real sigmaP_dayside = backgroundIonisation + F10_7_p_049 * (0.34 * coschi + 0.93 * sqrt(coschi));
+            Real sigmaH_dayside = backgroundIonisation + F10_7_p_053 * (0.81 * coschi + 0.54 * sqrt(coschi));
+            
+            nodes[n].parameters[ionosphereParameters::SIGMAP] = sqrt( pow(nodes[n].parameters[ionosphereParameters::SIGMAP],2) + pow(sigmaP_dayside,2));
+            nodes[n].parameters[ionosphereParameters::SIGMAH] = sqrt( pow(nodes[n].parameters[ionosphereParameters::SIGMAH],2) + pow(sigmaH_dayside,2));
          }
-         Real sigmaP_dayside = backgroundIonization + F10_7_p_049 * (0.34 * coschi + 0.93 * sqrt(coschi));
-         Real sigmaH_dayside = backgroundIonization + F10_7_p_053 * (0.81 * coschi + 0.54 * sqrt(coschi));
-
-         nodes[n].parameters[ionosphereParameters::SIGMAP] = sqrt( pow(nodes[n].parameters[ionosphereParameters::SIGMAP],2) + pow(sigmaP_dayside,2));
-         nodes[n].parameters[ionosphereParameters::SIGMAH] = sqrt( pow(nodes[n].parameters[ionosphereParameters::SIGMAH],2) + pow(sigmaH_dayside,2));
 
          // Build conductivity tensor
          Real sigmaP = nodes[n].parameters[ionosphereParameters::SIGMAP];
@@ -1326,7 +1345,6 @@ namespace SBC {
             cerr << "(ionosphere) Error: Undefined conductivity model " << Ionosphere::conductivityModel << "! Ionospheric Sigma Tensor will be zero." << endl;
          }
       }
-      phiprof::stop("ionosphere-calculateConductivityTensor");
    }
    
 
@@ -1341,7 +1359,7 @@ namespace SBC {
    // This needs to be rerun after Vlasov grid load balancing to ensure that
    // ionosphere info is still communicated to the right ranks.
    void SphericalTriGrid::updateIonosphereCommunicator(dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid, FsGrid< fsgrids::technical, FS_STENCIL_WIDTH> & technicalGrid) {
-      phiprof::start("ionosphere-updateIonosphereCommunicator");
+      phiprof::Timer timer {"ionosphere-updateIonosphereCommunicator"};
 
       // Check if the current rank contains ionosphere boundary cells.
       isCouplingOutwards = true;
@@ -1376,7 +1394,6 @@ namespace SBC {
 
       // Make sure all tasks know which task on MPI_COMM_WORLD does the writing
       MPI_Allreduce(&writingRankInput, &writingRank, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-      phiprof::stop("ionosphere-updateIonosphereCommunicator");
    }
 
 
@@ -1396,12 +1413,12 @@ namespace SBC {
       Real potential = 0;
 
       // Do we have a stored coupling for these coordinates already?
-      #pragma omp critical
+      #pragma omp critical(coupling)
       {
          if(vlasovGridCoupling.find(x) == vlasovGridCoupling.end()) {
 
             // If not, create one.
-            vlasovGridCoupling[x] = FieldTracing::calculateVlasovGridCoupling(x, nodes, Ionosphere::radius);
+            vlasovGridCoupling[x] = FieldTracing::calculateIonosphereVlasovGridCoupling(x, nodes, Ionosphere::radius);
          }
 
          const std::array<std::pair<int, Real>, 3>& coupling = vlasovGridCoupling[x];
@@ -1425,13 +1442,12 @@ namespace SBC {
          return;
       }
 
-      phiprof::start("ionosphere-mapDownMagnetosphere");
+      phiprof::Timer timer {"ionosphere-mapDownMagnetosphere"};
 
       // Create zeroed-out input arrays
       std::vector<double> FACinput(nodes.size());
       std::vector<double> rhoInput(nodes.size());
       std::vector<double> temperatureInput(nodes.size());
-      std::vector<double> poyntingInput(nodes.size());
 
       // Map all coupled nodes down into it
       // Tasks that don't have anything to couple to can skip this step.
@@ -1439,9 +1455,7 @@ namespace SBC {
       #pragma omp parallel for
          for(uint n=0; n<nodes.size(); n++) {
 
-            Real area = 0;
-            Real upmappedArea = 0;
-            std::array<int,3> fsc;
+            Real nodeAreaGeometric = 0;
 
             // Map down FAC based on magnetosphere rotB
             if(nodes[n].xMapped[0] == 0. && nodes[n].xMapped[1] == 0. && nodes[n].xMapped[2] == 0.) {
@@ -1460,20 +1474,12 @@ namespace SBC {
                // Also sum up touching elements' areas and upmapped areas to compress
                // density and temperature with them
                // TODO: Precalculate this?
-               area += elementArea(nodes[n].touchingElements[e]);
-
-               std::array<Real, 3> areaVector = mappedElementArea(nodes[n].touchingElements[e]);
-               std::array<Real, 3> avgB = {(B[0][0] + B[1][0] + B[2][0])/3.,
-                  (B[0][1] + B[1][1] + B[2][1]) / 3.,
-                  (B[0][2] + B[1][2] + B[2][2]) / 3.};
-               upmappedArea += fabs(areaVector[0] * avgB[0] + areaVector[1]*avgB[1] + areaVector[2]*avgB[2]) /
-                  sqrt(avgB[0]*avgB[0] + avgB[1]*avgB[1] + avgB[2]*avgB[2]);
+               nodeAreaGeometric += elementArea(nodes[n].touchingElements[e]);
             }
 
             // Divide by 3, as every element will be counted from each of its
             // corners.  Prevent areas from being multiply-counted
-            area /= 3.;
-            upmappedArea /= 3.;
+            nodeAreaGeometric /= 3.;
 
             // Calc curlB, note division by DX one line down
             const std::array<Real, 3> curlB = interpolateCurlB(
@@ -1485,8 +1491,8 @@ namespace SBC {
                nodes[n].xMapped
             );
 
-            // Dot with normalized B, scale by area
-            FACinput[n] = area * (nodes[n].parameters[ionosphereParameters::UPMAPPED_BX]*curlB[0] + nodes[n].parameters[ionosphereParameters::UPMAPPED_BY]*curlB[1] + nodes[n].parameters[ionosphereParameters::UPMAPPED_BZ]*curlB[2])
+            // Dot curl(B) with normalized B, scale by ratio of B(ionosphere)/B(upmapped), multiply by geometric area around ionosphere node to obtain current from density
+            FACinput[n] = nodeAreaGeometric * (nodes[n].parameters[ionosphereParameters::UPMAPPED_BX]*curlB[0] + nodes[n].parameters[ionosphereParameters::UPMAPPED_BY]*curlB[1] + nodes[n].parameters[ionosphereParameters::UPMAPPED_BZ]*curlB[2])
                * sqrt((nodes[n].parameters[ionosphereParameters::NODE_BX]*nodes[n].parameters[ionosphereParameters::NODE_BX]
                   + nodes[n].parameters[ionosphereParameters::NODE_BY]*nodes[n].parameters[ionosphereParameters::NODE_BY]
                   + nodes[n].parameters[ionosphereParameters::NODE_BZ]*nodes[n].parameters[ionosphereParameters::NODE_BZ])
@@ -1535,23 +1541,13 @@ namespace SBC {
                      }
 
 
-                     // Map density, temperature and Poynting flux down
+                     // Map density, temperature down
                      Real thisCellRho = momentsGrid.get(lfsc[0]+xoffset,lfsc[1]+yoffset,lfsc[2]+zoffset)->at(fsgrids::RHOQ) / physicalconstants::CHARGE;
                      rhoInput[n] += coupling * thisCellRho;
                      temperatureInput[n] += coupling * 1./3. * (
-                          momentsGrid.get(lfsc[0]+xoffset,lfsc[1]+yoffset,lfsc[2]+zoffset)->at(fsgrids::P_11) +
-                          momentsGrid.get(lfsc[0]+xoffset,lfsc[1]+yoffset,lfsc[2]+zoffset)->at(fsgrids::P_22) +
-                          momentsGrid.get(lfsc[0]+xoffset,lfsc[1]+yoffset,lfsc[2]+zoffset)->at(fsgrids::P_33)) / (thisCellRho * physicalconstants::K_B * ion_electron_T_ratio);
-                     Vec3d E(volGrid.get(lfsc[0]+xoffset,lfsc[1]+yoffset,lfsc[2]+zoffset)->at(fsgrids::EXVOL),
-                           volGrid.get(lfsc[0]+xoffset,lfsc[1]+yoffset,lfsc[2]+zoffset)->at(fsgrids::EYVOL),
-                           volGrid.get(lfsc[0]+xoffset,lfsc[1]+yoffset,lfsc[2]+zoffset)->at(fsgrids::EZVOL));
-                     Vec3d B(nodes[n].parameters[ionosphereParameters::UPMAPPED_BX],
-                              nodes[n].parameters[ionosphereParameters::UPMAPPED_BY],
-                              nodes[n].parameters[ionosphereParameters::UPMAPPED_BZ]);
-                     Vec3d dipoleB(this->dipoleField(nodes[n].xMapped[0],nodes[n].xMapped[1],nodes[n].xMapped[2],X,0,X),
-                           this->dipoleField(nodes[n].xMapped[0],nodes[n].xMapped[1],nodes[n].xMapped[2],Y,0,Y),
-                           this->dipoleField(nodes[n].xMapped[0],nodes[n].xMapped[1],nodes[n].xMapped[2],Z,0,Z));
-                     poyntingInput[n] += coupling / physicalconstants::MU_0 * dot_product(cross_product(E,B),dipoleB) / sqrt(dot_product(dipoleB,dipoleB)) * upmappedArea / area;
+                        momentsGrid.get(lfsc[0]+xoffset,lfsc[1]+yoffset,lfsc[2]+zoffset)->at(fsgrids::P_11) +
+                        momentsGrid.get(lfsc[0]+xoffset,lfsc[1]+yoffset,lfsc[2]+zoffset)->at(fsgrids::P_22) +
+                        momentsGrid.get(lfsc[0]+xoffset,lfsc[1]+yoffset,lfsc[2]+zoffset)->at(fsgrids::P_33)) / (thisCellRho * physicalconstants::K_B * ion_electron_T_ratio);
                   }
                }
             }
@@ -1561,11 +1557,7 @@ namespace SBC {
             if(couplingSum > 0) {
                rhoInput[n] /= couplingSum;
                temperatureInput[n] /= couplingSum;
-               poyntingInput[n] /= couplingSum;
             }
-
-            // Scale density by area ratio
-            //rhoInput[n] *= upmappedArea / area;
          }
       }
 
@@ -1573,11 +1565,9 @@ namespace SBC {
       std::vector<double> FACsum(nodes.size());
       std::vector<double> rhoSum(nodes.size());
       std::vector<double> temperatureSum(nodes.size());
-      std::vector<double> poyntingSum(nodes.size());
       MPI_Allreduce(&FACinput[0], &FACsum[0], nodes.size(), MPI_DOUBLE, MPI_SUM, communicator);
       MPI_Allreduce(&rhoInput[0], &rhoSum[0], nodes.size(), MPI_DOUBLE, MPI_SUM, communicator);
       MPI_Allreduce(&temperatureInput[0], &temperatureSum[0], nodes.size(), MPI_DOUBLE, MPI_SUM, communicator); // TODO: Does it make sense to SUM the temperatures?
-      MPI_Allreduce(&poyntingInput[0], &poyntingSum[0], nodes.size(), MPI_DOUBLE, MPI_SUM, communicator);
 
       for(uint n=0; n<nodes.size(); n++) {
 
@@ -1597,7 +1587,6 @@ namespace SBC {
 
             nodes[n].parameters[ionosphereParameters::RHON] = Ionosphere::unmappedNodeRho * Chi0;
             nodes[n].parameters[ionosphereParameters::TEMPERATURE] = Ionosphere::unmappedNodeTe;
-            nodes[n].parameters[ionosphereParameters::POYNTINGFLUX] = 0;
          } else {
             // Store as the node's parameter values.
             if(Ionosphere::couplingTimescale == 0) {
@@ -1605,12 +1594,16 @@ namespace SBC {
                nodes[n].parameters[ionosphereParameters::SOURCE] = FACsum[n];
                nodes[n].parameters[ionosphereParameters::RHON] = rhoSum[n] * Chi0;
                nodes[n].parameters[ionosphereParameters::TEMPERATURE] = temperatureSum[n];
-               nodes[n].parameters[ionosphereParameters::POYNTINGFLUX] = poyntingSum[n];
             } else {
 
                // Slow coupling with a given timescale.
                // See https://en.wikipedia.org/wiki/Exponential_smoothing#Time_constant
-               Real a = 1. - exp(- Parameters::dt / Ionosphere::couplingTimescale);
+               // P::dt valid for shorter coupling periods or Ionosphere::couplingInterval == 0 meaning every step
+               Real timeInterval = Parameters::dt;
+               if(Ionosphere::couplingInterval > Parameters::dt) {
+                  timeInterval = Ionosphere::couplingInterval;
+               }
+               Real a = 1. - exp(- timeInterval / Ionosphere::couplingTimescale);
                if(a>1) {
                   a=1.;
                }
@@ -1625,7 +1618,6 @@ namespace SBC {
 
       // Make sure FACs are balanced, so that the potential doesn't start to drift
       offset_FAC();
-      phiprof::stop("ionosphere-mapDownMagnetosphere");
 
    }
 
@@ -1961,7 +1953,7 @@ namespace SBC {
    // Initialize the CG sover by assigning matrix dependency weights
    void SphericalTriGrid::initSolver(bool zeroOut) {
 
-     phiprof::start("ionosphere-initSolver");
+     phiprof::Timer timer {"ionosphere-initSolver"};
      // Zero out parameters
      if(zeroOut) {
         for(uint n=0; n<nodes.size(); n++) {
@@ -2012,7 +2004,6 @@ namespace SBC {
      //   cerr << endl;
      //}
 
-     phiprof::stop("ionosphere-initSolver");
    }
 
    // Evaluate a nodes' neighbour parameter, averaged through the coupling
@@ -2079,7 +2070,7 @@ namespace SBC {
          return;
       }
 
-      phiprof::start("ionosphere-solve");
+      phiprof::Timer timer {"ionosphere-solve"};
       
       initSolver(false);
       
@@ -2091,9 +2082,7 @@ namespace SBC {
          if(Ionosphere::solverToggleMinimumResidualVariant) {
             Ionosphere::solverUseMinimumResidualVariant = !Ionosphere::solverUseMinimumResidualVariant;
          }
-      } while (residual > Ionosphere::solverRelativeL2ConvergenceThreshold && nIterations < Ionosphere::solverMaxIterations);   
-      
-      phiprof::stop("ionosphere-solve");
+      } while (residual > Ionosphere::solverRelativeL2ConvergenceThreshold && nIterations < Ionosphere::solverMaxIterations);
    }
 
    void SphericalTriGrid::solveInternal(
@@ -2115,18 +2104,25 @@ namespace SBC {
       iSolverReal residualnorm;
       minPotentialN = minPotentialS = std::numeric_limits<iSolverReal>::max();
       maxPotentialN = maxPotentialS = std::numeric_limits<iSolverReal>::lowest();
+#ifdef IONOSPHERE_SORTED_SUMS
       std::multiset<iSolverReal> set_neg, set_pos;
+#endif
 
+#ifdef IONOSPHERE_SORTED_SUMS
 #pragma omp parallel shared(akden,bknum,potentialInt,sourcenorm,residualnorm,effectiveSource,minPotentialN,maxPotentialN,minPotentialS,maxPotentialS,set_neg,set_pos)
+#else
+#pragma omp parallel shared(akden,bknum,potentialInt,sourcenorm,residualnorm,effectiveSource,minPotentialN,maxPotentialN,minPotentialS,maxPotentialS)
+#endif
 {
 
       // thread variables, initialised here
       iSolverReal err = 0;
-      iSolverReal olderr = err;
       iSolverReal thread_minerr = std::numeric_limits<iSolverReal>::max();
       int thread_iteration = iteration;
       int thread_nRestarts = nRestarts;
+#ifdef IONOSPHERE_SORTED_SUMS
       std::multiset<iSolverReal> thread_set_neg, thread_set_pos;
+#endif
 
       iSolverReal bkden = 1;
       int failcount=0;
@@ -2137,7 +2133,11 @@ namespace SBC {
          sourcenorm = 0;
       }
       // Calculate sourcenorm and initial residual estimate
+#ifdef IONOSPHERE_SORTED_SUMS
       #pragma omp for
+#else
+      #pragma omp for reduction(+:sourcenorm)
+#endif
       for(uint n=0; n<nodes.size(); n++) {
          Node& N=nodes[n];
          // Set gauge-pinned nodes to their fixed potential
@@ -2150,7 +2150,11 @@ namespace SBC {
             effectiveSource[n] = source;
          //}
          if(source != 0) {
+#ifdef IONOSPHERE_SORTED_SUMS
             thread_set_pos.insert(source*source);
+#else
+            sourcenorm += source*source;
+#endif
          }
          N.parameters.at(ionosphereParameters::RESIDUAL) = source - Atimes(n, ionosphereParameters::SOLUTION);
          N.parameters.at(ionosphereParameters::BEST_SOLUTION) = N.parameters.at(ionosphereParameters::SOLUTION);
@@ -2160,16 +2164,20 @@ namespace SBC {
             N.parameters.at(ionosphereParameters::RRESIDUAL) = N.parameters.at(ionosphereParameters::RESIDUAL);
          }
       }
+#ifdef IONOSPHERE_SORTED_SUMS
       #pragma omp critical
       {
          set_pos.insert(thread_set_pos.begin(), thread_set_pos.end());
       }
+#endif
       #pragma omp barrier
       #pragma omp single
       {
+#ifdef IONOSPHERE_SORTED_SUMS
          for(auto it = set_pos.crbegin(); it != set_pos.crend(); it++) {
             sourcenorm += *it;
          }
+#endif
          sourcenorm = sqrt(sourcenorm);
       }
       bool skipSolve = false;
@@ -2198,22 +2206,34 @@ namespace SBC {
          #pragma omp single
          {
             bknum = 0;
+#ifdef IONOSPHERE_SORTED_SUMS
             set_pos.clear();
             set_neg.clear();
+#endif
          }
+#ifdef IONOSPHERE_SORTED_SUMS
          thread_set_pos.clear();
          thread_set_neg.clear();
          #pragma omp for
+#else
+         #pragma omp for reduction(+:bknum)
+#endif
          for(uint n=0; n<nodes.size(); n++) {
             Node& N=nodes[n];
             const iSolverReal incr = N.parameters[ionosphereParameters::ZPARAM] * N.parameters[ionosphereParameters::RRESIDUAL];
+#ifdef IONOSPHERE_SORTED_SUMS
             if(incr < 0) {
                thread_set_neg.insert(incr);
             }
             if(incr > 0) {
                thread_set_pos.insert(incr);
             }
+#else
+            bknum += incr;
+#endif
          }
+
+#ifdef IONOSPHERE_SORTED_SUMS
          #pragma omp critical
          {
             set_neg.insert(thread_set_neg.begin(), thread_set_neg.end());
@@ -2232,6 +2252,7 @@ namespace SBC {
             }
             bknum = bknum_neg + bknum_pos;
          }
+#endif
 
          if(counter == 1) {
             // Just use the gradient vector as-is, starting from the best known solution
@@ -2263,25 +2284,36 @@ namespace SBC {
          #pragma omp single
          {
             akden = 0;
+#ifdef IONOSPHERE_SORTED_SUMS
             set_neg.clear();
             set_pos.clear();
+#endif
          }
+#ifdef IONOSPHERE_SORTED_SUMS
          thread_set_neg.clear();
          thread_set_pos.clear();
          #pragma omp for
+#else
+         #pragma omp for reduction(+:akden)
+#endif
          for(uint n=0; n<nodes.size(); n++) {
             Node& N=nodes[n];
             iSolverReal zparam = Atimes(n, ionosphereParameters::PPARAM, false);
             N.parameters[ionosphereParameters::ZPARAM] = zparam;
             iSolverReal incr = zparam * N.parameters[ionosphereParameters::PPPARAM];
+#ifdef IONOSPHERE_SORTED_SUMS
             if(incr < 0) {
                thread_set_neg.insert(incr);
             }
             if(incr > 0) {
                thread_set_pos.insert(incr);
             }
+#else
+            akden += incr;
+#endif
             N.parameters[ionosphereParameters::ZZPARAM] = Atimes(n,ionosphereParameters::PPPARAM, true);
          }
+#ifdef IONOSPHERE_SORTED_SUMS
          #pragma omp critical
          {
             set_neg.insert(thread_set_neg.begin(), thread_set_neg.end());
@@ -2300,6 +2332,7 @@ namespace SBC {
             }
             akden = akden_neg + akden_pos;
          }
+#endif
          iSolverReal ak=bknum/akden;
 
          #pragma omp for
@@ -2310,7 +2343,7 @@ namespace SBC {
                N.parameters[ionosphereParameters::SOLUTION] = 0;
             } else if(gaugeFixing == Equator && fabs(N.x[2]) < Ionosphere::innerRadius * sin(Ionosphere::shieldingLatitude * M_PI / 180.0)) {
                N.parameters[ionosphereParameters::SOLUTION] = 0;
-            } 
+            }
          }
 
          // Rebalance the potential by calculating its area integral
@@ -2346,10 +2379,16 @@ namespace SBC {
          #pragma omp single
          {
             residualnorm = 0;
+#ifdef IONOSPHERE_SORTED_SUMS
             set_pos.clear();
+#endif
          }
+#ifdef IONOSPHERE_SORTED_SUMS
          thread_set_pos.clear();
          #pragma omp for
+#else
+         #pragma omp for reduction(+:residualnorm)
+#endif
          for(uint n=0; n<nodes.size(); n++) {
             Node& N=nodes[n];
             // Calculate residual of the new solution. The faster way to do this would be
@@ -2369,9 +2408,15 @@ namespace SBC {
             } else {
                N.parameters[ionosphereParameters::RESIDUAL] = newresid;
                N.parameters[ionosphereParameters::RRESIDUAL] = effectiveSource[n] - Atimes(n, ionosphereParameters::SOLUTION, true);
+#ifdef IONOSPHERE_SORTED_SUMS
                thread_set_pos.insert(newresid*newresid);
+#else
+               residualnorm += newresid*newresid;
+#endif
             }
          }
+
+#ifdef IONOSPHERE_SORTED_SUMS
          #pragma omp critical
          {
             set_pos.insert(thread_set_pos.begin(), thread_set_pos.end());
@@ -2383,6 +2428,8 @@ namespace SBC {
                residualnorm += *it;
             }
          }
+#endif
+
          #pragma omp for
          for(uint n=0; n<nodes.size(); n++) {
             Node& N=nodes[n];
@@ -2390,7 +2437,6 @@ namespace SBC {
          }
 
          // See if this solved the potential better than before
-         olderr = err;
          err = sqrt(residualnorm)/sourcenorm;
 
 
@@ -2489,7 +2535,7 @@ namespace SBC {
       Readparameters::add("ionosphere.precipitatingElectronEnergyBins", "Number of log-spaced bins to use when computing the precipitating electron spectrum.", 100);
       Readparameters::add("ionosphere.precipitatingElectronMinEnergy", "Minimum energy used when computing the precipitating electron spectrum (keV). Default 100 eV as it is the stated validity limit of the Fang model.", 0.1);
       Readparameters::add("ionosphere.precipitatingElectronMaxEnergy", "Maximum energy used when computing the precipitating electron spectrum (keV). Default 1 MeV as it is the stated validity limit of the Fang model.", 1000);
-      Readparameters::add("ionosphere.innerBoundaryVDFmode", "Inner boundary VDF construction method. Options ar: FixedMoments, AverageMoments, AverageAllMoments, CopyAndLosscone.", std::string("FixedMoments"));
+      Readparameters::add("ionosphere.innerBoundaryVDFmode", "Inner boundary VDF construction method. Options ar: FixedMoments, AverageMoments, AverageAllMoments, CopyAndLosscone, ForceL2EXB.", std::string("FixedMoments"));
       Readparameters::add("ionosphere.F10_7", "Solar 10.7 cm radio flux (sfu = 10^{-22} W/m^2)", 100);
       Readparameters::add("ionosphere.backgroundIonization", "Background ionization due to cosmic rays (mho)", 0.5);
       Readparameters::add("ionosphere.solverMaxIterations", "Maximum number of iterations for the conjugate gradient solver", 2000);
@@ -2530,12 +2576,20 @@ namespace SBC {
          // If radii are < 1000, assume they are given in R_E.
          radius *= physicalconstants::R_E;
       }
+
       Readparameters::get("ionosphere.geometry", this->geometry);
       Readparameters::get("ionosphere.precedence", this->precedence);
+
       uint reapply;
       Readparameters::get("ionosphere.reapplyUponRestart", reapply);
+      this->applyUponRestart = (reapply == 1);
+
       Readparameters::get("ionosphere.baseShape",baseShape);
-      Readparameters::get("ionosphere.conductivityModel", *(int*)(&conductivityModel));
+
+      int cm;
+      Readparameters::get("ionosphere.conductivityModel", cm);
+      conductivityModel = static_cast<Ionosphere::IonosphereConductivityModel>(cm);
+
       std::string VDFmodeString;
       Readparameters::get("ionosphere.innerBoundaryVDFmode", VDFmodeString);
       if(VDFmodeString == "FixedMoments") {
@@ -2546,6 +2600,8 @@ namespace SBC {
          boundaryVDFmode = AverageAllMoments;
       } else if(VDFmodeString == "CopyAndLosscone") {
          boundaryVDFmode = CopyAndLosscone;
+      } else if(VDFmodeString == "ForceL2EXB") {
+         boundaryVDFmode = ForceL2EXB;
       } else {
          cerr << "(IONOSPHERE) Unknown inner boundary VDF mode \"" << VDFmodeString << "\". Aborting." << endl;
          abort();
@@ -2588,6 +2644,7 @@ namespace SBC {
       Readparameters::get("ionosphere.unmappedNodeRho", unmappedNodeRho);
       Readparameters::get("ionosphere.unmappedNodeTe",  unmappedNodeTe);
       Readparameters::get("ionosphere.innerRadius", innerRadius);
+      FieldTracing::fieldTracingParameters.innerBoundaryRadius = this->innerRadius;
       Readparameters::get("ionosphere.refineMinLatitude",refineMinLatitudes);
       Readparameters::get("ionosphere.refineMaxLatitude",refineMaxLatitudes);
       Readparameters::get("ionosphere.atmosphericModelFile",atmosphericModelFile);
@@ -2630,10 +2687,13 @@ namespace SBC {
         Readparameters::get(pop + "_ionosphere.VZ0", sP.V0[2]);
         Readparameters::get(pop + "_ionosphere.T", sP.T);
 
+        // Failsafe, if density or temperature is zero, read from Magnetosphere
+        // (compare the corresponding verbose handling in projects/Magnetosphere/Magnetosphere.cpp)
         if(sP.T == 0) {
-           // If the user does *not* specify a temperature, it defaults to the ambient magnetospheric temperature
-           // (compare the corresponding handling in projects/Magnetosphere/Magnetosphere.cpp)
            Readparameters::get(pop + "_Magnetosphere.T", sP.T);
+        }
+        if(sP.rho == 0) {
+           Readparameters::get(pop + "_Magnetosphere.rho", sP.rho);
         }
         Readparameters::get(pop + "_Magnetosphere.nSpaceSamples", sP.nSpaceSamples);
         Readparameters::get(pop + "_Magnetosphere.nVelocitySamples", sP.nVelocitySamples);
@@ -2659,7 +2719,7 @@ namespace SBC {
          cerr << "*                                               *" << endl;
          cerr << "* Most likely, your config file needs to be up- *" << endl;
          cerr << "* dated, changing all mentions of \"ionosphere\"  *" << endl;
-         cerr << "* to \"conductingsphere\".                        *" << endl;
+         cerr << "* to \"copysphere\".                        *" << endl;
          cerr << "*                                               *" << endl;
          cerr << "* This simulation will now crash in the friend- *" << endl;
          cerr << "* liest way possible.                           *" << endl;
@@ -2775,32 +2835,12 @@ namespace SBC {
          }
       }
 
-      // Assign boundary flags to local fsgrid cells
-      const std::array<int, 3> gridDims(technicalGrid.getLocalSize());
-      for (int k=0; k<gridDims[2]; k++) {
-         for (int j=0; j<gridDims[1]; j++) {
-            for (int i=0; i<gridDims[0]; i++) {
-               const auto& coords = technicalGrid.getPhysicalCoords(i,j,k);
-
-               // Shift to the center of the fsgrid cell
-               auto cellCenterCoords = coords;
-               cellCenterCoords[0] += 0.5 * technicalGrid.DX;
-               cellCenterCoords[1] += 0.5 * technicalGrid.DY;
-               cellCenterCoords[2] += 0.5 * technicalGrid.DZ;
-
-               if(getR(cellCenterCoords[0],cellCenterCoords[1],cellCenterCoords[2],this->geometry,this->center) < this->radius) {
-                  technicalGrid.get(i,j,k)->sysBoundaryFlag = this->getIndex();
-               }
-
-            }
-         }
-      }
-
       return true;
    }
 
    bool Ionosphere::applyInitialState(
       const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
+      FsGrid< fsgrids::technical, FS_STENCIL_WIDTH> & technicalGrid,
       FsGrid< std::array<Real, fsgrids::bfield::N_BFIELD>, FS_STENCIL_WIDTH> & perBGrid,
       Project &project
    ) {
@@ -2822,7 +2862,7 @@ namespace SBC {
       cint j,
       cint k
    ) {
-      phiprof::start("Ionosphere::fieldSolverGetNormalDirection");
+      phiprof::Timer timer {"Ionosphere::fieldSolverGetNormalDirection"};
       std::array<Real, 3> normalDirection{{ 0.0, 0.0, 0.0 }};
 
       static creal DIAG2 = 1.0 / sqrt(2.0);
@@ -3085,7 +3125,6 @@ namespace SBC {
          // end of 3D
       }
 
-      phiprof::stop("Ionosphere::fieldSolverGetNormalDirection");
       return normalDirection;
    }
 
@@ -3269,41 +3308,6 @@ namespace SBC {
       }
    }
 
-   /*! We want here to
-    *
-    * -- Retain only the boundary-normal projection of perturbed face B
-    */
-   void Ionosphere::fieldSolverBoundaryCondMagneticFieldProjection(
-      FsGrid< std::array<Real, fsgrids::bfield::N_BFIELD>, FS_STENCIL_WIDTH> & bGrid,
-      FsGrid< fsgrids::technical, FS_STENCIL_WIDTH> & technicalGrid,
-      cint i,
-      cint j,
-      cint k
-   ) {
-      // Projection of B-field to normal direction
-      Real BdotN = 0;
-      std::array<Real, 3> normalDirection = fieldSolverGetNormalDirection(technicalGrid, i, j, k);
-      for(uint component=0; component<3; component++) {
-         BdotN += bGrid.get(i,j,k)->at(fsgrids::bfield::PERBX+component) * normalDirection[component];
-      }
-      // Apply to any components that were not solved
-      if ((technicalGrid.get(i,j,k)->sysBoundaryLayer == 2) ||
-          ((technicalGrid.get(i,j,k)->sysBoundaryLayer == 1) && ((technicalGrid.get(i,j,k)->SOLVE & compute::BX) != compute::BX))
-         ) {
-         bGrid.get(i,j,k)->at(fsgrids::bfield::PERBX) = BdotN*normalDirection[0];
-      }
-      if ((technicalGrid.get(i,j,k)->sysBoundaryLayer == 2) ||
-          ((technicalGrid.get(i,j,k)->sysBoundaryLayer == 1) && ((technicalGrid.get(i,j,k)->SOLVE & compute::BY) != compute::BY))
-         ) {
-         bGrid.get(i,j,k)->at(fsgrids::bfield::PERBY) = BdotN*normalDirection[1];
-      }
-      if ((technicalGrid.get(i,j,k)->sysBoundaryLayer == 2) ||
-          ((technicalGrid.get(i,j,k)->sysBoundaryLayer == 1) && ((technicalGrid.get(i,j,k)->SOLVE & compute::BZ) != compute::BZ))
-         ) {
-         bGrid.get(i,j,k)->at(fsgrids::bfield::PERBZ) = BdotN*normalDirection[2];
-      }
-   }
-
    void Ionosphere::fieldSolverBoundaryCondElectricField(
       FsGrid< std::array<Real, fsgrids::efield::N_EFIELD>, FS_STENCIL_WIDTH> & EGrid,
       cint i,
@@ -3380,84 +3384,105 @@ namespace SBC {
       this->setCellBVOLDerivativesToZero(volGrid, i, j, k, component);
    }
 
+   void Ionosphere::mapCellPotentialAndGetEXBDrift(
+      std::array<Real, CellParams::N_SPATIAL_CELL_PARAMS>& cellParams
+   ) {
+      // Get potential upmapped from six points 
+      // (Cell's face centres)
+      // inside the cell to calculate E
+      const Real xmin = cellParams[CellParams::XCRD];
+      const Real ymin = cellParams[CellParams::YCRD];
+      const Real zmin = cellParams[CellParams::ZCRD];
+      const Real xmax = xmin + cellParams[CellParams::DX];
+      const Real ymax = ymin + cellParams[CellParams::DY];
+      const Real zmax = zmin + cellParams[CellParams::DZ];
+      const Real xcen = 0.5*(xmin+xmax);
+      const Real ycen = 0.5*(ymin+ymax);
+      const Real zcen = 0.5*(zmin+zmax);
+      std::array< std::array<Real, 3>, 6> tracepoints;
+      tracepoints[0] = {xmin, ycen, zcen};
+      tracepoints[1] = {xmax, ycen, zcen};
+      tracepoints[2] = {xcen, ymin, zcen};
+      tracepoints[3] = {xcen, ymax, zcen};
+      tracepoints[4] = {xcen, ycen, zmin};
+      tracepoints[5] = {xcen, ycen, zmax};
+      std::array<Real, 6> potentials;
+       for(int i=0; i<6; i++) {
+         // Get potential at each of these 6 points
+         potentials[i] = ionosphereGrid.interpolateUpmappedPotential(tracepoints[i]);
+      }
+
+      // Calculate E from potential differences as E = -grad(phi)
+      Vec3d E({
+         (potentials[0] - potentials[1]) / cellParams[CellParams::DX],
+         (potentials[2] - potentials[3]) / cellParams[CellParams::DY],
+         (potentials[4] - potentials[5]) / cellParams[CellParams::DZ]});
+      Vec3d B({
+         cellParams[CellParams::BGBXVOL] + cellParams[CellParams::PERBXVOL],
+         cellParams[CellParams::BGBYVOL] + cellParams[CellParams::PERBYVOL],
+         cellParams[CellParams::BGBZVOL] + cellParams[CellParams::PERBZVOL]});
+
+      // Add E from neutral wind convection for all cells with L <= 5
+      Vec3d Omega(0,0,Ionosphere::earthAngularVelocity); // Earth rotation vector
+      Vec3d r(xcen,ycen,zcen);
+      Vec3d vn = cross_product(Omega,r);
+
+      Real radius = vector_length(r);
+      if(radius/physicalconstants::R_E <= Ionosphere::plasmapauseL * (r[0]*r[0] + r[1]*r[1]) / (radius*radius)) {
+         E -= cross_product(vn, B);
+      }
+
+      const Real Bsqr = B[0]*B[0] + B[1]*B[1] + B[2]*B[2];
+
+      // Calculate cell bulk velocity as E x B / B^2
+      cellParams[CellParams::BULKV_FORCING_X] = (E[1] * B[2] - E[2] * B[1])/Bsqr;
+      cellParams[CellParams::BULKV_FORCING_Y] = (E[2] * B[0] - E[0] * B[2])/Bsqr;
+      cellParams[CellParams::BULKV_FORCING_Z] = (E[0] * B[1] - E[1] * B[0])/Bsqr;
+      cellParams[CellParams::FORCING_CELL_NUM]=1;
+   }
+
    void Ionosphere::vlasovBoundaryCondition(
       const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
       const CellID& cellID,
       const uint popID,
       const bool calculate_V_moments
    ) {
-      phiprof::start("vlasovBoundaryCondition (Ionosphere)");
+      phiprof::Timer timer {"vlasovBoundaryCondition (Ionosphere)"};
 
       // TODO Make this a more elegant solution
       // Now it's hacky as the counter is incremented in vlasiator.cpp
-      if(  ((Parameters::t                > (SBC::Ionosphere::solveCount-1) * SBC::Ionosphere::couplingInterval)
-         && (Parameters::t-Parameters::dt < (SBC::Ionosphere::solveCount-1) * SBC::Ionosphere::couplingInterval)
-         && SBC::Ionosphere::couplingInterval > 0)
-         || SBC::Ionosphere::couplingInterval == 0
-      ) { // else we don't update this boundary
+      if(globalflags::ionosphereJustSolved) { // else we don't update this boundary
 
          // If we are to couple to the ionosphere grid, we better be part of its communicator.
          assert(ionosphereGrid.communicator != MPI_COMM_NULL);
-         
-         // Get potential upmapped from six points 
-         // (Cell's face centres)
-         // inside the cell to calculate E
-         const std::array<Real, CellParams::N_SPATIAL_CELL_PARAMS>& cellParams = mpiGrid[cellID]->parameters;
-         const Real xmin = cellParams[CellParams::XCRD];
-         const Real ymin = cellParams[CellParams::YCRD];
-         const Real zmin = cellParams[CellParams::ZCRD];
-         const Real xmax = xmin + cellParams[CellParams::DX];
-         const Real ymax = ymin + cellParams[CellParams::DY];
-         const Real zmax = zmin + cellParams[CellParams::DZ];
-         const Real xcen = 0.5*(xmin+xmax);
-         const Real ycen = 0.5*(ymin+ymax);
-         const Real zcen = 0.5*(zmin+zmax);
-         std::array< std::array<Real, 3>, 6> tracepoints;
-         tracepoints[0] = {xmin, ycen, zcen};
-         tracepoints[1] = {xmax, ycen, zcen};
-         tracepoints[2] = {xcen, ymin, zcen};
-         tracepoints[3] = {xcen, ymax, zcen};
-         tracepoints[4] = {xcen, ycen, zmin};
-         tracepoints[5] = {xcen, ycen, zmax};
-         std::array<Real, 6> potentials;
 
-         for(int i=0; i<6; i++) {
-            // Get potential at each of these 6 points
-            potentials[i] = ionosphereGrid.interpolateUpmappedPotential(tracepoints[i]);
-         }
-
-         // Calculate E from potential differences as E = -grad(phi)
-         Vec3d E({
-               (potentials[0] - potentials[1]) / cellParams[CellParams::DX],
-               (potentials[2] - potentials[3]) / cellParams[CellParams::DY],
-               (potentials[4] - potentials[5]) / cellParams[CellParams::DZ]});
-         Vec3d B({
-               cellParams[CellParams::BGBXVOL],
-               cellParams[CellParams::BGBYVOL],
-               cellParams[CellParams::BGBZVOL]});
-
-         // Add E from neutral wind convection for all cells with L <= 5
-         Vec3d Omega(0,0,Ionosphere::earthAngularVelocity); // Earth rotation vector
-         Vec3d r(xcen,ycen,zcen);
-         Vec3d vn = cross_product(Omega,r);
-
-         Real radius = vector_length(r);
-         if(radius/physicalconstants::R_E <= Ionosphere::plasmapauseL * (r[0]*r[0] + r[1]*r[1]) / (radius*radius)) {
-            E -= cross_product(vn, B);
-         }
-
-         const Real Bsqr = B[0]*B[0] + B[1]*B[1] + B[2]*B[2];
-
-         // Calculate cell bulk velocity as E x B / B^2
-         std::array<Real, 3> vDrift;
-         vDrift[0] = (E[1] * B[2] - E[2] * B[1])/Bsqr;
-         vDrift[1] = (E[2] * B[0] - E[0] * B[2])/Bsqr;
-         vDrift[2] = (E[0] * B[1] - E[1] * B[0])/Bsqr;
+         mapCellPotentialAndGetEXBDrift(mpiGrid[cellID]->parameters);
+         std::array<Real, 3> vDrift = {
+            mpiGrid[cellID]->parameters[CellParams::BULKV_FORCING_X],
+            mpiGrid[cellID]->parameters[CellParams::BULKV_FORCING_Y],
+            mpiGrid[cellID]->parameters[CellParams::BULKV_FORCING_Z]
+         };
 
          // Select representative moments for the VDFs
          Real temperature = 0;
          Real density = 0;
          switch(boundaryVDFmode) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
+            case ForceL2EXB:
+               {
+               // EXB forcing is assigned to the L2 Neighbour cells here, so they can update their VDFs in acceleration
+               const vector<CellID>& closeCells = getAllCloseNonsysboundaryCells(cellID);
+               for (CellID celli : closeCells) {
+                  #pragma omp critical(L2)
+                  {
+                     if(mpiGrid[celli]->parameters[CellParams::FORCING_CELL_NUM] == 0) {
+                        mapCellPotentialAndGetEXBDrift(mpiGrid[celli]->parameters);
+                     }
+                  }
+               }
+               // Fall through, to handle L1 in the same way as fixed moments
+               }
             case FixedMoments:
                density = speciesParams[popID].rho;
                temperature = speciesParams[popID].T;
@@ -3468,7 +3493,7 @@ namespace SBC {
                {
                   Real pressure = 0, vx = 0, vy = 0, vz = 0;
                   // Average density and temperature from the nearest cells
-                  const vector<CellID> closestCells = getAllClosestNonsysboundaryCells(cellID);
+                  const vector<CellID>& closestCells = getAllClosestNonsysboundaryCells(cellID);
                   for (CellID celli : closestCells) {
                      density += mpiGrid[celli]->parameters[CellParams::RHOM];
                      pressure += mpiGrid[celli]->parameters[CellParams::P_11] + mpiGrid[celli]->parameters[CellParams::P_22] + mpiGrid[celli]->parameters[CellParams::P_33];
@@ -3495,13 +3520,14 @@ namespace SBC {
                // This is handled below
                break;
          }
-
+#pragma GCC diagnostic pop
 
          // Fill velocity space
          switch(boundaryVDFmode) {
             case FixedMoments:
             case AverageAllMoments:
             case AverageMoments: 
+            case ForceL2EXB:
                {
                   // Fill velocity space with new maxwellian data
                   SpatialCell& cell = *mpiGrid[cellID];
@@ -3537,7 +3563,7 @@ namespace SBC {
                   std::array<Real, 3> vNeighbours({0,0,0});
                   Real pressure = 0;
                   // Get moments from the nearest cells
-                  const vector<CellID> closestCells = getAllClosestNonsysboundaryCells(cellID);
+                  const vector<CellID>& closestCells = getAllClosestNonsysboundaryCells(cellID);
                   for (CellID celli : closestCells) {
                      density += mpiGrid[celli]->parameters[CellParams::RHOM];
                      pressure += mpiGrid[celli]->parameters[CellParams::P_11] + mpiGrid[celli]->parameters[CellParams::P_22] + mpiGrid[celli]->parameters[CellParams::P_33];
@@ -3556,6 +3582,18 @@ namespace SBC {
                   // 2. For upwards-moving velocity cells outside the loss cone, take the reflected value from point 1.
                   // 3. Add an ionospheric outflow maxwellian.
                   SpatialCell& cell = *mpiGrid[cellID];
+                  Vec3d B({
+                     cell.parameters[CellParams::BGBXVOL] + cell.parameters[CellParams::PERBXVOL],
+                     cell.parameters[CellParams::BGBYVOL] + cell.parameters[CellParams::PERBYVOL],
+                     cell.parameters[CellParams::BGBZVOL] + cell.parameters[CellParams::PERBZVOL]
+                  });
+                  const Real Bsqr = B[0]*B[0] + B[1]*B[1] + B[2]*B[2];
+                  Vec3d r(
+                     cell.parameters[CellParams::XCRD] + 0.5*cell.parameters[CellParams::DX],
+                     cell.parameters[CellParams::YCRD] + 0.5*cell.parameters[CellParams::DY],
+                     cell.parameters[CellParams::ZCRD] + 0.5*cell.parameters[CellParams::DZ]
+                  );
+
                   cell.clear(popID); // Clear previous velocity space completely
                   const vector<vmesh::GlobalID> blocksToInitialize = findBlocksToInitialize(cell,density,temperature,vDrift,popID);
                   Realf* data = cell.get_data(popID);
@@ -3619,10 +3657,9 @@ namespace SBC {
          mpiGrid[cellID]->adjustSingleCellVelocityBlocks(popID);
          // TODO: The moments can also be analytically calculated from ionosphere parameters.
          // Maybe that's faster?
-         calculateCellMoments(mpiGrid[cellID], true, true);
+         calculateCellMoments(mpiGrid[cellID], true, false, true);
       } // End of if for coupling interval, we skip this altogether
 
-      phiprof::stop("vlasovBoundaryCondition (Ionosphere)");
    }
 
    /**
@@ -3658,12 +3695,12 @@ namespace SBC {
             creal dvyCell = block_parameters[BlockParams::DVY];
             creal dvzCell = block_parameters[BlockParams::DVZ];
 
-            creal x = templateCell.parameters[CellParams::XCRD];
-            creal y = templateCell.parameters[CellParams::YCRD];
-            creal z = templateCell.parameters[CellParams::ZCRD];
-            creal dx = templateCell.parameters[CellParams::DX];
-            creal dy = templateCell.parameters[CellParams::DY];
-            creal dz = templateCell.parameters[CellParams::DZ];
+            //creal x = templateCell.parameters[CellParams::XCRD];
+            //creal y = templateCell.parameters[CellParams::YCRD];
+            //creal z = templateCell.parameters[CellParams::ZCRD];
+            //creal dx = templateCell.parameters[CellParams::DX];
+            //creal dy = templateCell.parameters[CellParams::DY];
+            //creal dz = templateCell.parameters[CellParams::DZ];
 
             // Calculate volume average of distrib. function for each cell in the block.
             for (uint kc=0; kc<WID; ++kc) for (uint jc=0; jc<WID; ++jc) for (uint ic=0; ic<WID; ++ic) {
@@ -3709,7 +3746,7 @@ namespace SBC {
          templateCell.adjustSingleCellVelocityBlocks(popID);
       } // for-loop over particle species
 
-      calculateCellMoments(&templateCell,true,true);
+      calculateCellMoments(&templateCell,true,false,true);
 
       // WARNING Time-independence assumed here. Normal moments computed in setProjectCell
       templateCell.parameters[CellParams::RHOM_R] = templateCell.parameters[CellParams::RHOM];
@@ -3761,10 +3798,10 @@ namespace SBC {
       const vmesh::LocalID* vblocks_ini = cell.get_velocity_grid_length(popID,refLevel);
 
       while (search) {
-         #warning TODO: add SpatialCell::getVelocityBlockMinValue() in place of sparseMinValue ? (if applicable)
-         if (0.1 * getObjectWrapper().particleSpecies.at(popID).sparseMinValue >
+         if (0.1 * cell.getVelocityBlockMinValue(popID) >
             shiftedMaxwellianDistribution(popID,density,temperature,counter*cell.get_velocity_grid_block_size(popID,refLevel)[0] - vDrift[0], 0.0 - vDrift[1], 0.0 - vDrift[2])
-            || counter > vblocks_ini[0]) {
+            || counter > vblocks_ini[0]) 
+         {
             search = false;
          }
          ++counter;
