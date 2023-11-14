@@ -325,7 +325,7 @@ namespace SBC {
       void calculateProtonPrecipitation(
          dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid
       ); /*!< Calculate proton precipitation flux */
-      void calculateConductivityTensor(const Real F10_7, const Real recombAlpha, const Real backgroundIonisation, const bool refillTensorAtRestart=false); /*!< Update sigma tensor, if last argument is true, just refill the tensor from SIGMAH, SIGMAP and SIGMAPARALLEL from restart data */
+      void calculateConductivityTensor(const Real F10_7, const Real recombAlpha, const Real backgroundIonization, const bool refillTensorAtRestart=false); /*!< Update sigma tensor, if last argument is true, just refill the tensor from SIGMAH, SIGMAP and SIGMAPARALLEL from restart data */
       Real interpolateUpmappedPotential(const std::array<Real, 3>& x); /*!< Calculate upmapped potential at the given point */
       
       // Conjugate Gradient solver functions
@@ -542,7 +542,7 @@ namespace SBC {
       // TODO: Make these parameters of the IonosphereGrid
       static Real recombAlpha; /*!< Recombination parameter, determining atmosphere ionizability (parameter) */
       static Real F10_7; /*!< Solar 10.7 Flux value (parameter) */
-      static Real backgroundIonisation; /*!< Background ionisation due to stellar UV and cosmic rays */
+      static Real backgroundIonization; /*!< Background ionization due to stellar UV and cosmic rays */
       static Real downmapRadius; /*!< Radius from which FACs are downmapped (RE) */
       static Real unmappedNodeRho; /*!< Electron density of ionosphere nodes that don't couple to the magnetosphere */
       static Real unmappedNodeTe; /*!< Electron temperature of ionosphere nodes that don't couple to the magnetosphere */

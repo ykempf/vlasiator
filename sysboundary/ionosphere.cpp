@@ -76,7 +76,7 @@ namespace SBC {
    Real Ionosphere::couplingTimescale; /*!< Magnetosphere->Ionosphere coupling timescale (seconds) */
    Real Ionosphere::couplingInterval; /*!< Ionosphere update interval */
    int Ionosphere::solveCount; /*!< Counter of the number of solvings */
-   Real Ionosphere::backgroundIonisation; /*!< Background ionisation due to stellar UV and cosmic rays */
+   Real Ionosphere::backgroundIonization; /*!< Background ionization due to stellar UV and cosmic rays */
    int  Ionosphere::solverMaxIterations;
    Real Ionosphere::solverRelativeL2ConvergenceThreshold;
    int Ionosphere::solverMaxFailureCount;
@@ -771,7 +771,7 @@ namespace SBC {
          }
       }
 
-      // Fill ionisation production table
+      // Fill ionization production table
       std::array< Real, SBC::productionNumParticleEnergies > differentialFlux; // Differential flux
 
       for(int e=0; e<productionNumAccEnergies; e++) {
@@ -1168,7 +1168,7 @@ namespace SBC {
    void SphericalTriGrid::calculateConductivityTensor(
       const Real F10_7,
       const Real recombAlpha,
-      const Real backgroundIonisation,
+      const Real backgroundIonization,
       const bool refillTensorAtRestart/*=false*/
    ) {
       phiprof::Timer timer {"ionosphere-calculateConductivityTensor"};
@@ -1254,13 +1254,13 @@ namespace SBC {
          
          // At restart we have SIGMAP, SIGMAH and SIGMAPARALLEL read in from the restart file already.
          if(!refillTensorAtRestart) {
-            // Solar incidence parameter for calculating UV ionisation on the dayside
+            // Solar incidence parameter for calculating UV ionization on the dayside
             Real coschi = x[0] / Ionosphere::innerRadius;
             if(coschi < 0) {
                coschi = 0;
             }
-            Real sigmaP_dayside = backgroundIonisation + F10_7_p_049 * (0.34 * coschi + 0.93 * sqrt(coschi));
-            Real sigmaH_dayside = backgroundIonisation + F10_7_p_053 * (0.81 * coschi + 0.54 * sqrt(coschi));
+            Real sigmaP_dayside = backgroundIonization + F10_7_p_049 * (0.34 * coschi + 0.93 * sqrt(coschi));
+            Real sigmaH_dayside = backgroundIonization + F10_7_p_053 * (0.81 * coschi + 0.54 * sqrt(coschi));
             
             nodes[n].parameters[ionosphereParameters::SIGMAP] = sqrt( pow(nodes[n].parameters[ionosphereParameters::SIGMAP],2) + pow(sigmaP_dayside,2));
             nodes[n].parameters[ionosphereParameters::SIGMAH] = sqrt( pow(nodes[n].parameters[ionosphereParameters::SIGMAH],2) + pow(sigmaH_dayside,2));
