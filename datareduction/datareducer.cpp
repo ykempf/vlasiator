@@ -3264,16 +3264,16 @@ void initializeDataReducers(DataReducer * outputReducer, DataReducer * diagnosti
             continue;
          }
       }
-      if(P::systemWriteAllDROs || lowercase == "ig_precipnumflux") {
-         outputReducer->addOperator(new DRO::DataReductionOperatorIonosphereNode("ig_precipnumflux", [](SBC::SphericalTriGrid& grid)->std::vector<Real> {
+      if(P::systemWriteAllDROs || lowercase == "ig_electronprecipnumflux") {
+         outputReducer->addOperator(new DRO::DataReductionOperatorIonosphereNode("ig_electronprecipnumflux", [](SBC::SphericalTriGrid& grid)->std::vector<Real> {
 
-         std::array< Real, grid.productionNumParticleEnergies+1 > particle_energy;
+         std::vector<Real> particle_energy(grid.productionNumElectronEnergies+1);
          // Precalculate effective energy bins
          // Make sure this stays in sync with sysboundary/ionosphere.cpp
-         for(int e=0; e<grid.productionNumParticleEnergies; e++) {
-            particle_energy[e] = pow(10.0, -1.+e*(2.3+1.)/(grid.productionNumParticleEnergies-1));
+         for(int e=0; e<grid.productionNumElectronEnergies; e++) {
+            particle_energy[e] = pow(10.0, -1.+e*(2.3+1.)/(grid.productionNumElectronEnergies-1));
          }
-         particle_energy[grid.productionNumParticleEnergies] = 2*particle_energy[grid.productionNumParticleEnergies-1] - particle_energy[grid.productionNumParticleEnergies-2];
+         particle_energy[grid.productionNumElectronEnergies] = 2*particle_energy[grid.productionNumElectronEnergies-1] - particle_energy[grid.productionNumElectronEnergies-2];
 
          Real accenergy = grid.productionMinAccEnergy;
 
