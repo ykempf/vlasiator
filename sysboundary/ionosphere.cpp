@@ -1135,7 +1135,7 @@ namespace SBC {
          creal energyParam = electronEnergy[e] / tempEnergy * 1e3*physicalconstants::CHARGE; // = E_p / (kB T)
          creal deltaE = (electronEnergy[e+1] - electronEnergy[e]);  // dE in keV
          // 1e-6 m^-3 -> cm^-3
-         creal differentialFlux = nodes[n].electronDensity() * 1e-6 * electronEnergy[e] * sqrt(1e3*physicalconstants::CHARGE*1e3*physicalconstants::CHARGE*1e3*physicalconstants::CHARGE / (2. * M_PI * physicalconstants::MASS_ELECTRON * 1e3 * tempEnergy*tempEnergy*tempEnergy)) * exp(-energyParam);
+         creal differentialFlux = nodes[n].electronDensity() * 1e-6 * electronEnergy[e] * sqrt(1e3*physicalconstants::CHARGE*1e3*physicalconstants::CHARGE*1e3*physicalconstants::CHARGE / (2. * M_PI * physicalconstants::MASS_ELECTRON * tempEnergy*tempEnergy*tempEnergy)) * exp(-energyParam);
 //          creal differentialFlux = nodes[n].electronDensity() * 1e-6 * 2 * electronEnergy[e] / (physicalconstants::MASS_ELECTRON * 1e3 * physicalconstants::MASS_ELECTRON * 1e-6) * pow(physicalconstants::MASS_ELECTRON * 1e3 * 1e3*physicalconstants::CHARGE / (2. * M_PI * tempEnergy), 3/2) * exp(-energyParam);
          
          totalIonizationElectrons += electronEnergy[e]*differentialFlux*deltaE*fangEnergyDissipation(Particles::ELECTRON, electronEnergy[e], h);
