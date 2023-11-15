@@ -895,6 +895,10 @@ namespace SBC {
          return;
       }
       phiprof::start("Ionosphere-proton-precipitation");
+      
+      SpatialCell::set_mpi_transfer_type(Transfer::CELL_BVOL);
+      mpiGrid.update_copies_of_remote_neighbors(NEAREST_NEIGHBORHOOD_ID);
+      
       bool didOnePopulationAtLeast = false;
       
       // First determine which DCCRG cells are involved
