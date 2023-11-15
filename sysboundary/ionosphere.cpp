@@ -1080,6 +1080,10 @@ namespace SBC {
          }
          for(int i=0; i<productionNumProtonEnergies; i++) {
             nodes[n].protonDifferentialFlux.at(i) = allSpectra.at(offset+i);
+            // Spurious small negative values end up throwing nans and wrecking the potential solver at the beginning of the simulation at least.
+            if(nodes[n].protonDifferentialFlux.at(i) < 0) {
+               nodes[n].protonDifferentialFlux.at(i) = 0;
+            }
          }
          counterPerTask.at(task)++;
       }
