@@ -190,6 +190,12 @@ namespace CellParams {
       AMR_TRANSLATE_COMM_Y, /*! < Flag to include this cell in AMR pre-translate communication  */
       AMR_TRANSLATE_COMM_Z, /*! < Flag to include this cell in AMR pre-translate communication  */
       CONNECTION, /*!< Magnetic connection. See TracingPointConnectionType for assigned values. */
+      CONNECTION_FW_X, /*!< Endpoint x (forward-propagated) for the magnetic connection tracer*/
+      CONNECTION_FW_Y, /*!< Endpoint y (forward-propagated) for the magnetic connection tracer*/
+      CONNECTION_FW_Z, /*!< Endpoint z (forward-propagated) for the magnetic connection tracer*/
+      CONNECTION_BW_X, /*!< Endpoint x (backward-propagated) for the magnetic connection tracer*/
+      CONNECTION_BW_Y, /*!< Endpoint y (backward-propagated) for the magnetic connection tracer*/
+      CONNECTION_BW_Z, /*!< Endpoint z (backward-propagated) for the magnetic connection tracer*/
       CURVATUREX, /*!< Magnetic field curvature vector x component */
       CURVATUREY, /*!< Magnetic field curvature vector y component */
       CURVATUREZ, /*!< Magnetic field curvature vector z component */
@@ -202,6 +208,10 @@ namespace CellParams {
       AMR_ALPHA,
       RECENTLY_REFINED,
       AMR_JPERB,
+      BULKV_FORCING_X, /*! Externally forced drift velocity (ex. from the ionosphere) */
+      BULKV_FORCING_Y, /*! Externally forced drift velocity (ex. from the ionosphere) */
+      BULKV_FORCING_Z, /*! Externally forced drift velocity (ex. from the ionosphere) */
+      FORCING_CELL_NUM, /*! Number of boundary cells that have forced a bulkv here */
       N_SPATIAL_CELL_PARAMS
    };
 }
@@ -358,12 +368,15 @@ namespace fsgrids {
       dBGBydz,     /*!< Derivative of background face-averaged By in z-direction. */
       dBGBzdx,     /*!< Derivative of background face-averaged Bz in x-direction. */
       dBGBzdy,     /*!< Derivative of background face-averaged Bz in y-direction. */
+      dBGBXVOLdx,  /*!< Derivative of background volume-averaged Bx in x-direction. */
       dBGBXVOLdy,  /*!< Derivative of background volume-averaged Bx in y-direction. */
       dBGBXVOLdz,  /*!< Derivative of background volume-averaged Bx in z-direction. */
       dBGBYVOLdx,  /*!< Derivative of background volume-averaged By in x-direction. */
+      dBGBYVOLdy,  /*!< Derivative of background volume-averaged By in y-direction. */
       dBGBYVOLdz,  /*!< Derivative of background volume-averaged By in z-direction. */
       dBGBZVOLdx,  /*!< Derivative of background volume-averaged Bz in x-direction. */
       dBGBZVOLdy,  /*!< Derivative of background volume-averaged Bz in y-direction. */
+      dBGBZVOLdz,  /*!< Derivative of background volume-averaged Bz in z-direction. */
       N_BGB
    };
    
@@ -414,7 +427,9 @@ enum ionosphereParameters {
   PRECIP,   /*!< Precipitation */
   RHON,     /*!< Downmapped magnetospheric plasma number density */
   TEMPERATURE, /*!< Downmapped electron temperature */
-  NODE_BX,NODE_BY,NODE_BZ, /*!< Magnetic field at the node */
+  POYNTINGFLUX, /*!< Downwards poynting flux from the magnetosphere into the ionosphere */
+  NODE_BX,NODE_BY,NODE_BZ, /*!< Magnetic field at the node, needed for loss cone calculation */
+  LOSSCONEANGLE,
   UPMAPPED_BX,UPMAPPED_BY,UPMAPPED_BZ, /*!< Magnetic field at the upper and of the mapping fieldline */
   SOLUTION, /*!< Currently considered solution potential */
   BEST_SOLUTION, /*!< Best solution found so far */
@@ -436,7 +451,7 @@ namespace sysboundarytype {
       IONOSPHERE,       /*!< Ionospheric current model */
       OUTFLOW,          /*!< No fixed conditions on the fields and distribution function. */
       SET_MAXWELLIAN,   /*!< Set Maxwellian boundary condition, i.e. set fields and distribution function. */
-      CONDUCTINGSPHERE, /*!< A perfectly conducting sphere as the simple inner boundary */
+      COPYSPHERE,       /*!< A sphere with copy-condition for perturbed B as the simple inner boundary */
       N_SYSBOUNDARY_CONDITIONS
    };
 }
@@ -483,6 +498,7 @@ struct globalflags {
    static bool writeRestart; /*!< Global flag raised to true if a restart writing is needed (without bailout). NOTE: used only by MASTER_RANK in vlasiator.cpp. */
    static bool balanceLoad; /*!< Global flag raised to true if a load balancing is needed. NOTE: used only by MASTER_RANK in vlasiator.cpp. */
    static int AMRstencilWidth; /*!< Global variable used for the extended AMR stencil width */
+   static bool ionosphereJustSolved; /*!< Flag used to notify that the ionosphere has been freshly solved, used to check whether the Vlasov boundary/bulk forcing need updating. */
 };
 
 /*!
@@ -504,6 +520,7 @@ namespace physicalconstants {
    const Real MASS_ELECTRON = 9.10938188e-31; /**< Electron rest mass, units: kg.*/
    const Real MASS_PROTON = 1.67262158e-27; /*!< Proton rest mass, units: kg.*/
    const Real R_E = 6.3712e6; /*!< radius of the Earth, units: m. */
+   const Real g = 9.80665; /*!< Standard acceleration of gravity at Earth's surface, units: m s^-2.*/
 }
 
 const std::vector<CellID>& getLocalCells();

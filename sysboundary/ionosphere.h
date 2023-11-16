@@ -61,9 +61,10 @@ namespace SBC {
 
    enum IonosphereBoundaryVDFmode { // How are inner boundary VDFs constructed from the ionosphere
       FixedMoments,      // Predefine temperature, density and V = 0 on the inner boundary.
-      AverageMoments,    // Copy averaged density and temperature from nearest cells, V = 0 
+      AverageMoments,    // Copy averaged density and temperature from nearest cells, V = 0
       AverageAllMoments, // Same as above, but also copy V
-      CopyAndLosscone
+      CopyAndLosscone,
+      ForceL2EXB
    };
    extern IonosphereBoundaryVDFmode boundaryVDFmode;
    
@@ -131,6 +132,8 @@ namespace SBC {
             //return retval;
          }
          
+         std::vector<Real> protonDifferentialFlux;
+         
       };
       
       std::vector<Node> nodes;
@@ -138,10 +141,11 @@ namespace SBC {
       // Atmospheric height layers that are being integrated over
       constexpr static int numAtmosphereLevels = 20;
       struct AtmosphericLayer {
-         Real altitude;
-         Real nui;
-         Real nue;
-         Real density;
+         Real altitude; // km
+         Real nui; // m^-3 s^-1
+         Real nue; // m^-3 s^-1
+         Real density; // kg/m^3
+         Real scaleHeight; // m
          Real depth; // integrated density from the top of the atmosphere
          Real pedersencoeff;
          Real hallcoeff;
@@ -160,22 +164,143 @@ namespace SBC {
          Rees1963, // Rees (1963)
          Rees1989, // Rees (1989)
          SergienkoIvanov, // Sergienko & Ivanov (1993)
+         Fang
       } ionizationModel;
-
-      // Ionisation production table
+      
+      bool precipitatingProtons; // If true and we use the Fang ionization models, include the proton component.
+      
+      enum Particles {
+         PROTON,
+         ELECTRON
+      };
+      
+      /*!< Lines  0-11 Fang 2013 proton Pij coefficients https://doi.org/10.1002/jgra.50484
+       *   Lines 12-19 Fang 2010 electron Pij coefficients https://doi.org/10.1029/2010GL045406
+       *   Lines 20-23 Padding with zeros to simplify calls.
+       */
+      constexpr static std::array<std::array<Real, 4>, 24> P_ij = {{ // hooray for C++ initialization, the additional {} is needed.
+         // proton
+         { 2.55050E+0,   2.69476E-1,  -2.58425E-1,   4.43190E-2},
+         { 6.39287E-1,  -1.85817E-1,  -3.15636E-2,   1.01370E-2},
+         { 1.63996E+0,   2.43580E-1,   4.29873E-2,   3.77803E-2},
+         {-2.13479E-1,   1.42464E-1,   1.55840E-2,   1.97407E-3},
+         {-1.65764E-1,   3.39654E-1,  -9.87971E-3,   4.02411E-3},
+         {-3.59358E-2,   2.50330E-2,  -3.29365E-2,   5.08057E-3},
+         {-6.26528E-1,   1.46865E+0,   2.51853E-1,  -4.57132E-2},
+         { 1.01384E+0,   5.94301E-2,  -3.27839E-2,   3.42688E-3},
+         {-1.29454E-6,  -1.43623E-1,   2.82583E-1,   8.29809E-2},
+         {-1.18622E-1,   1.79191E-1,   6.49171E-2,  -3.99715E-3},
+         { 2.94890E+0,  -5.75821E-1,   2.48563E-2,   8.31078E-2},
+         {-1.89515E-1,   3.53452E-2,   7.77964E-2,  -4.06034E-3},
+         // electron
+         { 1.24616E+0,   1.45903E+0,  -2.42269E-1,   5.95459E-2},
+         { 2.23976E+0,  -4.22918E-7,   1.36458E-2,   2.53332E-3},
+         { 1.41754E+0,   1.44597E-1,   1.70433E-2,   6.39717E-4},
+         { 2.48775E-1,  -1.50890E-1,   6.30894E-9,   1.23707E-3},
+         {-4.65119E-1,  -1.05081E-1,  -8.95701E-2,   1.22450E-2},
+         { 3.86019E-1,   1.75430E-3,  -7.42960E-4,   4.60881E-4},
+         {-6.45454E-1,   8.49555E-4,  -4.28581E-2,  -2.99302E-3},
+         { 9.48930E-1,   1.97385E-1,  -2.50660E-3,  -2.06938E-3},
+         {          0,            0,            0,            0},
+         {          0,            0,            0,            0},
+         {          0,            0,            0,            0},
+         {          0,            0,            0,            0}
+      }};
+      
+      /*!< Parametrization coefficients Ci for electrons and protons, the species is included in the i index.
+       * \param i index into P_ij
+       * \param E energy in keV
+       */
+      inline Real fC(cint i, creal E) {
+         return exp(P_ij[i][0] + P_ij[i][1]*log(E) + P_ij[i][2]*log(E)*log(E) + P_ij[i][3]*log(E)*log(E)*log(E));
+      }
+      
+      /*!< normalised column mass y as a function of altitude h and energy E, for
+       * - electrons Fang 2010 https://doi.org/10.1029/2010GL045406 equation (1)
+       * - protons Fang 2013 https://doi.org/10.1002/jgra.50484 equation (5)
+       * 
+       * / 1000 for kg m^-3 to g cm^-3
+       * * 100 for m to cm
+       * results in / 10 inside pow().
+       * 
+       * \param p particle species enum Particles::PROTON and ELECTRON
+       * \param E energy in keV
+       * \param h altitude index
+       */
+      inline Real fangNormalizedColumnMass(cint p, creal E, cuint h) {
+         Real y;
+         switch(p) {
+            case Particles::PROTON:
+               y = 7.5 / E * pow(atmosphere[h].density * atmosphere[h].scaleHeight / 1e-4 / 10, 0.9);
+               break;
+            case Particles::ELECTRON:
+               y = 2 / E * pow(atmosphere[h].density * atmosphere[h].scaleHeight / 6e-6 / 10, 0.7);
+               break;
+            default:
+               cerr << "Invalid precipitating species!" << endl;
+               abort();
+         }
+         return y;
+      }
+      
+      /*!< Energy dissipation f as a function of altitude and energy E, for
+       * - electrons Fang 2010 https://doi.org/10.1029/2010GL045406 equation (4)
+       * - protons Fang 2013 https://doi.org/10.1002/jgra.50484 equation (6)
+       * 
+       * Note that the i indices are taken -1 as we are 0-indexing in the arrays P_ij.
+       * 
+       * \param p particle species enum Particles::PROTON and ELECTRON
+       * \param E energy in keV
+       * \param h altitude index
+       */
+      inline Real fangEnergyDissipation(cint p, creal E, cint h) {
+         creal y = fangNormalizedColumnMass(p, E, h);
+         
+         cint offset = p*12; // 0 for proton, 12 for electron, see indexing in P_ij
+         return
+           fC(offset+0,E) * pow(y, fC(offset+1,E)) * exp(-fC(offset+ 2,E) * pow(y, fC(offset+ 3,E)))
+         + fC(offset+4,E) * pow(y, fC(offset+5,E)) * exp(-fC(offset+ 6,E) * pow(y, fC(offset+ 7,E)))
+         + fC(offset+8,E) * pow(y, fC(offset+9,E)) * exp(-fC(offset+10,E) * pow(y, fC(offset+11,E))); // this line returns zero for electrons, see P_ij
+      }
+      
+      Real totalIonizationFang(
+         cint n,
+         cint h
+      );
+      
+      // Hardcoded constants for calculating ion production table
+      // TODO: Make these parameters?
+      constexpr static int productionNumAccEnergies = 60;
+      constexpr static int productionNumTemperatures = 60;
+// moved to be a parameter below       constexpr static int productionNumElectronEnergies = 100;
+      constexpr static Real productionMinAccEnergy = 0.1; // keV
+      constexpr static Real productionMaxAccEnergy = 100.; // keV
+      constexpr static Real productionMinTemperature = 0.1; // keV
+      constexpr static Real productionMaxTemperature = 100.; // keV
+      constexpr static Real ion_electron_T_ratio = 4.; // TODO: Make this a parameter (and/or find value from kinetics)
+      
+      // These are parameters already
+      int productionNumProtonEnergies; // bins used when computing the precipitating proton flux spectrum
+      Real productionMinProtonEnergy; // keV
+      Real productionMaxProtonEnergy; // keV
+      int productionNumElectronEnergies; // bins used when computing the precipitating proton flux spectrum
+      Real productionMinElectronEnergy; // keV
+      Real productionMaxElectronEnergy; // keV
+      
+      // Ionization production table
       std::array< std::array< std::array< Real, productionNumTemperatures >, productionNumAccEnergies >, numAtmosphereLevels > productionTable;
       Real lookupProductionValue(int heightindex, Real energy_keV, Real temperature_keV);
 
-      MPI_Comm communicator = MPI_COMM_NULL; // The communicator internally used to solve the ionosphere potenital
-      int rank = -1;                      // Own rank in the ionosphere communicator
-      int writingRank;                    // Rank in the MPI_COMM_WORLD communicator that does ionosphere I/O
-      bool isCouplingInwards = false;     // True for any rank that actually couples fsgrid information into the ionosphere
-      bool isCouplingOutwards = true;     // True for any rank that actually couples ionosphere potential information out to the vlasov grid
-      FieldFunction dipoleField;          // Simulation background field model to trace connections with
-      std::array<Real, 3> BGB; /*!< Uniform background field */
+      MPI_Comm communicator = MPI_COMM_NULL; /*!< The communicator internally used to solve the ionosphere potential */
+      int rank = -1;                         /*!< Own rank in the ionosphere communicator */
+      int writingRank;                       /*!< Rank in the MPI_COMM_WORLD communicator that does ionosphere I/O */
+      bool isCouplingInwards = true;         /*!< True for any rank that actually couples fsgrid information into the ionosphere */
+      bool isCouplingOutwards = true;        /*!< True for any rank that actually couples ionosphere potential information out to the vlasov grid */
+      FieldFunction dipoleField;             /*!< Simulation background field model to trace connections with */
+      std::array<Real, 3> BGB;               /*!< Uniform background field */
 
       std::map< std::array<Real, 3>, std::array<
-         std::pair<int, Real>, 3> > vlasovGridCoupling; // Grid coupling information, caching how vlasovGrid coordinate couple to ionosphere data
+         std::pair<int, Real>, 3> > vlasovGridCoupling; /*!< Grid coupling information, caching how vlasovGrid coordinate couple to ionosphere data */
 
       void setDipoleField(const FieldFunction& dipole) {
          dipoleField = dipole;
@@ -185,27 +310,30 @@ namespace SBC {
       }
       void readAtmosphericModelFile(const char* filename);
       void storeNodeB();
-      void offset_FAC();                  // Offset field aligned currents to get overall zero current
-      void normalizeRadius(Node& n, Real R); // Scale all coordinates onto sphere with radius R
-      void updateConnectivity();          // Re-link elements and nodes
-      void updateIonosphereCommunicator(dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid, FsGrid< fsgrids::technical, FS_STENCIL_WIDTH> & technicalGrid);// (Re-)create the subcommunicator for ionosphere-internal communication
-      void initializeTetrahedron();       // Initialize grid as a base tetrahedron
-      void initializeIcosahedron();       // Initialize grid as a base icosahedron
-      void initializeSphericalFibonacci(int n); // Initialize grid as a spherical fibonacci lattice
+      void offset_FAC();                  /*!< Offset field aligned currents to get overall zero current */
+      void normalizeRadius(Node& n, Real R); /*!< Scale all coordinates onto sphere with radius R */
+      void updateConnectivity();          /*!< Re-link elements and nodes */
+      void updateIonosphereCommunicator(dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid, FsGrid< fsgrids::technical, FS_STENCIL_WIDTH> & technicalGrid); /*!< (Re-)create the subcommunicator for ionosphere-internal communication */
+      void initializeTetrahedron();       /*!< Initialize grid as a base tetrahedron */
+      void initializeIcosahedron();       /*!< Initialize grid as a base icosahedron */
+      void initializeSphericalFibonacci(int n); /*!< Initialize grid as a spherical fibonacci lattice */
       int32_t findElementNeighbour(uint32_t e, int n1, int n2);
-      uint32_t findNodeAtCoordinates(std::array<Real,3> x); // Find the mesh node closest to the given coordinate
-      void subdivideElement(uint32_t e);  // Subdivide mesh within element e
-      void stitchRefinementInterfaces(); // Make sure there are no t-junctions in the mesh by splitting neighbours
-      void calculatePrecipitation(); // Estimate precipitation flux
-      void calculateConductivityTensor(const Real F10_7, const Real recombAlpha, const Real backgroundIonisation); // Update sigma tensor
-      Real interpolateUpmappedPotential(const std::array<Real, 3>& x); // Calculate upmapped potential at the given point
+      uint32_t findNodeAtCoordinates(std::array<Real,3> x); /*!< Find the mesh node closest to the given coordinate */
+      void subdivideElement(uint32_t e);  /*!< Subdivide mesh within element e */
+      void stitchRefinementInterfaces(); /*!< Make sure there are no t-junctions in the mesh by splitting neighbours */
+      void calculateElectronPrecipitation(); /*!< Estimate electron precipitation flux */
+      void calculateProtonPrecipitation(
+         dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid
+      ); /*!< Calculate proton precipitation flux */
+      void calculateConductivityTensor(const Real F10_7, const Real recombAlpha, const Real backgroundIonization, const bool refillTensorAtRestart=false); /*!< Update sigma tensor, if last argument is true, just refill the tensor from SIGMAH, SIGMAP and SIGMAPARALLEL from restart data */
+      Real interpolateUpmappedPotential(const std::array<Real, 3>& x); /*!< Calculate upmapped potential at the given point */
       
       // Conjugate Gradient solver functions
-      void addMatrixDependency(uint node1, uint node2, Real coeff, bool transposed=false); // Add matrix value for the solver
+      void addMatrixDependency(uint node1, uint node2, Real coeff, bool transposed=false); /*!< Add matrix value for the solver */
       void addAllMatrixDependencies(uint nodeIndex);
-      void initSolver(bool zeroOut=true);  // Initialize the CG solver
-      iSolverReal Atimes(uint nodeIndex, int parameter, bool transpose=false); // Evaluate neighbour nodes' coupled parameter
-      Real Asolve(uint nodeIndex, int parameter, bool transpose=false); // Evaluate own parameter value
+      void initSolver(bool zeroOut=true);  /*!< Initialize the CG solver */
+      iSolverReal Atimes(uint nodeIndex, int parameter, bool transpose=false); /*!< Evaluate neighbour nodes' coupled parameter */
+      Real Asolve(uint nodeIndex, int parameter, bool transpose=false); /*!< Evaluate own parameter value */
       void solve(
          int & iteration,
          int & nRestarts,
@@ -314,7 +442,7 @@ namespace SBC {
     * 
     * These consist in:
     * - Do nothing for the distribution (keep the initial state constant in time);
-    * - Keep only the normal perturbed B component and null out the other perturbed components (perfect conductor behavior);
+    * - Copy the closest neighbors' perturbed B and average it;
     * - Null out the electric fields.
     */
    class Ionosphere: public SysBoundaryCondition {
@@ -345,13 +473,6 @@ namespace SBC {
          cint k,
          creal& dt,
          cuint& component
-      );
-      virtual void fieldSolverBoundaryCondMagneticFieldProjection(
-         FsGrid< std::array<Real, fsgrids::bfield::N_BFIELD>, FS_STENCIL_WIDTH> & bGrid,
-         FsGrid< fsgrids::technical, FS_STENCIL_WIDTH> & technicalGrid,
-         cint i,
-         cint j,
-         cint k
       );
       virtual void fieldSolverBoundaryCondElectricField(
          FsGrid< std::array<Real, fsgrids::efield::N_EFIELD>, FS_STENCIL_WIDTH> & EGrid,
@@ -390,6 +511,10 @@ namespace SBC {
          cint k,
          cuint& component
       );
+      // Compute and store the EXB drift into the cell's BULKV_FORCING_X/Y/Z fields and set counter to 1
+      virtual void mapCellPotentialAndGetEXBDrift(
+         std::array<Real, CellParams::N_SPATIAL_CELL_PARAMS>& cellParams
+      );
       virtual void vlasovBoundaryCondition(
          const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
          const CellID& cellID,
@@ -415,15 +540,15 @@ namespace SBC {
       static Real ridleyParallelConductivity; /*!< Constant parallel conductivity */
       
       // TODO: Make these parameters of the IonosphereGrid
-      static Real recombAlpha; // Recombination parameter, determining atmosphere ionizability (parameter)
-      static Real F10_7; // Solar 10.7 Flux value (parameter)
-      static Real backgroundIonisation; // Background ionisation due to stellar UV and cosmic rays
-      static Real downmapRadius; // Radius from which FACs are downmapped (RE)
-      static Real unmappedNodeRho; // Electron density of ionosphere nodes that don't couple to the magnetosphere
-      static Real unmappedNodeTe; // Electron temperature of ionosphere nodes that don't couple to the magnetosphere
-      static Real couplingTimescale; // Magnetosphere->Ionosphere coupling timescale (seconds)
-      static Real couplingInterval; // Ionosphere update interval
-      static int solveCount; // Counter for the number of ionosphere solvings
+      static Real recombAlpha; /*!< Recombination parameter, determining atmosphere ionizability (parameter) */
+      static Real F10_7; /*!< Solar 10.7 Flux value (parameter) */
+      static Real backgroundIonization; /*!< Background ionization due to stellar UV and cosmic rays */
+      static Real downmapRadius; /*!< Radius from which FACs are downmapped (RE) */
+      static Real unmappedNodeRho; /*!< Electron density of ionosphere nodes that don't couple to the magnetosphere */
+      static Real unmappedNodeTe; /*!< Electron temperature of ionosphere nodes that don't couple to the magnetosphere */
+      static Real couplingTimescale; /*!< Magnetosphere->Ionosphere coupling timescale (seconds) */
+      static Real couplingInterval; /*!< Ionosphere update interval */
+      static int solveCount; /*!< Counter for the number of ionosphere solvings */
       static enum IonosphereConductivityModel { // How should the conductivity tensor be assembled?
          GUMICS,   // Like GUMICS-5 does it? (Only SigmaH and SigmaP, B perp to surface)
          Ridley,   // Or like the Ridley 2004 paper (with 1000 mho longitudinal conductivity)
@@ -455,11 +580,11 @@ namespace SBC {
       uint geometry; /*!< Geometry of the ionosphere, 0: inf-norm (diamond), 1: 1-norm (square), 2: 2-norm (circle, DEFAULT), 3: polar-plane cylinder with line dipole. */
 
 
-      std::string baseShape; // Basic mesh shape (sphericalFibonacci / icosahedron / tetrahedron)
-      int fibonacciNodeNum;  // If spherical fibonacci: number of nodes to generate
-      Real earthAngularVelocity; // Earth rotation vector, in radians/s
-      Real plasmapauseL; // L-Value at which the plasma pause resides (everything inside corotates)
-      std::string atmosphericModelFile; // MSIS data file
+      std::string baseShape; /*!< Basic mesh shape (sphericalFibonacci / icosahedron / tetrahedron) */
+      int fibonacciNodeNum;  /*!< If spherical fibonacci: number of nodes to generate */
+      Real earthAngularVelocity; /*!< Earth rotation vector, in radians/s */
+      Real plasmapauseL; /*!< L-Value at which the plasma pause resides (everything inside corotates) */
+      std::string atmosphericModelFile; /*!< MSIS data file */
       // Boundaries of refinement latitude bands
       std::vector<Real> refineMinLatitudes;
       std::vector<Real> refineMaxLatitudes;
