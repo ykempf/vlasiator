@@ -1046,13 +1046,15 @@ namespace SBC {
                   }
                }
             }
-            
             // Averaging within each bin and conversion to unit of part. cm^-2 s^-1 sr^-1 keV^-1
             // What TODO with the sr?
+            // Divide by solid angle of loss cone
+            // Solid angle of a cone of half-width theta: 4 pi sin^2(theta/2)
+            // So divide by 4 pi sin^2(arccos(cosAngle)/2)
             // FIXME fails with multiple populations
             for (int i=0; i<productionNumProtonEnergies; i++) {
                if (sumWeights.at(i) != 0) {
-                  spectrum.at(i) *= 1.0 / (mass * sumWeights.at(i)) * physicalconstants::CHARGE * 1000 / 10000; // 1/10000 to make m^-2 cm^-2 for the Fang formula.
+                  spectrum.at(i) *= 1.0 / (mass * sumWeights.at(i) * 4 * M_PI * pow(sin(acos(cosAngle)/2), 2.0)) * physicalconstants::CHARGE * 1000 / 10000; // 1/10000 to make m^-2 cm^-2 for the Fang formula.
                }
             }
          }
