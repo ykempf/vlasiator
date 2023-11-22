@@ -241,6 +241,8 @@ void initializeGrids(
             balanceLoad(mpiGrid, sysBoundaries);
          }
       } else if (P::refineOnRestart) {
+         // Get good load balancing for refinement
+         balanceLoad(mpiGrid, sysBoundaries);
          phiprof::Timer timer {"Restart refinement"};
          for (int i = 0; i < P::amrMaxAllowedSpatialRefLevel; ++i) {
             adaptRefinement(mpiGrid, technicalGrid, sysBoundaries, project);
@@ -1408,7 +1410,10 @@ bool adaptRefinement(dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGri
    if (useStatic > -1) {
       project.forceRefinement(mpiGrid, useStatic);
    } else {
-      calculateScaledDeltasSimple(mpiGrid);
+      // Restarts don't have all the data we need, so refinement indices need to be read
+      if (P::tstep != P::tstep_min) {
+         calculateScaledDeltasSimple(mpiGrid);
+      }
       SpatialCell::set_mpi_transfer_type(Transfer::REFINEMENT_PARAMETERS);
       mpiGrid.update_copies_of_remote_neighbors(NEAREST_NEIGHBORHOOD_ID);
 
