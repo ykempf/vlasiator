@@ -435,12 +435,8 @@ bool P::addParameters() {
            "If the refinement criterion function returns a smaller value than this, block can be coarsened",
            (Realf)0.5);
    // Spatial Refinement parameters
-   RP::add("AMR.max_spatial_level", "Maximum absolute spatial mesh refinement level", (uint)0);
-<<<<<<< HEAD
+   RP::add("AMR.max_spatial_level", "Maximum absolute spatial mesh refinement level", 0);
    RP::add("AMR.max_allowed_spatial_level", "Maximum currently allowed spatial mesh refinement level", -1);
-=======
-   RP::add("AMR.max_allowed_spatial_level", "Maximum currently allowed spatial mesh refinement level", (uint)0);
->>>>>>> 325816c7 (Introduces a parameter to limit the allowed maximum spatial refinement level.)
    RP::add("AMR.should_refine","If false, do not refine Vlasov grid regardless of max spatial level",true);
    RP::add("AMR.adapt_refinement","If true, re-refine vlasov grid every refine_multiplier load balance", false);
    RP::add("AMR.refine_on_restart","If true, re-refine vlasov grid on restart", false);
@@ -688,12 +684,9 @@ void Parameters::getParameters() {
 
    RP::get("AMR.max_spatial_level", P::amrMaxSpatialRefLevel);
    RP::get("AMR.max_allowed_spatial_level", P::amrMaxAllowedSpatialRefLevel);
-<<<<<<< HEAD
    if(P::amrMaxAllowedSpatialRefLevel < 0) { // negative (default is -1) just goes to max
       P::amrMaxAllowedSpatialRefLevel = P::amrMaxSpatialRefLevel; // set max allowed to the same as the absolute max
    }
-=======
->>>>>>> 325816c7 (Introduces a parameter to limit the allowed maximum spatial refinement level.)
    if(P::amrMaxSpatialRefLevel < P::amrMaxAllowedSpatialRefLevel) {
       if(myRank == MASTER_RANK) {
          cerr << "AMR.max_allowed_spatial_level cannot be greater than AMR.max_spatial_level!\n";
