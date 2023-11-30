@@ -163,11 +163,16 @@ bool P::refineOnRestart = false;
 bool P::forceRefinement = false;
 bool P::shouldFilter = false;
 bool P::useAlpha = false;
-Real P::alphaRefineThreshold = -1.0;
+Real P::alphaRefineThreshold = 0.5;
 Real P::alphaCoarsenThreshold = -1.0;
 bool P::useJPerB = false;
-Real P::jperbRefineThreshold = -1.0;
+Real P::jperbRefineThreshold = 0.5;
 Real P::jperbCoarsenThreshold = -1.0;
+Real P::alphaDRhoWeight = 1.0;
+Real P::alphaDUWeight = 1.0;
+Real P::alphaDPSqWeight = 1.0;
+Real P::alphaDBSqWeight = 1.0;
+Real P::alphaDBWeight = 1.0;
 
 uint P::refineMultiplier = 1;
 Real P::refineAfter = 0.0;
@@ -439,18 +444,23 @@ bool P::addParameters() {
    RP::add("AMR.max_allowed_spatial_level", "Maximum currently allowed spatial mesh refinement level", -1);
    RP::add("AMR.should_refine","If false, do not refine Vlasov grid regardless of max spatial level",true);
    RP::add("AMR.adapt_refinement","If true, re-refine vlasov grid every refine_multiplier load balance", false);
-   RP::add("AMR.refine_on_restart","If true, re-refine vlasov grid on restart", false);
+   RP::add("AMR.refine_on_restart","If true, re-refine vlasov grid on restart. DEPRECATED, consider using the DOMR command", false);
    RP::add("AMR.force_refinement","If true, refine/unrefine the vlasov grid to match the config on restart", false);
    RP::add("AMR.should_filter","If true, filter vlasov grid with boxcar filter on restart",false);
    RP::add("AMR.use_alpha","Use the maximum of dimensionless gradients alpha as a refinement index", false);
-   RP::add("AMR.alpha_refine_threshold","Determines the minimum value of alpha to refine cells", -1.0);
+   RP::add("AMR.alpha_refine_threshold","Determines the minimum value of alpha to refine cells", 0.5);
    RP::add("AMR.alpha_coarsen_threshold","Determines the maximum value of alpha to unrefine cells", -1.0);
    RP::add("AMR.use_J_per_B","Use J/B_perp as a refinement index", false);
-   RP::add("AMR.jperb_refine_threshold","Determines the minimum value of jperb to refine cells", -1.0);
+   RP::add("AMR.jperb_refine_threshold","Determines the minimum value of jperb to refine cells", 0.5);
    RP::add("AMR.jperb_coarsen_threshold","Determines the maximum value of jperb to unrefine cells", -1.0);
    RP::add("AMR.refine_multiplier","Refine every nth load balance", 1); // Consider renaming
    RP::add("AMR.refine_after","Start refinement after this many simulation seconds", 0.0);
    RP::add("AMR.refine_radius","Maximum distance from Earth to refine", LARGE_REAL);
+   RP::add("AMR.alpha_drho_weight","Multiplier for delta rho in alpha calculation", 1.0);
+   RP::add("AMR.alpha_du_weight","Multiplier for delta U in alpha calculation", 1.0);
+   RP::add("AMR.alpha_dpsq_weight","Multiplier for delta p squared in alpha calculation", 1.0);
+   RP::add("AMR.alpha_dbsq_weight","Multiplier for delta B squared in alpha calculation", 1.0);
+   RP::add("AMR.alpha_db_weight","Multiplier for delta B in alpha calculation", 1.0);
    RP::add("AMR.box_half_width_x", "Half width of the box that is refined (for testing)", (uint)1);
    RP::add("AMR.box_half_width_y", "Half width of the box that is refined (for testing)", (uint)1);
    RP::add("AMR.box_half_width_z", "Half width of the box that is refined (for testing)", (uint)1);
@@ -708,7 +718,7 @@ void Parameters::getParameters() {
    }
    if (P::useAlpha && P::alphaRefineThreshold < 0) {
       if (myRank == MASTER_RANK) {
-         cerr << "ERROR using alpha without refine threshold set" << endl;
+         cerr << "ERROR invalid alpha refine threshold" << endl;
       }
       MPI_Abort(MPI_COMM_WORLD, 1);
    }
@@ -723,7 +733,7 @@ void Parameters::getParameters() {
    }
    if (P::useJPerB && P::jperbRefineThreshold < 0) {
       if (myRank == MASTER_RANK) {
-         cerr << "ERROR using J/B without refine threshold set" << endl;
+         cerr << "ERROR invalid J/B refine threshold" << endl;
       }
       MPI_Abort(MPI_COMM_WORLD, 1);
    }
@@ -731,6 +741,11 @@ void Parameters::getParameters() {
    RP::get("AMR.refine_multiplier",P::refineMultiplier);
    RP::get("AMR.refine_after",P::refineAfter);
    RP::get("AMR.refine_radius",P::refineRadius);
+   RP::get("AMR.alpha_drho_weight", P::alphaDRhoWeight);
+   RP::get("AMR.alpha_du_weight", P::alphaDUWeight);
+   RP::get("AMR.alpha_dpsq_weight", P::alphaDPSqWeight);
+   RP::get("AMR.alpha_dbsq_weight", P::alphaDBSqWeight);
+   RP::get("AMR.alpha_db_weight", P::alphaDBWeight);
    RP::get("AMR.box_half_width_x", P::amrBoxHalfWidthX);
    RP::get("AMR.box_half_width_y", P::amrBoxHalfWidthY);
    RP::get("AMR.box_half_width_z", P::amrBoxHalfWidthZ);
