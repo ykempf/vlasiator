@@ -47,7 +47,6 @@
 #include "IPShock/IPShock.h"
 #include "Template/Template.h"
 #include "test_fp/test_fp.h"
-#include "testAmr/testAmr.h"
 #include "testHall/testHall.h"
 #include "test_trans/test_trans.h"
 #include "verificationLarmor/verificationLarmor.h"
@@ -61,7 +60,6 @@ using namespace std;
 extern Logger logFile;
 
 char projects::Project::rngStateBuffer[256];
-random_data projects::Project::rngDataBuffer;
 
 /** Struct for creating a new velocity mesh.
  * The values are read from the configuration file and 
@@ -124,7 +122,6 @@ namespace projects {
       projects::IPShock::addParameters();
       projects::Template::addParameters();
       projects::test_fp::addParameters();
-      projects::testAmr::addParameters();
       projects::TestHall::addParameters();
       projects::test_trans::addParameters();
       projects::verificationLarmor::addParameters();
@@ -465,16 +462,8 @@ namespace projects {
    /** Get random number between 0 and 1.0. One should always first initialize the rng.
     * @param cell Spatial cell.
     * @return Uniformly distributed random number between 0 and 1.*/
-   Real Project::getRandomNumber() const {
-#ifdef _AIX
-      int64_t rndInt;
-      random_r(&rndInt, &rngDataBuffer);
-#else
-      int32_t rndInt;
-      random_r(&rngDataBuffer, &rndInt);
-#endif
-      Real rnd = (Real) rndInt / RAND_MAX;
-      return rnd;
+   Real Project::getRandomNumber(std::default_random_engine& randGen) const {
+      return std::uniform_real_distribution<>(0,1)(randGen);
    }
 
    /*!  Set random seed (thread-safe). Seed is based on the seed read
@@ -482,14 +471,8 @@ namespace projects {
 
      \param seedModifier d. Seed is based on the seed read in from cfg + the seedModifier parameter
    */
-
-   void Project::setRandomSeed(CellID seedModifier) const {
-      memset(&(this->rngDataBuffer), 0, sizeof(this->rngDataBuffer));
-#ifdef _AIX
-      initstate_r(this->seed+seedModifier, &(this->rngStateBuffer[0]), 256, NULL, &(this->rngDataBuffer));
-#else
-      initstate_r(this->seed+seedModifier, &(this->rngStateBuffer[0]), 256, &(this->rngDataBuffer));
-#endif
+   void Project::setRandomSeed(CellID seedModifier, std::default_random_engine& randGen) const {
+      randGen.seed(this->seed+seedModifier);
    }
 
    /*!
@@ -499,7 +482,7 @@ namespace projects {
 
      \param  cellParams The cell parameters list in each spatial cell
    */
-   void Project::setRandomCellSeed(spatial_cell::SpatialCell* cell) const {
+   void Project::setRandomCellSeed(spatial_cell::SpatialCell* cell, std::default_random_engine& randGen) const {
       const creal x = cell->parameters[CellParams::XCRD];
       const creal y = cell->parameters[CellParams::YCRD];
       const creal z = cell->parameters[CellParams::ZCRD];
@@ -510,7 +493,7 @@ namespace projects {
       const CellID cellID = (int) ((x - Parameters::xmin) / dx) +
          (int) ((y - Parameters::ymin) / dy) * Parameters::xcells_ini +
          (int) ((z - Parameters::zmin) / dz) * Parameters::xcells_ini * Parameters::ycells_ini;
-      setRandomSeed(cellID);
+      setRandomSeed(cellID, randGen);
    }
 
    /*
@@ -609,9 +592,6 @@ namespace projects {
       phiprof::Timer refinesTimer {"Set refines"};
       int myRank;       
       MPI_Comm_rank(MPI_COMM_WORLD,&myRank);
-      if (myRank == MASTER_RANK) {
-         std::cout << "Maximum refinement level is " << mpiGrid.mapping.get_maximum_refinement_level() << std::endl;
-      }
 
       int refines {0};
       if (!P::useAlpha && !P::useJPerB) {
@@ -659,8 +639,9 @@ namespace projects {
                }
             }
 
-            if (shouldRefine || refined_neighbors > 12) {
+            if (refLevel < P::amrMaxAllowedSpatialRefLevel && (shouldRefine || refined_neighbors > 12)) {
                // Refine a cell if a majority of its neighbors are refined or about to be
+               // Increment count of refined cells only if we're actually refining
                refines += mpiGrid.refine_completely(id) && refLevel < P::amrMaxSpatialRefLevel;
             } else if (refLevel > 0 && shouldUnrefine && coarser_neighbors > 0) {
                // Unrefine a cell only if any of its neighbors is unrefined or about to be
@@ -793,9 +774,6 @@ Project* createProject() {
    }
    if(Parameters::projectName == "test_fp") {
       rvalue = new projects::test_fp;
-   }
-   if(Parameters::projectName == "testAmr") {
-      rvalue = new projects::testAmr;
    }
    if(Parameters::projectName == "testHall") {
       rvalue = new projects::TestHall;

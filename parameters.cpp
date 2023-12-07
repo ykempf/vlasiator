@@ -162,10 +162,10 @@ bool P::adaptRefinement = false;
 bool P::refineOnRestart = false;
 bool P::forceRefinement = false;
 bool P::shouldFilter = false;
-bool P::useAlpha = false;
+bool P::useAlpha = true;
 Real P::alphaRefineThreshold = 0.5;
 Real P::alphaCoarsenThreshold = -1.0;
-bool P::useJPerB = false;
+bool P::useJPerB = true;
 Real P::jperbRefineThreshold = 0.5;
 Real P::jperbCoarsenThreshold = -1.0;
 Real P::alphaDRhoWeight = 1.0;
@@ -174,7 +174,7 @@ Real P::alphaDPSqWeight = 1.0;
 Real P::alphaDBSqWeight = 1.0;
 Real P::alphaDBWeight = 1.0;
 
-uint P::refineMultiplier = 1;
+uint P::refineCadence = 5;
 Real P::refineAfter = 0.0;
 Real P::refineRadius = LARGE_REAL;
 int P::maxFilteringPasses = 0;
@@ -443,17 +443,17 @@ bool P::addParameters() {
    RP::add("AMR.max_spatial_level", "Maximum absolute spatial mesh refinement level", 0);
    RP::add("AMR.max_allowed_spatial_level", "Maximum currently allowed spatial mesh refinement level", -1);
    RP::add("AMR.should_refine","If false, do not refine Vlasov grid regardless of max spatial level",true);
-   RP::add("AMR.adapt_refinement","If true, re-refine vlasov grid every refine_multiplier load balance", false);
+   RP::add("AMR.adapt_refinement","If true, re-refine vlasov grid every refine_cadence balance", false);
    RP::add("AMR.refine_on_restart","If true, re-refine vlasov grid on restart. DEPRECATED, consider using the DOMR command", false);
    RP::add("AMR.force_refinement","If true, refine/unrefine the vlasov grid to match the config on restart", false);
    RP::add("AMR.should_filter","If true, filter vlasov grid with boxcar filter on restart",false);
-   RP::add("AMR.use_alpha1","Use the maximum of dimensionless gradients alpha_1 as a refinement index", false);
+   RP::add("AMR.use_alpha1","Use the maximum of dimensionless gradients alpha_1 as a refinement index", true);
    RP::add("AMR.alpha1_refine_threshold","Determines the minimum value of alpha_1 to refine cells", 0.5);
-   RP::add("AMR.alpha1_coarsen_threshold","Determines the maximum value of alpha_1 to unrefine cells", -1.0);
-   RP::add("AMR.use_alpha2","Use J/B_perp as a refinement index", false);
+   RP::add("AMR.alpha1_coarsen_threshold","Determines the maximum value of alpha_1 to unrefine cells, default half of the refine threshold", -1.0);
+   RP::add("AMR.use_alpha2","Use J/B_perp as a refinement index", true);
    RP::add("AMR.alpha2_refine_threshold","Determines the minimum value of alpha_2 to refine cells", 0.5);
-   RP::add("AMR.alpha2_coarsen_threshold","Determines the maximum value of alpha_2 to unrefine cells", -1.0);
-   RP::add("AMR.refine_multiplier","Refine every nth load balance", 1); // Consider renaming
+   RP::add("AMR.alpha2_coarsen_threshold","Determines the maximum value of alpha_2 to unrefine cells, default half of the refine threshold", -1.0);
+   RP::add("AMR.refine_cadence","Refine every nth load balance", 5);
    RP::add("AMR.refine_after","Start refinement after this many simulation seconds", 0.0);
    RP::add("AMR.refine_radius","Maximum distance from Earth to refine", LARGE_REAL);
    RP::add("AMR.alpha1_drho_weight","Multiplier for delta rho in alpha calculation", 1.0);
@@ -711,9 +711,6 @@ void Parameters::getParameters() {
    RP::get("AMR.alpha1_refine_threshold",P::alphaRefineThreshold);
    RP::get("AMR.alpha1_coarsen_threshold",P::alphaCoarsenThreshold);
    if (P::useAlpha && P::alphaCoarsenThreshold < 0) {
-      if (myRank == MASTER_RANK) {
-         cerr << "alpha_1 coarsening threshold not set, using half of refine threshold" << endl;
-      }
       P::alphaCoarsenThreshold = P::alphaRefineThreshold / 2.0;
    }
    if (P::useAlpha && P::alphaRefineThreshold < 0) {
@@ -726,9 +723,6 @@ void Parameters::getParameters() {
    RP::get("AMR.alpha2_refine_threshold",P::jperbRefineThreshold);
    RP::get("AMR.alpha2_coarsen_threshold",P::jperbCoarsenThreshold);
    if (P::useJPerB && P::jperbCoarsenThreshold < 0) {
-      if (myRank == MASTER_RANK) {
-         cerr << "alpha_2 coarsening threshold not set, using half of refine threshold" << endl;
-      }
       P::jperbCoarsenThreshold = P::jperbRefineThreshold / 2.0;
    }
    if (P::useJPerB && P::jperbRefineThreshold < 0) {
@@ -738,7 +732,7 @@ void Parameters::getParameters() {
       MPI_Abort(MPI_COMM_WORLD, 1);
    }
 
-   RP::get("AMR.refine_multiplier",P::refineMultiplier);
+   RP::get("AMR.refine_cadence",P::refineCadence);
    RP::get("AMR.refine_after",P::refineAfter);
    RP::get("AMR.refine_radius",P::refineRadius);
    RP::get("AMR.alpha1_drho_weight", P::alphaDRhoWeight);
