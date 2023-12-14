@@ -440,7 +440,7 @@ bool P::addParameters() {
            "If the refinement criterion function returns a smaller value than this, block can be coarsened",
            (Realf)0.5);
    // Spatial Refinement parameters
-   RP::add("AMR.max_spatial_level", "Maximum absolute spatial mesh refinement level", (uint)0);
+   RP::add("AMR.max_spatial_level", "Maximum absolute spatial mesh refinement level", 0);
    RP::add("AMR.max_allowed_spatial_level", "Maximum currently allowed spatial mesh refinement level", -1);
    RP::add("AMR.should_refine","If false, do not refine Vlasov grid regardless of max spatial level",true);
    RP::add("AMR.adapt_refinement","If true, re-refine vlasov grid every refine_cadence balance", false);

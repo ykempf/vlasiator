@@ -639,7 +639,7 @@ namespace projects {
                }
             }
 
-            if ((shouldRefine || refined_neighbors > 12) && refLevel < P::amrMaxAllowedSpatialRefLevel) {
+            if (refLevel < P::amrMaxAllowedSpatialRefLevel && (shouldRefine || refined_neighbors > 12)) {
                // Refine a cell if a majority of its neighbors are refined or about to be
                // Increment count of refined cells only if we're actually refining
                refines += mpiGrid.refine_completely(id) && refLevel < P::amrMaxSpatialRefLevel;
