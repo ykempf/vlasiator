@@ -604,6 +604,9 @@ namespace projects {
       std::vector<CellID> cells {getLocalCells()};
       Real r_max2 {pow(P::refineRadius, 2)};
 
+logFile << __FILE__ << ":" << __LINE__ << endl << writeVerbose;
+report_process_memory_consumption();
+
       //#pragma omp parallel for
       for (CellID id : cells) {
          std::array<double,3> xyz {mpiGrid.get_center(id)};

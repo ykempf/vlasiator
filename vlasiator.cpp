@@ -1004,7 +1004,10 @@ int main(int argn,char* args[]) {
          if (refineNow || (!dtIsChanged && P::adaptRefinement && P::tstep % (P::rebalanceInterval * P::refineCadence) == 0 && P::t > P::refineAfter)) { 
             logFile << "(AMR): Adapting refinement!"  << endl << writeVerbose;
             refineNow = false;
-            if (!adaptRefinement(mpiGrid, technicalGrid, sysBoundaryContainer, *project)) {
+logFile << __FILE__ << ":" << __LINE__ << endl << writeVerbose;
+report_process_memory_consumption();
+            bool firstPass = true;
+            if (!adaptRefinement(mpiGrid, technicalGrid, sysBoundaryContainer, *project, firstPass)) {
                // OOM, rebalance and try again
                logFile << "(LB) AMR ran out of memory, attempting to balance." << endl;
                globalflags::bailingOut = false; // Reset this
@@ -1017,7 +1020,8 @@ int main(int argn,char* args[]) {
                }
 
                mpiGrid.cancel_refining();
-               if (!adaptRefinement(mpiGrid, technicalGrid, sysBoundaryContainer, *project)) {
+               firstPass = false;
+               if (!adaptRefinement(mpiGrid, technicalGrid, sysBoundaryContainer, *project, firstPass)) {
                   for (auto id : mpiGrid.get_local_cells_to_refine()) {
                      mpiGrid[id]->parameters[CellParams::LBWEIGHTCOUNTER] *= 8.0;
                   }
@@ -1026,6 +1030,8 @@ int main(int argn,char* args[]) {
                   globalflags::bailingOut = false; // Reset this
                }
             }
+logFile << __FILE__ << ":" << __LINE__ << endl << writeVerbose;
+report_process_memory_consumption();
 
             // Calculate new dt limits since we might break CFL when refining
             phiprof::Timer computeDtimer {"compute-dt-amr"};
