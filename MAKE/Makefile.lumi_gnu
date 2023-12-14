@@ -24,7 +24,7 @@ FLAGS =
 #GNU flags:
 CC_BRAND = gcc
 CC_BRAND_VERSION = 9.3.0
-CXXFLAGS += -g -O3 -fopenmp -funroll-loops -std=c++17 -W -Wall -Wno-unused -mfma -mavx2
+CXXFLAGS += -g -ggdb -O3 -fopenmp -funroll-loops -std=c++17 -W -Wall -Wno-unused -mfma -mavx2
 testpackage: CXXFLAGS = -g -O2 -fopenmp -funroll-loops -std=c++20 -mno-fma -mno-avx2 -mno-avx
 
 MATHFLAGS = -ffast-math -fno-finite-math-only
@@ -58,7 +58,8 @@ testpackage: CXXFLAGS += -DUSE_JEMALLOC -DJEMALLOC_NO_DEMANGLE
 #
 #======== Libraries ===========
 
-LIBRARY_PREFIX = /scratch/project_465000287/kempfyan/libraries/LUMI22.08_cpeGNU
+#LIBRARY_PREFIX = /scratch/project_465000287/libraries/LUMI22.08_cpeGNU_milan
+LIBRARY_PREFIX = /scratch/project_462000128/libraries/LUMI22.08_cpeGNU_milan_yann
 LIBRARY_PREFIX_HEADERS = /scratch/project_465000287/libraries
 
 #compiled libraries
@@ -83,4 +84,5 @@ INC_PROFILE = -I$(LIBRARY_PREFIX)/phiprof/include
 
 INC_FSGRID = -I$(LIBRARY_PREFIX_HEADERS)/fsgrid/
 INC_DCCRG = -I$(LIBRARY_PREFIX_HEADERS)/dccrg/
+#INC_DCCRG = -I$(LIBRARY_PREFIX_HEADERS)/dccrg_caching/
 INC_VECTORCLASS = -isystem$(LIBRARY_PREFIX_HEADERS)/vectorclass/
