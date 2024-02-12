@@ -28,6 +28,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include "fsgrid.hpp"
 
 #include "definitions.h"
 
@@ -206,15 +207,20 @@ struct Parameters {
    static Real alphaDBSqWeight;
    static Real alphaDBWeight;
    static int maxFilteringPasses;
-   static uint amrBoxHalfWidthX;
-   static uint amrBoxHalfWidthY;
-   static uint amrBoxHalfWidthZ;
-   static Realf amrBoxCenterX;
-   static Realf amrBoxCenterY;
-   static Realf amrBoxCenterZ;
+   static int amrBoxNumber;
+   static std::vector<uint> amrBoxHalfWidthX;
+   static std::vector<uint> amrBoxHalfWidthY;
+   static std::vector<uint> amrBoxHalfWidthZ;
+   static std::vector<Realf> amrBoxCenterX;
+   static std::vector<Realf> amrBoxCenterY;
+   static std::vector<Realf> amrBoxCenterZ;
+   static std::vector<int> amrBoxMaxLevel;
    static bool amrTransShortPencils;        /*!< Use short or longpencils in AMR translation.*/
    static std::vector<std::string> blurPassString;
    static std::vector<int> numPasses;
+
+   static std::array<FsGridTools::Task_t,3> manualFsGridDecomposition;
+   static std::array<FsGridTools::Task_t,3> overrideReadFsGridDecomposition;
    
    static bool computeCurvature; /*<! Boolean flag, if true the curvature of magnetic field is computed. */
 
