@@ -36,6 +36,8 @@ namespace projects {
       Real Vx[2];
       Real Vy[2];
       Real Vz[2];
+      uint nSpaceSamples;
+      uint nVelocitySamples;
 
    };
 

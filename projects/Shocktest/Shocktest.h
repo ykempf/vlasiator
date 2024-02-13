@@ -53,6 +53,8 @@ namespace projects {
       Real Bx[2];
       Real By[2];
       Real Bz[2];
+      uint nSpaceSamples;
+      uint nVelocitySamples;
       
       Real getDistribValue(
                            creal& x,creal& y, creal& z,

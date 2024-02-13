@@ -96,6 +96,7 @@ namespace projects {
       Real magYPertAbsAmp;
       Real magZPertAbsAmp;
       Real lambda;
+      uint nVelocitySamples;
       std::vector<MultiPeakSpeciesParameters> speciesParams;
 
       enum densitymodel {

@@ -87,6 +87,7 @@ namespace projects {
       //          Real Vy2PertAbsAmp;
       //          Real Vz2PertAbsAmp;
       Real lambda;
+      uint nVelocitySamples;
    }; // class Distributions
 } //  namespace projects
 

@@ -49,6 +49,8 @@ namespace projects {
       int Vzdsign;
 
       Real maxwCutoff;
+      uint nSpaceSamples;
+      uint nVelocitySamples;
    };
 
    class IPShock: public TriAxisSearch {

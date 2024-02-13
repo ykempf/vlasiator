@@ -69,21 +69,18 @@ namespace SBC {
                                         dccrg::Cartesian_Geometry>& mpiGrid,
                                         FsGrid< fsgrids::technical, FS_STENCIL_WIDTH> & technicalGrid)=0;
          virtual void applyInitialState(
-            dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
+            const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
             FsGrid< fsgrids::technical, FS_STENCIL_WIDTH> & technicalGrid,
             FsGrid< std::array<Real, fsgrids::bfield::N_BFIELD>, FS_STENCIL_WIDTH> & perBGrid,
-            FsGrid<std::array<Real, fsgrids::bgbfield::N_BGB>, FS_STENCIL_WIDTH>& BgBGrid,
             Project &project
          )=0;
          virtual void updateState(
-            dccrg::Dccrg<SpatialCell, dccrg::Cartesian_Geometry> &mpiGrid,
+            const dccrg::Dccrg<SpatialCell, dccrg::Cartesian_Geometry> &mpiGrid,
             FsGrid<std::array<Real, fsgrids::bfield::N_BFIELD>, FS_STENCIL_WIDTH> &perBGrid,
-            FsGrid<std::array<Real, fsgrids::bgbfield::N_BGB>, FS_STENCIL_WIDTH>& BgBGrid,
             creal t
          )=0;
          virtual Real fieldSolverBoundaryCondMagneticField(
             FsGrid< std::array<Real, fsgrids::bfield::N_BFIELD>, FS_STENCIL_WIDTH> & bGrid,
-            FsGrid< std::array<Real, fsgrids::bgbfield::N_BGB>, FS_STENCIL_WIDTH> & bgbGrid,
             FsGrid< fsgrids::technical, FS_STENCIL_WIDTH> & technicalGrid,
             cint i,
             cint j,
@@ -155,7 +152,7 @@ namespace SBC {
           * @param cellID Spatial cell ID.
           * @param popID Particle species ID.*/
         virtual void vlasovBoundaryCondition(
-            dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
+            const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
             const CellID& cellID,
             const uint popID,
             const bool calculate_V_moments
@@ -221,32 +218,32 @@ namespace SBC {
       }
       
          void vlasovBoundaryCopyFromTheClosestNbr(
-            dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
+            const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
             const CellID& cellID,
             const bool& copyMomentsOnly,
             const uint popID,
             const bool calculate_V_moments
          );
          void vlasovBoundaryCopyFromTheClosestNbrAndLimit(
-               dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
+               const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
                const CellID& cellID,
                const uint popID
          );
          void vlasovBoundaryCopyFromAllClosestNbrs(
-            dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
+            const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
             const CellID& cellID,
             const uint popID,
             const bool calculate_V_moments
          );
          void vlasovBoundaryFluffyCopyFromAllCloseNbrs(
-            dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
+            const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
             const CellID& cellID,
             const uint popID,
             const bool calculate_V_moments,
             creal fluffiness
          );
          void vlasovBoundaryReflect(
-            dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
+            const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
             const CellID& cellID,
             creal& nx,
             creal& ny,
@@ -254,7 +251,7 @@ namespace SBC {
             const uint popID
          );
          void vlasovBoundaryAbsorb(
-            dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
+            const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
             const CellID& cellID,
             creal& nx,
             creal& ny,
@@ -320,7 +317,7 @@ namespace SBC {
    
    // Moved outside the class since it's a helper function that doesn't require member access
    void averageCellData (
-      dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
+      const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
       std::vector<CellID> cellList,
       SpatialCell *to,
       const uint popID,

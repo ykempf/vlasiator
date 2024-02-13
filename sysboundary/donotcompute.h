@@ -51,16 +51,14 @@ namespace SBC {
       virtual void assignSysBoundary(dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
                                      FsGrid< fsgrids::technical, FS_STENCIL_WIDTH> & technicalGrid);
       virtual void applyInitialState(
-         dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
+         const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
          FsGrid< fsgrids::technical, FS_STENCIL_WIDTH> & technicalGrid,
          FsGrid< std::array<Real, fsgrids::bfield::N_BFIELD>, FS_STENCIL_WIDTH> & perBGrid,
-         FsGrid<std::array<Real, fsgrids::bgbfield::N_BGB>, FS_STENCIL_WIDTH>& BgBGrid,
          Project &project
       );
       virtual void updateState(
-         dccrg::Dccrg<SpatialCell, dccrg::Cartesian_Geometry> &mpiGrid,
+         const dccrg::Dccrg<SpatialCell, dccrg::Cartesian_Geometry> &mpiGrid,
          FsGrid<std::array<Real, fsgrids::bfield::N_BFIELD>, FS_STENCIL_WIDTH> &perBGrid,
-         FsGrid<std::array<Real, fsgrids::bgbfield::N_BGB>, FS_STENCIL_WIDTH>& BgBGrid,
          creal t
       );
       void getFaces(bool *faces) override;
@@ -70,7 +68,6 @@ namespace SBC {
       // Explicit warning functions to inform the user if a doNotCompute cell gets computed
       virtual Real fieldSolverBoundaryCondMagneticField(
          FsGrid< std::array<Real, fsgrids::bfield::N_BFIELD>, FS_STENCIL_WIDTH> & perBGrid,
-         FsGrid< std::array<Real, fsgrids::bgbfield::N_BGB>, FS_STENCIL_WIDTH> & bgbGrid,
          FsGrid< fsgrids::technical, FS_STENCIL_WIDTH> & technicalGrid,
          cint i,
          cint j,
@@ -116,7 +113,7 @@ namespace SBC {
          cuint component
       ) { std::cerr << "ERROR: DoNotCompute::fieldSolverBoundaryCondBVOLDerivatives called!" << std::endl;}
       virtual void vlasovBoundaryCondition(
-          dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
+          const dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
           const CellID& cellID,
           const uint popID,
           const bool calculate_V_moments

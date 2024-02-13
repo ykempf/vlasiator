@@ -73,6 +73,8 @@ namespace projects {
       Real amp;
       Real offset;
       Real transitionWidth;
+      uint nSpaceSamples;
+      uint nVelocitySamples;
    }; // class KHB
 } // namespace
 #endif
