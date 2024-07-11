@@ -32,10 +32,12 @@ uint getAccelerationSubcycles(spatial_cell::SpatialCell* spatial_cell, Real dt, 
 
 
 void cpu_accelerate_cell(
-        spatial_cell::SpatialCell* spatial_cell,
-        const uint popID,
-        uint map_order,
-        const Real& dt);
+   spatial_cell::SpatialCell* spatial_cell,
+   const uint popID,
+   uint map_order,
+   const Real& dt,
+   const bool driftOnly=false
+);
 
 #endif
 

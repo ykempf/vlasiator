@@ -309,20 +309,21 @@ namespace SBC {
       copyCellData(mpiGrid[closestCell],mpiGrid[cellID], copyMomentsOnly, popID, calculate_V_moments);
    }
    
-   /*! Function used to average and copy the distribution and moments from all the closest sysboundarytype::NOT_SYSBOUNDARY cells.
+   /*! Function used to average and copy the distribution from all the closest sysboundarytype::NOT_SYSBOUNDARY cells.
     * \param mpiGrid Grid
     * \param cellID The cell's ID.
     */
    void SysBoundaryCondition::vlasovBoundaryCopyFromAllClosestNbrs(
       dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
-      const CellID& cellID,const uint popID, const bool calculate_V_moments
+      const CellID& cellID,
+      const uint popID
    ) {
       const vector<CellID>& closestCells = getAllClosestNonsysboundaryCells(cellID);
       
       if(closestCells[0] == INVALID_CELLID) {
          abort_mpi("No closest cell found!", 1);
       }
-      averageCellData(mpiGrid, closestCells, mpiGrid[cellID], popID);
+      averageCellData(mpiGrid, closestCells, mpiGrid[cellID], popID, 1); // fluffiness == 1 or no copy takes place
    }
    
    /*! Function used to average and copy the distribution and moments from all the close sysboundarytype::NOT_SYSBOUNDARY cells.
@@ -331,7 +332,9 @@ namespace SBC {
     */
    void SysBoundaryCondition::vlasovBoundaryFluffyCopyFromAllCloseNbrs(
       dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
-      const CellID& cellID,const uint popID,const bool calculate_V_moments, creal fluffiness
+      const CellID& cellID,
+      const uint popID,
+      creal fluffiness
    ) {
       const vector<CellID>& closeCells = getAllCloseNonsysboundaryCells(cellID);
       

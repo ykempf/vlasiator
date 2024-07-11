@@ -62,7 +62,8 @@ namespace SBC {
       AverageMoments,    // Copy averaged density and temperature from nearest cells, V = 0
       AverageAllMoments, // Same as above, but also copy V
       CopyAndLosscone,
-      ForceL2EXB
+      ForceL2EXB,
+      CopyAndEXB
    };
    extern IonosphereBoundaryVDFmode boundaryVDFmode;
    
