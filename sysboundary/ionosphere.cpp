@@ -978,6 +978,88 @@ namespace SBC {
                B[i] = -B[i];
             }
          }
+
+         // Signed distance function of the loss cone.
+         // Adapted from https://mercury.sexy/hg_sdf/
+         // Returns distance from the point p to the cone surface.
+         // Positive values: outside of the cone
+         // Negative values: inside of the cone
+         std::function<Real(std::array<Real,3>)> coneSDF = [&B,cosAngle](std::array<Real,3> p) -> Real {
+
+            Real pDotB = B[0]*p[0] + B[1]*p[1] + B[2]*p[2];
+            Real pCrossB = sqrt(p[0]*p[0] + p[1]*p[1] + p[2]*p[2] - pDotB*pDotB);
+
+            // Go to 2D coordinate system, where y is along cone direction and tip is at 0,0
+            std::array<Real,2> q = {pCrossB, pDotB};
+            std::array<Real,2> mantleDir = {sqrt(1 - cosAngle*cosAngle), cosAngle};
+
+            // Are we in front of, or behind the tip?
+            Real projected = q[0]*mantleDir[1] + q[1]*-mantleDir[0];
+
+            // Distance to mantle
+            Real distance = q[0]*mantleDir[0] + q[1] * mantleDir[1];
+            // Distance to tip
+            if(q[1] < 0 && projected < 0) {
+               distance = std::max(distance, sqrt(q[0]*q[0]+q[1]*q[1]));
+            }
+
+            return distance;
+         };
+
+         // Determine how much the (sub) cell at centre point v with extents dv
+         // is overlapped by the loss cone, by recursive (octree) subdivision.
+         std::function<Real(std::array<Real,3>, Real, int)> coneCoverage = [&coneSDF,&coneCoverage](std::array<Real,3> v, Real dv, int maxIteration) -> Real {
+            Real lossconeDistance = coneSDF(v);
+            // Square of spatial diagonal of half a cell.
+            Real diagonalSqr = 0.25*(3*dv*dv); 
+
+            // If we are more than one cell diagonal distance away from the loss cone boundary,
+            // we are either fully outside or fully inside
+            if(lossconeDistance*lossconeDistance > diagonalSqr) {
+               if(lossconeDistance > 0) {
+                  return 0.;
+               } else {
+                  return 1.;
+               }
+            }
+
+            // If our iterations are exhausted, return coverage approximation from the SDF distance.
+            if(maxIteration==0) {
+               Real diagonalLength = sqrt(diagonalSqr);
+               // Percentage of the equivalent sphere that is covered by the cone
+               // (if distance = 0, => 50% cover.
+               //  if distance = diagonal, 0% cover.
+               //  if distance = -diagonal, 100% cover)
+               Real cover = 0.5 * (diagonalLength - lossconeDistance) / diagonalLength;
+               cover = std::max(0.,cover);
+               cover = std::min(1.,cover);
+               return cover;
+            }
+
+            // Otherwise, split the cell and continue recursively.
+            Real result = 0.;
+            std::array<Real, 3> newV = v;
+            Real newDv=0.5 * dv;
+            newV[0]+= 0.25*dv;
+            newV[1]+= 0.25*dv;
+            newV[2]+= 0.25*dv;
+            result += coneCoverage(newV, newDv, maxIteration-1) / 8;
+            newV[0]-= 0.5*dv;
+            result += coneCoverage(newV, newDv, maxIteration-1) / 8;
+            newV[1]-= 0.5*dv;
+            result += coneCoverage(newV, newDv, maxIteration-1) / 8;
+            newV[0]+= 0.5*dv;
+            result += coneCoverage(newV, newDv, maxIteration-1) / 8;
+            newV[2]-= 0.5*dv;
+            result += coneCoverage(newV, newDv, maxIteration-1) / 8;
+            newV[0]-= 0.5*dv;
+            result += coneCoverage(newV, newDv, maxIteration-1) / 8;
+            newV[1]+= 0.5*dv;
+            result += coneCoverage(newV, newDv, maxIteration-1) / 8;
+            newV[0]+= 0.5*dv;
+            result += coneCoverage(newV, newDv, maxIteration-1) / 8;
+            return result;
+         };
          
          for(uint popID=0; popID< getObjectWrapper().particleSpecies.size(); popID++) {
             const std::string& pop = getObjectWrapper().particleSpecies[popID].name;
@@ -1017,9 +1099,10 @@ namespace SBC {
                      * parameters[vn * BlockParams::N_VELOCITY_BLOCK_PARAMS + BlockParams::DVZ];
                      
                      const Real normV = sqrt(VX*VX + VY*VY + VZ*VZ);
-                     const Real VdotB_norm = (B[0]*VX + B[1]*VY + B[2]*VZ)/normV;
-                     Real countAndGate = floor(VdotB_norm/cosAngle);  // gate function: 0 outside loss cone, 1 inside
-                     countAndGate = max(0.,countAndGate);
+                     //const Real VdotB_norm = (B[0]*VX + B[1]*VY + B[2]*VZ)/normV;
+                     //Real countAndGate = floor(VdotB_norm/cosAngle);  // gate function: 0 outside loss cone, 1 inside
+                     //countAndGate = max(0.,countAndGate);
+                     Real countAndGate = coneCoverage({VX,VY,VZ},parameters[vn * BlockParams::N_VELOCITY_BLOCK_PARAMS + BlockParams::DVX],6);
 
                      const Real energy = 0.5 * mass * normV*normV / (1000 * physicalconstants::CHARGE); // in keV, as the limits of the bins
                      
