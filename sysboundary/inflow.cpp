@@ -99,6 +99,9 @@ void Inflow::assignSysBoundary(dccrg::Dccrg<SpatialCell, dccrg::Cartesian_Geomet
 
       isThisCellOnAFace.fill(false);
       determineFace(isThisCellOnAFace.data(), x, y, z, dx, dy, dz);
+      if(x > Parameters::xmax - dx * Parameters::chopOffNCellsInX) {
+         mpiGrid[id]->sysBoundaryFlag = sysboundarytype::DO_NOT_COMPUTE;
+      }
       // Comparison of the array defining which faces to use and the array telling on which faces this cell is
       doAssign = false;
       for (int j = 0; j < 6; j++) {

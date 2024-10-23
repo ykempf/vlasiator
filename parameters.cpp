@@ -61,6 +61,8 @@ uint P::xcells_ini = numeric_limits<uint>::max();
 uint P::ycells_ini = numeric_limits<uint>::max();
 uint P::zcells_ini = numeric_limits<uint>::max();
 
+uint P::chopOffNCellsInX = 0;
+
 Real P::t = 0;
 Real P::t_min = 0;
 Real P::t_max = LARGE_REAL;
@@ -310,6 +312,8 @@ bool P::addParameters() {
    RP::add("gridbuilder.x_length", "Number of cells in x-direction in initial grid.", 0);
    RP::add("gridbuilder.y_length", "Number of cells in y-direction in initial grid.", 0);
    RP::add("gridbuilder.z_length", "Number of cells in z-direction in initial grid.", 0);
+
+   RP::add("gridbuilder.chop_off_n_cells_in_x", "Number of cells to chop off in +x direction.", 0);
 
    RP::add("gridbuilder.dt", "Initial timestep in seconds.", 0.0);
 
@@ -755,6 +759,7 @@ void Parameters::getParameters() {
    RP::get("gridbuilder.x_length", P::xcells_ini);
    RP::get("gridbuilder.y_length", P::ycells_ini);
    RP::get("gridbuilder.z_length", P::zcells_ini);
+   RP::get("gridbuilder.chop_off_n_cells_in_x", P::chopOffNCellsInX);
 
    RP::get("VAMR.max_velocity_level", P::vamrMaxVelocityRefLevel);
    RP::get("VAMR.vel_refinement_criterion", P::vamrVelRefCriterion);

@@ -51,6 +51,8 @@ struct Parameters {
    static uint ycells_ini; /*!< Initial number of spatial cells in y-direction. */
    static uint zcells_ini; /*!< Initial number of spatial cells in z-direction. */
 
+   static uint chopOffNCellsInX;
+
    static Real t;     /*!< Current simulation time. */
    static Real t_min; /*!< Initial simulation time. */
    static Real t_max; /*!< Maximum simulation time. */

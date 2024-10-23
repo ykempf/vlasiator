@@ -538,10 +538,13 @@ void SysBoundary::classifyCells(dccrg::Dccrg<spatial_cell::SpatialCell, dccrg::C
    for (FsGridTools::FsIndex_t z = 0; z < localSize[2]; ++z) {
       for (FsGridTools::FsIndex_t y = 0; y < localSize[1]; ++y) {
          for (FsGridTools::FsIndex_t x = 0; x < localSize[0]; ++x) {
-            if (technicalGrid.get(x,y,z)->sysBoundaryLayer == 0 && (
-                technicalGrid.get(x,y,z)->sysBoundaryFlag == sysboundarytype::IONOSPHERE ||
-                technicalGrid.get(x,y,z)->sysBoundaryFlag == sysboundarytype::COPYSPHERE)) {
-               technicalGrid.get(x, y, z)->sysBoundaryFlag = sysboundarytype::DO_NOT_COMPUTE;
+            if (technicalGrid.get(x,y,z)->sysBoundaryLayer == 0) {
+               if (technicalGrid.get(x,y,z)->sysBoundaryFlag == sysboundarytype::IONOSPHERE ||
+                   technicalGrid.get(x,y,z)->sysBoundaryFlag == sysboundarytype::COPYSPHERE) {
+                  technicalGrid.get(x, y, z)->sysBoundaryFlag = sysboundarytype::DO_NOT_COMPUTE;
+               } else if (technicalGrid.get(x,y,z)->sysBoundaryFlag != sysboundarytype::NOT_SYSBOUNDARY) {
+                  technicalGrid.get(x, y, z)->sysBoundaryFlag = sysboundarytype::OUTER_BOUNDARY_PADDING;
+               }
             }
          }
       }

@@ -66,9 +66,6 @@ namespace SBC {
       for(uint i=0; i<6; i++) {
          isThisCellOnAFace[i] = false;
       }
-      if(x > Parameters::xmax - dx * 2) {
-         isThisCellOnAFace[0] = true;
-      }
       if(x < Parameters::xmin + dx * 2) {
          isThisCellOnAFace[1] = true;
       }
@@ -84,6 +81,18 @@ namespace SBC {
       if(z < Parameters::zmin + dz * 2) {
          isThisCellOnAFace[5] = true;
       }
+      if(x > Parameters::xmax - dx * 2 - dx * Parameters::chopOffNCellsInX) {
+         if(x <= Parameters::xmax - dx * Parameters::chopOffNCellsInX) {
+            isThisCellOnAFace[0] = true;
+         } else {
+            isThisCellOnAFace[1] = false;
+            isThisCellOnAFace[2] = false;
+            isThisCellOnAFace[3] = false;
+            isThisCellOnAFace[4] = false;
+            isThisCellOnAFace[5] = false;
+         }
+      }
+
       if(excludeSlicesAndPeriodicDimensions == true) {
          if (Parameters::xcells_ini == 1 || this->periodic[0]) {
             isThisCellOnAFace[0] = false;
