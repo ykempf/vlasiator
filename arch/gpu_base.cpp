@@ -28,8 +28,8 @@
 #include "gpu_base.hpp"
 #include "velocity_mesh_parameters.h"
 #include "../vlasovsolver/gpu_moments.h"
-#include "../velocity_mesh_gpu.h"
-#include "../velocity_block_container.h"
+#include "../spatial_cells/velocity_mesh_gpu.h"
+#include "../spatial_cells/velocity_block_container.h"
 #include "../vlasovsolver/cpu_trans_pencils.hpp"
 #include "../vlasovsolver/gpu_moments.h"
 #include "../vlasovsolver/gpu_acc_sort_blocks.hpp"
@@ -178,7 +178,7 @@ __host__ void gpu_init_device() {
 
    MPI_Comm_rank(amps_CommNode, &amps_node_rank);
    MPI_Comm_size(amps_CommNode, &amps_node_size);
-   std::cerr << "(Grid) rank " << amps_rank << " is noderank "<< amps_node_rank << " of "<< amps_node_size << std::endl;
+   //std::cerr << "(Grid) rank " << amps_rank << " is noderank "<< amps_node_rank << " of "<< amps_node_size << std::endl;
    myRank = amps_rank;
 
    // if (amps_node_rank >= deviceCount) {
@@ -198,7 +198,8 @@ __host__ void gpu_init_device() {
    int supportedMode;
    CHK_ERR( cudaDeviceGetAttribute (&supportedMode, cudaDevAttrConcurrentManagedAccess, myDevice) );
    if (supportedMode==0) {
-      printf("Warning! Current GPU device does not support concurrent managed memory access from several streams.\n");
+      printf("Error! Current GPU device does not support concurrent managed memory access from several streams.\n");
+      printf("Please switch to a more recent CUDA compute architecture.\n");
       abort();
    }
    #endif
@@ -402,8 +403,8 @@ int gpu_reportMemory(const size_t local_cells_capacity, const size_t ghost_cells
 __host__ void gpu_vlasov_allocate(
    uint maxBlockCount // Largest found vmesh size
    ) {
-   // Always prepare for at least 2500 blocks
-   const uint maxBlocksPerCell = maxBlockCount > 2500 ? maxBlockCount : 2500;
+   // Always prepare for at least VLASOV_BUFFER_MINBLOCKS blocks
+   const uint maxBlocksPerCell = max(VLASOV_BUFFER_MINBLOCKS, maxBlockCount);
    const uint maxNThreads = gpu_getMaxThreads();
    for (uint i=0; i<maxNThreads; ++i) {
       gpu_vlasov_allocate_perthread(i, maxBlocksPerCell);
@@ -564,8 +565,8 @@ __host__ void gpu_acc_allocate(
    uint requiredColumns;
    // Has the acceleration solver already figured out how many columns we have?
    if (gpu_acc_foundColumnsCount > 0) {
-      // Always prepare for at least 500 columns
-      requiredColumns = gpu_acc_foundColumnsCount > 500 ? gpu_acc_foundColumnsCount : 500;
+      // Always prepare for at least VLASOV_BUFFER_MINCOLUMNS columns
+      requiredColumns = max(VLASOV_BUFFER_MINCOLUMNS,gpu_acc_foundColumnsCount);
    } else {
       // The worst case scenario for columns is with every block having content but no neighbours, creating up
       // to maxBlockCount columns with each needing three blocks (one value plus two for padding).

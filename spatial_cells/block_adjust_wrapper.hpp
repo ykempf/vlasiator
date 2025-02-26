@@ -1,6 +1,6 @@
 /*
  * This file is part of Vlasiator.
- * Copyright 2010-2023 Finnish Meteorological Institute, University of Helsinki
+ * Copyright 2010-2024 Finnish Meteorological Institute, University of Helsinki
  *
  * For details of usage, see the COPYING file and read the "Rules of the Road"
  * at http://www.physics.helsinki.fi/vlasiator/
@@ -22,13 +22,13 @@
 /*!
   Spatial cell wrapper, maps to GPU or CPU version
 */
-#ifndef SPATIAL_CELL_WRAPPER_H
-#define SPATIAL_CELL_WRAPPER_H
+#ifndef BLOCK_ADJUST_WRAPPER_H
+#define BLOCK_ADJUST_WRAPPER_H
 
 #ifdef USE_GPU
-#include "spatial_cell_gpu.hpp"
+#include "block_adjust_gpu.hpp"
 #else
-#include "spatial_cell_cpu.hpp"
+#include "block_adjust_cpu.hpp"
 #endif
 
 #endif

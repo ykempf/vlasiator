@@ -41,13 +41,12 @@ Spatial cell class for Vlasiator that supports a variable number of velocity blo
 #include <phiprof.hpp>
 #include <tuple>
 
-#include "memoryallocation.h"
-#include "common.h"
-#include "parameters.h"
-#include "definitions.h"
+#include "../memoryallocation.h"
+#include "../common.h"
+#include "../parameters.h"
+#include "../definitions.h"
 
 #include "velocity_mesh_gpu.h"
-
 #include "velocity_block_container.h"
 
 #ifdef DEBUG_VLASIATOR
@@ -56,79 +55,7 @@ Spatial cell class for Vlasiator that supports a variable number of velocity blo
    #endif
 #endif
 
-typedef Parameters P; // Heeded in numerous files which include this one
-
-/*!
-Used as an error from functions returning velocity cells or
-as a cell that would be outside of the velocity block
-*/
-#define error_velocity_cell 0xFFFFFFFFu
-
-/*!
-Used as an error from functions returning velocity cell indices or
-as an index that would be outside of the velocity block
-*/
-#define error_velocity_cell_index 0xFFFFFFFFu
-
 namespace spatial_cell {
-
-   namespace Transfer {
-      const uint64_t NONE                     = 0;
-      const uint64_t CELL_PARAMETERS          = (1ull<<0);
-      const uint64_t CELL_DERIVATIVES         = (1ull<<1);
-      const uint64_t VEL_BLOCK_LIST_STAGE1    = (1ull<<2);
-      const uint64_t VEL_BLOCK_LIST_STAGE2    = (1ull<<3);
-      const uint64_t VEL_BLOCK_DATA           = (1ull<<4);
-      const uint64_t VEL_BLOCK_PARAMETERS     = (1ull<<6);
-      const uint64_t VEL_BLOCK_WITH_CONTENT_STAGE1  = (1ull<<7);
-      const uint64_t VEL_BLOCK_WITH_CONTENT_STAGE2  = (1ull<<8);
-      const uint64_t CELL_SYSBOUNDARYFLAG     = (1ull<<9);
-      const uint64_t CELL_E                   = (1ull<<10);
-      const uint64_t CELL_EDT2                = (1ull<<11);
-      const uint64_t CELL_PERB                = (1ull<<12);
-      const uint64_t CELL_PERBDT2             = (1ull<<13);
-      const uint64_t CELL_RHOM_V              = (1ull<<14);
-      const uint64_t CELL_RHOMDT2_VDT2        = (1ull<<15);
-      const uint64_t CELL_RHOQ                = (1ull<<16);
-      const uint64_t CELL_RHOQDT2             = (1ull<<17);
-      const uint64_t CELL_BVOL                = (1ull<<18);
-      const uint64_t CELL_BVOL_DERIVATIVES    = (1ull<<19);
-      const uint64_t CELL_DIMENSIONS          = (1ull<<20);
-      const uint64_t CELL_IOLOCALCELLID       = (1ull<<21);
-      const uint64_t NEIGHBOR_VEL_BLOCK_DATA  = (1ull<<22);
-      const uint64_t CELL_HALL_TERM           = (1ull<<23);
-      const uint64_t CELL_P                   = (1ull<<24);
-      const uint64_t CELL_PDT2                = (1ull<<25);
-      const uint64_t POP_METADATA             = (1ull<<26);
-      const uint64_t RANDOMGEN                = (1ull<<27);
-      const uint64_t CELL_GRADPE_TERM         = (1ull<<28);
-      const uint64_t REFINEMENT_PARAMETERS    = (1ull<<29);
-      //all data
-      const uint64_t ALL_DATA =
-      CELL_PARAMETERS
-      | CELL_DERIVATIVES | CELL_BVOL_DERIVATIVES
-      | VEL_BLOCK_DATA
-      | CELL_SYSBOUNDARYFLAG
-      | POP_METADATA | RANDOMGEN;
-
-      //all data, except the distribution function
-      const uint64_t ALL_SPATIAL_DATA =
-      CELL_PARAMETERS
-      | CELL_DERIVATIVES | CELL_BVOL_DERIVATIVES
-      | CELL_SYSBOUNDARYFLAG
-      | POP_METADATA | RANDOMGEN;
-   }
-
-   typedef std::array<unsigned int, 3> velocity_cell_indices_t;             /**< Defines the indices of a velocity cell in a velocity block.
-                                                                               * Indices start from 0 and the first value is the index in x direction.
-                                                                               * Note: these are the (i,j,k) indices of the cell within the block.
-                                                                               * Valid values are ([0,WID[,[0,WID[,[0,WID[).*/
-
-   typedef std::array<vmesh::LocalID,3> velocity_block_indices_t;           /**< Defines the indices of a velocity block in the velocity grid.
-                                                                               * Indices start from 0 and the first value is the index in x direction.
-                                                                               * Note: these are the (i,j,k) indices of the block.
-                                                                               * Valid values are ([0,vx_length[,[0,vy_length[,[0,vz_length[).*/
-
 
    /** GPU mini-kernel for resizing a vmesh on-device */
    __global__ static void resize_vmesh_ondevice_kernel (
@@ -593,6 +520,16 @@ __global__ static void resize_and_empty_kernel (
       }
    }
 
+   typedef std::array<unsigned int, 3> velocity_cell_indices_t;   /**< Defines the indices of a velocity cell in a velocity block.
+                                                                   * Indices start from 0 and the first value is the index in x direction.
+                                                                   * Note: these are the (i,j,k) indices of the cell within the block.
+                                                                   * Valid values are ([0,WID[,[0,WID[,[0,WID[).*/
+
+   typedef std::array<vmesh::LocalID,3> velocity_block_indices_t; /**< Defines the indices of a velocity block in the velocity grid.
+                                                                   * Indices start from 0 and the first value is the index in x direction.
+                                                                   * Note: these are the (i,j,k) indices of the block.
+                                                                   * Valid values are ([0,vx_length[,[0,vy_length[,[0,vz_length[).*/
+
    class SpatialCell {
    public:
       SpatialCell();
@@ -685,7 +622,7 @@ __global__ static void resize_and_empty_kernel (
       void update_velocity_block_content_lists(const uint popID);
       bool checkMesh(const uint popID);
       bool checkSizes(const uint popID);
-      void clear(const uint popID, bool shrink=true);
+      void clear(const uint popID, bool shrink=false);
       void setNewSizeClear(const uint popID, const vmesh::LocalID& newSize);
       void setNewSizeClear(const uint popID);
 
@@ -1280,8 +1217,8 @@ __global__ static void resize_and_empty_kernel (
          return;
       }
 
-      populations[popID].vmesh->setNewCapacity(nBlocks*BLOCK_ALLOCATION_FACTOR);
-      populations[popID].blockContainer->setNewCapacity(nBlocks*BLOCK_ALLOCATION_FACTOR);
+      populations[popID].vmesh->setNewCapacity(nBlocks*BLOCK_ALLOCATION_PADDING);
+      populations[popID].blockContainer->setNewCapacity(nBlocks*BLOCK_ALLOCATION_PADDING);
 
       const vmesh::LocalID adds = populations[popID].vmesh->push_back(blocks);
       // Verify that we added all requested blocks

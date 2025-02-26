@@ -20,8 +20,8 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef VELOCITY_MESH_OLD_H
-#define VELOCITY_MESH_OLD_H
+#ifndef VELOCITY_MESH_CPU_H
+#define VELOCITY_MESH_CPU_H
 
 #include <iostream>
 #include <algorithm>
@@ -33,8 +33,8 @@
 #include <cmath>
 
 //#include "object_wrapper.h"
-#include "open_bucket_hashtable.h"
-#include "velocity_mesh_parameters.h"
+#include "../open_bucket_hashtable.h"
+#include "../velocity_mesh_parameters.h"
 
 #if defined(DEBUG_VLASIATOR) || defined(DEBUG_SPATIAL_CELL)
    #ifndef DEBUG_VMESH

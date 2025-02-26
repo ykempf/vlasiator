@@ -20,11 +20,11 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "spatial_batch_gpu.hpp"
-#include "spatial_batch_kernels.hpp"
-#include "arch/gpu_base.hpp"
-#include "object_wrapper.h"
-#include "velocity_mesh_parameters.h"
+#include "block_adjust_gpu.hpp"
+#include "block_adjust_gpu_kernels.hpp"
+#include "../arch/gpu_base.hpp"
+#include "../object_wrapper.h"
+#include "../velocity_mesh_parameters.h"
 
 using namespace std;
 
@@ -146,9 +146,9 @@ void update_velocity_block_content_lists(
    // Extract all keys from content maps into content list
    phiprof::Timer extractKeysTimer {"extract content keys"};
    auto rule = []
-      __device__(Hashinator::Hashmap<vmesh::GlobalID,vmesh::LocalID> *map,
+      __device__(const Hashinator::Hashmap<vmesh::GlobalID,vmesh::LocalID> *map,
                  const Hashinator::hash_pair<vmesh::GlobalID, vmesh::LocalID>& kval,
-                 vmesh::LocalID threshold) -> bool {
+                 const vmesh::LocalID threshold) -> bool {
                   // This rule does not use the threshold value
                   const vmesh::GlobalID emptybucket = map->get_emptybucket();
                   const vmesh::GlobalID tombstone   = map->get_tombstone();
@@ -419,9 +419,9 @@ void adjust_velocity_blocks_in_cells(
    const vmesh::LocalID  invalidLID  = host_vmeshes[0]->invalidLocalID();
 
    auto rule_add = [invalidGID, invalidLID]
-      __device__(Hashinator::Hashmap<vmesh::GlobalID,vmesh::LocalID> *map,
+      __device__(const Hashinator::Hashmap<vmesh::GlobalID,vmesh::LocalID> *map,
                  const Hashinator::hash_pair<vmesh::GlobalID, vmesh::LocalID>& kval,
-                 vmesh::LocalID threshold) -> bool {
+                 const vmesh::LocalID threshold) -> bool {
                       // This rule does not use the threshold value
                       const vmesh::GlobalID emptybucket = map->get_emptybucket();
                       const vmesh::GlobalID tombstone   = map->get_tombstone();
@@ -433,9 +433,9 @@ void adjust_velocity_blocks_in_cells(
                          kval.second == invalidLID;
                    };
    auto rule_delete_move = [invalidGID, invalidLID]
-      __device__(Hashinator::Hashmap<vmesh::GlobalID,vmesh::LocalID> *map,
+      __device__(const Hashinator::Hashmap<vmesh::GlobalID,vmesh::LocalID> *map,
                  const Hashinator::hash_pair<vmesh::GlobalID, vmesh::LocalID>& kval,
-                 vmesh::LocalID threshold) -> bool {
+                 const vmesh::LocalID threshold) -> bool {
                               const vmesh::GlobalID emptybucket = map->get_emptybucket();
                               const vmesh::GlobalID tombstone   = map->get_tombstone();
                               return kval.first != emptybucket &&
@@ -445,9 +445,9 @@ void adjust_velocity_blocks_in_cells(
                                  kval.second != invalidLID;
                            };
    auto rule_to_replace = [invalidGID, invalidLID]
-      __device__(Hashinator::Hashmap<vmesh::GlobalID,vmesh::LocalID> *map,
+      __device__(const Hashinator::Hashmap<vmesh::GlobalID,vmesh::LocalID> *map,
                  const Hashinator::hash_pair<vmesh::GlobalID, vmesh::LocalID>& kval,
-                 vmesh::LocalID threshold) -> bool {
+                 const vmesh::LocalID threshold) -> bool {
                              const vmesh::GlobalID emptybucket = map->get_emptybucket();
                              const vmesh::GlobalID tombstone   = map->get_tombstone();
                              return kval.first != emptybucket &&
@@ -614,6 +614,9 @@ void adjust_velocity_blocks_in_cells(
    /* Batch tombstone cleaning
     * Extract all entries (GID,LID) which are overflown (see Hashinator for further details). At same time,
     * remove tombstones and overflown elements.
+    * 
+    * By calling a few kernels which operate over all spatial cells at once instead of launching a few kernels per cell,
+    * we reduce operational time by circa 10x.
     */
    phiprof::Timer tombstoneTimer {"GPU batch clean tombstones"};
    auto rule_overflown = []

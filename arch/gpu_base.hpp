@@ -53,6 +53,8 @@
 // #define INIT_VMESH_SIZE 4096
 // #define INIT_MAP_SIZE 14 // 2^14 = 16384
 
+static const uint VLASOV_BUFFER_MINBLOCKS = 2500;
+static const uint VLASOV_BUFFER_MINCOLUMNS = 500;
 static const double BLOCK_ALLOCATION_PADDING = 1.2;
 static const double BLOCK_ALLOCATION_FACTOR = 1.1;
 // static const double BLOCK_ALLOCATION_PADDING = 1.5;
@@ -184,7 +186,7 @@ extern Column *gpu_columns[];
 extern ColumnOffsets *cpu_columnOffsetData[];
 extern ColumnOffsets *gpu_columnOffsetData[];
 
-// Hash map and splitvectors buffers used in block adjustment, actually declared in spatial_batch_gpu.hpp
+// Hash map and splitvectors buffers used in block adjustment, actually declared in block_adjust_gpu.hpp
 // to sidestep compilation errors
 // extern vmesh::VelocityMesh** host_vmeshes, **dev_vmeshes;
 // extern vmesh::VelocityBlockContainer** host_VBCs, **dev_VBCs;

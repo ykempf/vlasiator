@@ -23,12 +23,13 @@
 Spatial cell class for Vlasiator that supports a variable number of velocity blocks.
 */
 
-#ifndef VLASIATOR_SPATIAL_BATCH_GPU_HPP
-#define VLASIATOR_SPATIAL_BATCH_GPU_HPP
+#ifndef VLASIATOR_BLOCK_ADJUST_CPU_HPP
+#define VLASIATOR_BLOCK_ADJUST_CPU_HPP
 
-#include "spatial_cell_gpu.hpp"
+#include "spatial_cell_cpu.hpp"
+#include "block_adjust_cpu.hpp"
 
-#include "definitions.h"
+#include "../definitions.h"
 #include <dccrg.hpp>
 #include <dccrg_cartesian_geometry.hpp>
 
@@ -43,7 +44,7 @@ namespace spatial_cell {
    // Following functions act on all requested cells
 
    void update_velocity_block_content_lists(
-      dccrg::Dccrg<spatial_cell::SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
+      dccrg::Dccrg<SpatialCell,dccrg::Cartesian_Geometry>& mpiGrid,
       const vector<CellID>& cells,
       const uint popID=0);
 
@@ -54,19 +55,4 @@ namespace spatial_cell {
       bool includeNeighbours=true);
 
 } // namespaces
-
-extern vmesh::VelocityMesh** host_vmeshes, **dev_vmeshes;
-extern vmesh::VelocityBlockContainer** host_VBCs, **dev_VBCs;
-extern Hashinator::Hashmap<vmesh::GlobalID,vmesh::LocalID>** host_allMaps, **dev_allMaps;
-extern split::SplitVector<vmesh::GlobalID> ** host_vbwcl_vec, **dev_vbwcl_vec;
-extern split::SplitVector<vmesh::GlobalID> ** host_lists_with_replace_new, **dev_lists_with_replace_new;
-extern split::SplitVector<Hashinator::hash_pair<vmesh::GlobalID,vmesh::LocalID>> **host_lists_delete, **dev_lists_delete;
-extern split::SplitVector<Hashinator::hash_pair<vmesh::GlobalID,vmesh::LocalID>> **host_lists_to_replace, **dev_lists_to_replace;
-extern split::SplitVector<Hashinator::hash_pair<vmesh::GlobalID,vmesh::LocalID>> **host_lists_with_replace_old, **dev_lists_with_replace_old;
-extern split::SplitVector<vmesh::GlobalID> ** host_vbwcl_neigh, **dev_vbwcl_neigh;
-extern vmesh::LocalID* host_contentSizes, *dev_contentSizes;
-extern Real* host_minValues, *dev_minValues;
-extern Real* host_massLoss, *dev_massLoss;
-extern Real* host_mass, *dev_mass;
-
 #endif
